@@ -9,6 +9,7 @@ export type RpgReward = {
   xp: number;
   houseworkPoints: number;
   dateAchievements?: number;
+  anniversaryAchievements?: number;
 };
 
 export const REWARDS = {
@@ -17,6 +18,20 @@ export const REWARDS = {
   flirtGameComplete: { heart: 3, compatibility: 2, xp: 15, houseworkPoints: 0 },
   dinnerSaved: { heart: 2, compatibility: 1, xp: 8, houseworkPoints: 0 },
   dateComplete: { heart: 4, compatibility: 3, xp: 18, houseworkPoints: 0, dateAchievements: 1 },
+  anniversaryPlanComplete: {
+    heart: 3,
+    compatibility: 2,
+    xp: 15,
+    houseworkPoints: 0,
+    anniversaryAchievements: 1,
+  },
+  anniversaryCelebrated: {
+    heart: 5,
+    compatibility: 4,
+    xp: 22,
+    houseworkPoints: 0,
+    anniversaryAchievements: 1,
+  },
 } as const;
 
 export function xpToNextLevel(level: number): number {
@@ -38,16 +53,19 @@ export function defaultRpgState(): RpgState {
     level: 1,
     houseworkPoints: 0,
     dateAchievements: 0,
+    anniversaryAchievements: 0,
   };
 }
 
 export function applyReward(state: RpgState, reward: RpgReward): RpgState {
-  let { heartPoints, compatibility, xp, level, houseworkPoints, dateAchievements } = state;
+  let { heartPoints, compatibility, xp, level, houseworkPoints, dateAchievements, anniversaryAchievements } =
+    state;
 
   heartPoints = Math.min(HEART_MAX, heartPoints + reward.heart);
   compatibility = Math.min(COMPAT_MAX, compatibility + reward.compatibility);
   houseworkPoints += reward.houseworkPoints;
   dateAchievements += reward.dateAchievements ?? 0;
+  anniversaryAchievements += reward.anniversaryAchievements ?? 0;
   xp += reward.xp;
 
   while (xp >= xpToNextLevel(level)) {
@@ -55,13 +73,22 @@ export function applyReward(state: RpgState, reward: RpgReward): RpgState {
     level += 1;
   }
 
-  return { heartPoints, compatibility, xp, level, houseworkPoints, dateAchievements };
+  return {
+    heartPoints,
+    compatibility,
+    xp,
+    level,
+    houseworkPoints,
+    dateAchievements,
+    anniversaryAchievements,
+  };
 }
 
 export function rpgSnapshot(state: RpgState) {
   return {
     ...state,
     dateAchievements: state.dateAchievements ?? 0,
+    anniversaryAchievements: state.anniversaryAchievements ?? 0,
     heartMax: HEART_MAX,
     xpNext: xpToNextLevel(state.level),
     title: levelTitle(state.level),

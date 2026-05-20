@@ -55,6 +55,29 @@ import {
 } from '../storage/datePlannerStore';
 import type { DateFilterKey, DatePlannerData } from '../storage/dateTypes';
 import { DEFAULT_DATE_FILTERS } from '../storage/dateTypes';
+import {
+  acknowledgeReminder,
+  addAnniversaryEvent,
+  canRewardCelebrate,
+  canRewardPlan,
+  getActiveReminders,
+  getNextImportant,
+  getNextOccurrence,
+  getUpcomingEvents,
+  loadAnniversaries,
+  markCelebrated,
+  markPlanRewarded,
+  occurrenceYear,
+  removeAnniversaryEvent,
+  saveAnniversaries,
+  saveGiftSuggestions,
+  savePlan,
+  updateAnniversaryEvent,
+  updateGiftPreferences,
+} from '../storage/anniversaryStore';
+import type { AnniversaryData, AnniversaryEventType, GiftPreferences } from '../storage/anniversaryTypes';
+import { mockAnniversaryPlan } from '../data/mockAnniversaryPlans';
+import { mockGiftSuggestions } from '../data/mockGiftSuggestions';
 import { appendActivity, loadActivity } from '../storage/activityStore';
 import {
   applyReward,
@@ -124,6 +147,34 @@ type LoveQuestContextValue = {
   generateDateIdea: () => boolean;
   toggleDateFavorite: (ideaId: string) => void;
   completeCurrentDate: () => void;
+  anniversaries: AnniversaryData;
+  upcomingAnniversaries: ReturnType<typeof getUpcomingEvents>;
+  nextAnniversary: ReturnType<typeof getNextImportant>;
+  activeAnniversaryReminders: ReturnType<typeof getActiveReminders>;
+  addAnniversary: (input: {
+    name: string;
+    date: string;
+    type: AnniversaryEventType;
+    note: string;
+    repeatYearly: boolean;
+  }) => void;
+  updateAnniversary: (
+    id: string,
+    input: Partial<{
+      name: string;
+      date: string;
+      type: AnniversaryEventType;
+      note: string;
+      repeatYearly: boolean;
+    }>
+  ) => void;
+  removeAnniversary: (id: string) => void;
+  generateAnniversaryPlan: (eventId: string) => void;
+  completeAnniversaryPlan: (eventId: string) => void;
+  markAnniversaryCelebrated: (eventId: string) => void;
+  updateGiftPrefs: (prefs: GiftPreferences) => void;
+  generateGiftSuggestions: () => void;
+  dismissAnniversaryReminder: (reminderId: string) => void;
   partnerName: (id: PartnerId) => string;
   partnerEmoji: (id: PartnerId) => string;
 };
@@ -132,7 +183,12 @@ const LoveQuestContext = createContext<LoveQuestContextValue | null>(null);
 
 function loadRpg(): RpgState {
   const raw = loadJson(LQ_KEYS.rpg, defaultRpgState());
-  return { ...defaultRpgState(), ...raw, dateAchievements: raw.dateAchievements ?? 0 };
+  return {
+    ...defaultRpgState(),
+    ...raw,
+    dateAchievements: raw.dateAchievements ?? 0,
+    anniversaryAchievements: raw.anniversaryAchievements ?? 0,
+  };
 }
 
 function saveRpg(state: RpgState): void {
@@ -152,6 +208,7 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
   const [flirtGames, setFlirtGames] = useState(loadFlirtGames);
   const [completionHistory, setCompletionHistory] = useState(loadCompletionHistory);
   const [datePlanner, setDatePlanner] = useState(loadDatePlanner);
+  const [anniversaries, setAnniversaries] = useState(loadAnniversaries);
   const [activity, setActivity] = useState(loadActivity);
   const [draftPick, setDraftPick] = useState<string | null>(null);
   const [spinning, setSpinning] = useState(false);
@@ -402,6 +459,123 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
     });
   }, [grantReward, addCompletion]);
 
+  const addAnniversaryFn = useCallback(
+    (input: {
+      name: string;
+      date: string;
+      type: AnniversaryEventType;
+      note: string;
+      repeatYearly: boolean;
+    }) => {
+      setAnniversaries((prev) => {
+        const next = addAnniversaryEvent(prev, input);
+        saveAnniversaries(next);
+        return next;
+      });
+    },
+    []
+  );
+
+  const updateAnniversaryFn = useCallback(
+    (
+      id: string,
+      input: Partial<{
+        name: string;
+        date: string;
+        type: AnniversaryEventType;
+        note: string;
+        repeatYearly: boolean;
+      }>
+    ) => {
+      setAnniversaries((prev) => {
+        const next = updateAnniversaryEvent(prev, id, input);
+        saveAnniversaries(next);
+        return next;
+      });
+    },
+    []
+  );
+
+  const removeAnniversaryFn = useCallback((id: string) => {
+    setAnniversaries((prev) => {
+      const next = removeAnniversaryEvent(prev, id);
+      saveAnniversaries(next);
+      return next;
+    });
+  }, []);
+
+  const generateAnniversaryPlanFn = useCallback((eventId: string) => {
+    setAnniversaries((prev) => {
+      const event = prev.events.find((e) => e.id === eventId);
+      if (!event) return prev;
+      const plan = mockAnniversaryPlan(event);
+      const next = savePlan(prev, eventId, plan);
+      saveAnniversaries(next);
+      return next;
+    });
+  }, []);
+
+  const completeAnniversaryPlanFn = useCallback(
+    (eventId: string) => {
+      setAnniversaries((prev) => {
+        const event = prev.events.find((e) => e.id === eventId);
+        if (!event) return prev;
+        const occ = getNextOccurrence(event);
+        const year = occurrenceYear(event, occ);
+        if (!canRewardPlan(event, year)) return prev;
+        const next = markPlanRewarded(prev, eventId, year);
+        saveAnniversaries(next);
+        grantReward(REWARDS.anniversaryPlanComplete, `完成「${event.name}」紀念日規劃`);
+        addCompletion('anniversary', `${event.name} 規劃`, '✨');
+        return next;
+      });
+    },
+    [grantReward, addCompletion]
+  );
+
+  const markAnniversaryCelebratedFn = useCallback(
+    (eventId: string) => {
+      setAnniversaries((prev) => {
+        const event = prev.events.find((e) => e.id === eventId);
+        if (!event) return prev;
+        const occ = getNextOccurrence(event);
+        const year = occurrenceYear(event, occ);
+        if (!canRewardCelebrate(event, year)) return prev;
+        const next = markCelebrated(prev, eventId, year);
+        saveAnniversaries(next);
+        grantReward(REWARDS.anniversaryCelebrated, `慶祝「${event.name}」紀念日`);
+        addCompletion('anniversary', `${event.name} 慶祝`, '🎉');
+        return next;
+      });
+    },
+    [grantReward, addCompletion]
+  );
+
+  const updateGiftPrefsFn = useCallback((prefs: GiftPreferences) => {
+    setAnniversaries((prev) => {
+      const next = updateGiftPreferences(prev, prefs);
+      saveAnniversaries(next);
+      return next;
+    });
+  }, []);
+
+  const generateGiftSuggestionsFn = useCallback(() => {
+    setAnniversaries((prev) => {
+      const suggestions = mockGiftSuggestions(prev.giftPreferences);
+      const next = saveGiftSuggestions(prev, suggestions);
+      saveAnniversaries(next);
+      return next;
+    });
+  }, []);
+
+  const dismissAnniversaryReminderFn = useCallback((reminderId: string) => {
+    setAnniversaries((prev) => {
+      const next = acknowledgeReminder(prev, reminderId);
+      saveAnniversaries(next);
+      return next;
+    });
+  }, []);
+
   const partnerName = useCallback(
     (id: PartnerId) => (id === 'A' ? couple.nameA : couple.nameB),
     [couple]
@@ -453,6 +627,19 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
       generateDateIdea,
       toggleDateFavorite: toggleDateFavoriteFn,
       completeCurrentDate: completeCurrentDateFn,
+      anniversaries,
+      upcomingAnniversaries: getUpcomingEvents(anniversaries.events, 20),
+      nextAnniversary: getNextImportant(anniversaries.events),
+      activeAnniversaryReminders: getActiveReminders(anniversaries),
+      addAnniversary: addAnniversaryFn,
+      updateAnniversary: updateAnniversaryFn,
+      removeAnniversary: removeAnniversaryFn,
+      generateAnniversaryPlan: generateAnniversaryPlanFn,
+      completeAnniversaryPlan: completeAnniversaryPlanFn,
+      markAnniversaryCelebrated: markAnniversaryCelebratedFn,
+      updateGiftPrefs: updateGiftPrefsFn,
+      generateGiftSuggestions: generateGiftSuggestionsFn,
+      dismissAnniversaryReminder: dismissAnniversaryReminderFn,
       partnerName,
       partnerEmoji,
     }),
@@ -466,6 +653,7 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
       flirtGames,
       completionHistory,
       datePlanner,
+      anniversaries,
       activity,
       draftPick,
       spinning,
@@ -489,6 +677,15 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
       generateDateIdea,
       toggleDateFavoriteFn,
       completeCurrentDateFn,
+      addAnniversaryFn,
+      updateAnniversaryFn,
+      removeAnniversaryFn,
+      generateAnniversaryPlanFn,
+      completeAnniversaryPlanFn,
+      markAnniversaryCelebratedFn,
+      updateGiftPrefsFn,
+      generateGiftSuggestionsFn,
+      dismissAnniversaryReminderFn,
       partnerName,
       partnerEmoji,
     ]

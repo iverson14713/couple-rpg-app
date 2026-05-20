@@ -5,6 +5,7 @@ import {
   Home,
   ListChecks,
   MapPin,
+  Cake,
   Sparkles,
   Images,
   Settings,
@@ -17,6 +18,7 @@ export type CoupleTabId =
   | 'housework'
   | 'tasks'
   | 'dates'
+  | 'anniversaries'
   | 'rpg'
   | 'memories'
   | 'settings';
@@ -27,6 +29,7 @@ const TABS: { id: CoupleTabId; label: string; Icon: LucideIcon }[] = [
   { id: 'housework', label: '家事', Icon: Home },
   { id: 'tasks', label: '任務', Icon: ListChecks },
   { id: 'dates', label: '約會', Icon: MapPin },
+  { id: 'anniversaries', label: '紀念', Icon: Cake },
   { id: 'rpg', label: 'RPG', Icon: Sparkles },
   { id: 'memories', label: '回憶', Icon: Images },
   { id: 'settings', label: '設定', Icon: Settings },

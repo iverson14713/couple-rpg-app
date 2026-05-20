@@ -6,7 +6,20 @@ import { todayKey } from '../lib/dates';
 import { lq } from '../theme';
 
 export function TodayPage() {
-  const { todayDinner, draftPick, housework, tasks, taskProgress, rpgView, datePlanner, rpg } = useLoveQuest();
+  const {
+    todayDinner,
+    draftPick,
+    housework,
+    tasks,
+    taskProgress,
+    rpgView,
+    datePlanner,
+    rpg,
+    upcomingAnniversaries,
+    activeAnniversaryReminders,
+    dismissAnniversaryReminder,
+  } = useLoveQuest();
+  const upcomingTop3 = upcomingAnniversaries.slice(0, 3);
   const dinnerLabel = todayDinner?.label ?? draftPick;
   const pendingHw = housework.pendingSpin;
   const { done, total } = taskProgress;
@@ -15,6 +28,45 @@ export function TodayPage() {
     <>
       <AppHeader dateLabel={todayKey()} />
       <StatsCard />
+
+      {(activeAnniversaryReminders.length > 0 || upcomingTop3.length > 0) && (
+        <TodayCard emoji="🎀" title="紀念日提醒" accent={`${upcomingTop3.length} 項`}>
+          {activeAnniversaryReminders.length > 0 ? (
+            <ul className="mb-2 space-y-1.5">
+              {activeAnniversaryReminders.map((r) => (
+                <li
+                  key={r.id}
+                  className="flex items-center justify-between gap-2 rounded-xl bg-amber-50/80 px-2.5 py-2 text-[12px]"
+                >
+                  <span className="font-semibold text-amber-950">
+                    {r.emoji} {r.message}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => dismissAnniversaryReminder(r.id)}
+                    className="shrink-0 text-[10px] font-bold text-amber-700"
+                  >
+                    知道了
+                  </button>
+                </li>
+              ))}
+            </ul>
+          ) : null}
+          <ul className="space-y-1">
+            {upcomingTop3.map((u) => (
+              <li key={u.event.id} className="flex justify-between text-[13px] text-stone-700">
+                <span>
+                  {u.emoji} {u.event.name}
+                </span>
+                <span className="font-bold text-rose-600">
+                  {u.daysUntil === 0 ? '今天' : `${u.daysUntil} 天`}
+                </span>
+              </li>
+            ))}
+          </ul>
+          <p className="mt-2 text-[11px] text-stone-400">到「紀念」分頁管理 · 7 / 3 / 0 天前提醒</p>
+        </TodayCard>
+      )}
 
       <TodayCard emoji="🍽️" title="今日晚餐" accent={dinnerLabel ? '已決定' : '待決定'}>
         {dinnerLabel ? (
