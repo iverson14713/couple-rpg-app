@@ -44,6 +44,17 @@ import {
   getRecentCompletions,
   loadCompletionHistory,
 } from '../storage/completionHistoryStore';
+import {
+  completeCurrentDate,
+  getFavoriteIdeas,
+  getRecentDateHistory,
+  loadDatePlanner,
+  pickRandomDateIdea,
+  saveDatePlanner,
+  toggleFavorite,
+} from '../storage/datePlannerStore';
+import type { DateFilterKey, DatePlannerData } from '../storage/dateTypes';
+import { DEFAULT_DATE_FILTERS } from '../storage/dateTypes';
 import { appendActivity, loadActivity } from '../storage/activityStore';
 import {
   applyReward,
@@ -105,6 +116,14 @@ type LoveQuestContextValue = {
   completeFlirtGame: () => void;
   cancelFlirtGame: () => void;
   isFlirtGameDoneToday: (gameId: FlirtGameId) => boolean;
+  datePlanner: DatePlannerData;
+  dateHistory: ReturnType<typeof getRecentDateHistory>;
+  favoriteIdeas: ReturnType<typeof getFavoriteIdeas>;
+  setDateFilter: (key: DateFilterKey, on: boolean) => void;
+  clearDateFilters: () => void;
+  generateDateIdea: () => boolean;
+  toggleDateFavorite: (ideaId: string) => void;
+  completeCurrentDate: () => void;
   partnerName: (id: PartnerId) => string;
   partnerEmoji: (id: PartnerId) => string;
 };
@@ -112,7 +131,8 @@ type LoveQuestContextValue = {
 const LoveQuestContext = createContext<LoveQuestContextValue | null>(null);
 
 function loadRpg(): RpgState {
-  return loadJson(LQ_KEYS.rpg, defaultRpgState());
+  const raw = loadJson(LQ_KEYS.rpg, defaultRpgState());
+  return { ...defaultRpgState(), ...raw, dateAchievements: raw.dateAchievements ?? 0 };
 }
 
 function saveRpg(state: RpgState): void {
@@ -131,6 +151,7 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
   const [tasks, setTasks] = useState(loadTasks);
   const [flirtGames, setFlirtGames] = useState(loadFlirtGames);
   const [completionHistory, setCompletionHistory] = useState(loadCompletionHistory);
+  const [datePlanner, setDatePlanner] = useState(loadDatePlanner);
   const [activity, setActivity] = useState(loadActivity);
   const [draftPick, setDraftPick] = useState<string | null>(null);
   const [spinning, setSpinning] = useState(false);
@@ -330,6 +351,57 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
     [flirtGames]
   );
 
+  const setDateFilter = useCallback((key: DateFilterKey, on: boolean) => {
+    setDatePlanner((prev) => {
+      const next: DatePlannerData = {
+        ...prev,
+        filters: { ...prev.filters, [key]: on },
+      };
+      saveDatePlanner(next);
+      return next;
+    });
+  }, []);
+
+  const clearDateFilters = useCallback(() => {
+    setDatePlanner((prev) => {
+      const next: DatePlannerData = { ...prev, filters: DEFAULT_DATE_FILTERS() };
+      saveDatePlanner(next);
+      return next;
+    });
+  }, []);
+
+  const generateDateIdea = useCallback(() => {
+    let ok = false;
+    setDatePlanner((prev) => {
+      const suggestion = pickRandomDateIdea(prev.filters);
+      if (!suggestion) return prev;
+      ok = true;
+      const next: DatePlannerData = { ...prev, current: suggestion };
+      saveDatePlanner(next);
+      return next;
+    });
+    return ok;
+  }, []);
+
+  const toggleDateFavoriteFn = useCallback((ideaId: string) => {
+    setDatePlanner((prev) => {
+      const next = toggleFavorite(prev, ideaId);
+      saveDatePlanner(next);
+      return next;
+    });
+  }, []);
+
+  const completeCurrentDateFn = useCallback(() => {
+    setDatePlanner((prev) => {
+      const { data: next, entry } = completeCurrentDate(prev);
+      if (!entry) return prev;
+      saveDatePlanner(next);
+      grantReward(REWARDS.dateComplete, `完成約會「${entry.title}」`);
+      addCompletion('date', entry.title, entry.emoji);
+      return next;
+    });
+  }, [grantReward, addCompletion]);
+
   const partnerName = useCallback(
     (id: PartnerId) => (id === 'A' ? couple.nameA : couple.nameB),
     [couple]
@@ -373,6 +445,14 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
       completeFlirtGame,
       cancelFlirtGame,
       isFlirtGameDoneToday: isFlirtGameDoneTodayFn,
+      datePlanner,
+      dateHistory: getRecentDateHistory(datePlanner.history),
+      favoriteIdeas: getFavoriteIdeas(datePlanner.favoriteIds),
+      setDateFilter,
+      clearDateFilters,
+      generateDateIdea,
+      toggleDateFavorite: toggleDateFavoriteFn,
+      completeCurrentDate: completeCurrentDateFn,
       partnerName,
       partnerEmoji,
     }),
@@ -385,6 +465,7 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
       taskProgress,
       flirtGames,
       completionHistory,
+      datePlanner,
       activity,
       draftPick,
       spinning,
@@ -403,6 +484,11 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
       completeFlirtGame,
       cancelFlirtGame,
       isFlirtGameDoneTodayFn,
+      setDateFilter,
+      clearDateFilters,
+      generateDateIdea,
+      toggleDateFavoriteFn,
+      completeCurrentDateFn,
       partnerName,
       partnerEmoji,
     ]

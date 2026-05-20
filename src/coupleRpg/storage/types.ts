@@ -13,6 +13,8 @@ export type RpgState = {
   xp: number;
   level: number;
   houseworkPoints: number;
+  /** 累計完成的約會次數 */
+  dateAchievements: number;
 };
 
 export type DinnerOption = {
@@ -80,7 +82,7 @@ export type FlirtGameId = 'dice' | 'truth' | 'coquettish' | 'stare' | 'massage';
 
 export type CompletionRecord = {
   id: string;
-  kind: 'task' | 'game';
+  kind: 'task' | 'game' | 'date';
   date: string;
   time: string;
   title: string;

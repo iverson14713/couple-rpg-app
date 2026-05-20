@@ -6,7 +6,7 @@ import { todayKey } from '../lib/dates';
 import { lq } from '../theme';
 
 export function TodayPage() {
-  const { todayDinner, draftPick, housework, tasks, taskProgress, rpgView } = useLoveQuest();
+  const { todayDinner, draftPick, housework, tasks, taskProgress, rpgView, datePlanner, rpg } = useLoveQuest();
   const dinnerLabel = todayDinner?.label ?? draftPick;
   const pendingHw = housework.pendingSpin;
   const { done, total } = taskProgress;
@@ -32,6 +32,21 @@ export function TodayPage() {
         ) : (
           <p className="text-sm text-stone-500">到「家事」分頁轉盤分配</p>
         )}
+      </TodayCard>
+
+      <TodayCard
+        emoji="💑"
+        title="約會提案"
+        accent={datePlanner.current?.completed ? '已完成' : datePlanner.current ? '待出發' : '未產生'}
+      >
+        {datePlanner.current ? (
+          <p className="text-sm text-stone-700">
+            {datePlanner.current.emoji} {datePlanner.current.title}
+          </p>
+        ) : (
+          <p className="text-sm text-stone-500">到「約會」分頁隨機產生假日行程</p>
+        )}
+        <p className="mt-1 text-[11px] text-stone-400">約會成就 {rpg.dateAchievements} 次</p>
       </TodayCard>
 
       <TodayCard emoji="💌" title="今日戀愛任務" accent={`${done}/${total}`}>

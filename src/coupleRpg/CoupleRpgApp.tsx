@@ -10,6 +10,7 @@ import { MemoriesPage } from './pages/MemoriesPage';
 import { RpgPage } from './pages/RpgPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { TasksPage } from './pages/TasksPage';
+import { DatesPage } from './pages/DatesPage';
 import { TodayPage } from './pages/TodayPage';
 import { lq } from './theme';
 
@@ -28,6 +29,7 @@ export default function CoupleRpgApp() {
           {tab === 'dinner' && <DinnerPage />}
           {tab === 'housework' && <HouseworkPage />}
           {tab === 'tasks' && <TasksPage />}
+          {tab === 'dates' && <DatesPage />}
           {tab === 'rpg' && <RpgPage />}
           {tab === 'memories' && <MemoriesPage />}
           {tab === 'settings' && <SettingsPage />}

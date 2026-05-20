@@ -7,4 +7,5 @@ export const LQ_KEYS = {
   flirtGames: 'lovequest-flirt-games',
   completionHistory: 'lovequest-completion-history',
   activity: 'lovequest-activity',
+  datePlanner: 'lovequest-date-planner',
 } as const;

@@ -3,14 +3,13 @@ import { PageHero } from '../components/ui';
 import { lq } from '../theme';
 
 export function MemoriesPage() {
-  const { dinnerHistory, completionHistory } = useLoveQuest();
+  const { dinnerHistory, completionHistory, dateHistory } = useLoveQuest();
 
   const taskRecords = completionHistory.filter((r) => r.kind === 'task');
   const gameRecords = completionHistory.filter((r) => r.kind === 'game');
-
   return (
     <>
-      <PageHero emoji="📷" title="回憶與歷史" subtitle="晚餐、任務與小遊戲的甜蜜紀錄" />
+      <PageHero emoji="📷" title="回憶與歷史" subtitle="晚餐、約會、任務與小遊戲的甜蜜紀錄" />
 
       <section className={`mb-3 p-4 ${lq.card}`}>
         <h2 className="mb-2 text-sm font-bold text-stone-900">晚餐回憶</h2>
@@ -23,6 +22,22 @@ export function MemoriesPage() {
               emoji: '🍽️',
               title: h.label,
               meta: h.date,
+            }))}
+          />
+        )}
+      </section>
+
+      <section className={`mb-3 p-4 ${lq.card}`}>
+        <h2 className="mb-2 text-sm font-bold text-stone-900">約會紀錄（最近 7 筆）</h2>
+        {dateHistory.length === 0 ? (
+          <p className="text-[13px] text-stone-500">完成約會後會出現在這裡</p>
+        ) : (
+          <HistoryList
+            items={dateHistory.map((h) => ({
+              id: h.id,
+              emoji: h.emoji,
+              title: h.title,
+              meta: `${h.date} ${h.time}`,
             }))}
           />
         )}
