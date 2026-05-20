@@ -41,16 +41,14 @@ export function SplashScreen({ active = true, statusText }: SplashScreenProps) {
 
 function SplashIcon() {
   return (
-    <div className="splash-screen__icon-wrap mb-8 flex h-[108px] w-[108px] items-center justify-center rounded-[28px] bg-white shadow-[0_20px_50px_-12px_rgba(244,114,182,0.4)] ring-1 ring-rose-100/80">
-      <img
-        src={SPLASH_ICON_SRC}
-        alt=""
-        width={88}
-        height={88}
-        className="h-[88px] w-[88px] rounded-[22px] object-cover"
-        decoding="async"
-        fetchPriority="high"
-      />
-    </div>
+    <img
+      src={SPLASH_ICON_SRC}
+      alt=""
+      width={108}
+      height={108}
+      className="splash-screen__icon-wrap mb-8 h-[108px] w-[108px] rounded-[24px] object-cover shadow-[0_20px_50px_-12px_rgba(244,114,182,0.45)]"
+      decoding="async"
+      fetchPriority="high"
+    />
   );
 }
