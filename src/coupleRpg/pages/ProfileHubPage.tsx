@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { HubShell } from '../components/HubShell';
 import { ProfileStatsPanel } from '../components/ProfileStatsPanel';
+import { useCoupleRpgNav } from '../context/CoupleRpgNavContext';
 import { SettingsPage } from './SettingsPage';
 
 const TABS = [
@@ -11,7 +12,12 @@ const TABS = [
 type ProfileSection = (typeof TABS)[number]['id'];
 
 export function ProfileHubPage() {
+  const { profileSection } = useCoupleRpgNav();
   const [section, setSection] = useState<ProfileSection>('status');
+
+  useEffect(() => {
+    setSection(profileSection);
+  }, [profileSection]);
 
   return (
     <HubShell

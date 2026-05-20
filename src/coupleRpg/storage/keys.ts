@@ -10,4 +10,6 @@ export const LQ_KEYS = {
   datePlanner: 'lovequest-date-planner',
   anniversaries: 'lovequest-anniversaries',
   rewards: 'lovequest-rewards',
+  /** Set after Phase 7 couple bind; until then bind reminder shows on home */
+  coupleSpaceId: 'lovequest-couple-space-id',
 } as const;

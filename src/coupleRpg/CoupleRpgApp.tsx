@@ -1,36 +1,77 @@
-import { useState, type ReactNode } from 'react';
+import type { ReactNode } from 'react';
 import { OfflineBanner } from '../components/OfflineBanner';
 import { useOnlineStatus } from '../hooks/useOnlineStatus';
 import { useSupabaseAuth } from '../useSupabaseAuth';
+import { BottomNav } from './components/BottomNav';
+import { TabPageHeader } from './components/TabPageHeader';
+import { CoupleRpgNavProvider, useCoupleRpgNav, type CoupleNavTabId } from './context/CoupleRpgNavContext';
 import { LoveQuestProvider } from './context/LoveQuestContext';
-import { BottomNav, type CoupleTabId } from './components/BottomNav';
-import { TodayPage } from './pages/TodayPage';
-import { LifeHubPage } from './pages/LifeHubPage';
-import { PlayHubPage } from './pages/PlayHubPage';
-import { MemoriesHubPage } from './pages/MemoriesHubPage';
+import { DinnerPage } from './pages/DinnerPage';
+import { HouseworkPage } from './pages/HouseworkPage';
 import { ProfileHubPage } from './pages/ProfileHubPage';
+import { RewardsPage } from './pages/RewardsPage';
+import { TasksPage } from './pages/TasksPage';
+import { DatesPage } from './pages/DatesPage';
+import { TodayPage } from './pages/TodayPage';
 import { lq } from './theme';
 
 export default function CoupleRpgApp() {
-  const [tab, setTab] = useState<CoupleTabId>('today');
+  return (
+    <LoveQuestProvider>
+      <CoupleRpgNavProvider>
+        <CoupleRpgShell />
+      </CoupleRpgNavProvider>
+    </LoveQuestProvider>
+  );
+}
+
+function CoupleRpgShell() {
+  const { tab, navigateTo } = useCoupleRpgNav();
   const isOnline = useOnlineStatus();
   const auth = useSupabaseAuth();
 
+  const onNavChange = (next: CoupleNavTabId) => navigateTo(next);
+
   return (
-    <LoveQuestProvider>
-      <AppRoot>
-        {!isOnline ? <OfflineBanner message="目前離線，部分功能可能無法同步。" /> : null}
-        {auth.configured && auth.authReady && auth.user ? <LoggedInStrip auth={auth} /> : null}
-        <main key={tab} className="page-tab-fade">
-          {tab === 'today' && <TodayPage />}
-          {tab === 'life' && <LifeHubPage />}
-          {tab === 'play' && <PlayHubPage />}
-          {tab === 'memories' && <MemoriesHubPage />}
-          {tab === 'profile' && <ProfileHubPage />}
-        </main>
-        <BottomNav active={tab} onChange={setTab} />
-      </AppRoot>
-    </LoveQuestProvider>
+    <AppRoot>
+      {!isOnline ? <OfflineBanner message="目前離線，部分功能可能無法同步。" /> : null}
+      {auth.configured && auth.authReady && auth.user ? <LoggedInStrip auth={auth} /> : null}
+      <main key={tab} className="page-tab-fade">
+        {tab === 'home' && <TodayPage />}
+        {tab === 'dinner' && (
+          <>
+            <TabPageHeader emoji="🍽️" title="今晚吃什麼" subtitle="抽籤決定，不再糾結" />
+            <DinnerPage embedded />
+          </>
+        )}
+        {tab === 'housework' && (
+          <>
+            <TabPageHeader emoji="🏠" title="家事誰來做" subtitle="公平轉盤，甜蜜分工" />
+            <HouseworkPage embedded />
+          </>
+        )}
+        {tab === 'rewards' && (
+          <>
+            <TabPageHeader emoji="🎁" title="獎勵商城" subtitle="LoveCoin · 專屬卡券" />
+            <RewardsPage embedded />
+          </>
+        )}
+        {tab === 'profile' && <ProfileHubPage />}
+        {tab === 'tasks' && (
+          <>
+            <TabPageHeader emoji="💌" title="今日戀愛任務" subtitle="完成小任務，累積愛心幣" />
+            <TasksPage embedded section="tasks" />
+          </>
+        )}
+        {tab === 'dates' && (
+          <>
+            <TabPageHeader emoji="💑" title="約會去哪裡" subtitle="今天來一點不一樣的" />
+            <DatesPage embedded />
+          </>
+        )}
+      </main>
+      <BottomNav activeTab={tab} onChange={onNavChange} />
+    </AppRoot>
   );
 }
 
