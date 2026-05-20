@@ -47,11 +47,11 @@ export function TodayPage() {
         <div className="flex items-center justify-between gap-2">
           <div className="min-w-0">
             <p className="text-[10px] font-bold uppercase tracking-wide text-rose-400">{todayKey()}</p>
-            <h1 className="text-base font-bold text-stone-900">情侶生活總控台</h1>
-            <p className="truncate text-[11px] text-stone-500">{coupleHeaderLine}</p>
+            <h1 className="text-lg font-extrabold leading-tight text-stone-900">情侶生活總控台</h1>
+            <p className="truncate text-[12px] leading-snug text-stone-600">{coupleHeaderLine}</p>
           </div>
           <div className="shrink-0 text-right">
-            <p className="text-[11px] font-extrabold text-rose-600">{rpgView.title}</p>
+            <p className="text-[12px] font-extrabold text-rose-600">{rpgView.title}</p>
           </div>
         </div>
         <div className="mt-2 flex gap-1.5">
@@ -85,7 +85,7 @@ export function TodayPage() {
             <li>LoveCoin：完成互動後獲得，可在獎勵商城兌換卡券。</li>
           </ul>
         </details>
-        <p className="mt-2 truncate rounded-lg bg-rose-50/80 px-2 py-1 text-[10px] font-medium text-rose-800/90">
+        <p className="mt-2 truncate rounded-lg bg-rose-50/80 px-2 py-1 text-[11px] font-medium text-rose-800/90">
           {todayLine}
         </p>
       </header>
@@ -144,7 +144,9 @@ export function TodayPage() {
         </section>
       ) : null}
 
-      <h2 className="mb-2 px-0.5 text-[11px] font-bold uppercase tracking-wide text-stone-400">重要功能</h2>
+      <h2 className="mb-2.5 px-0.5 text-[13px] font-extrabold uppercase tracking-wide text-stone-600">
+        重要功能
+      </h2>
       <div className="space-y-2.5">
         <section
           className={`relative overflow-hidden rounded-3xl border border-rose-200/80 bg-gradient-to-br from-rose-50 via-white to-pink-50/90 p-4 shadow-[0_12px_36px_-14px_rgba(244,114,182,0.45)]`}
@@ -154,19 +156,19 @@ export function TodayPage() {
           </span>
           <div className="relative">
             <p className="text-[10px] font-bold uppercase tracking-wide text-rose-400">一起玩</p>
-            <h3 className="mt-0.5 text-lg font-extrabold leading-snug text-stone-900">情侶小遊戲</h3>
-            <p className="mt-1 text-[13px] leading-relaxed text-stone-600">
+            <h3 className="mt-0.5 text-xl font-extrabold leading-snug text-stone-900">情侶小遊戲</h3>
+            <p className="mt-1 text-[14px] leading-relaxed text-stone-700">
               骰子、真心話、默契問答，讓今天更有趣
             </p>
             <div className="mt-3 flex flex-wrap items-center gap-2">
               <button
                 type="button"
                 onClick={() => navigateTo('miniGames')}
-                className={`inline-flex items-center gap-1 rounded-xl px-4 py-2 text-[13px] font-bold ${lq.btnPrimary}`}
+                className={`inline-flex items-center gap-1 rounded-xl px-4 py-2.5 text-[14px] font-bold ${lq.btnPrimary}`}
               >
                 開始玩
               </button>
-              <span className="rounded-full bg-white/90 px-2.5 py-1 text-[10px] font-bold text-rose-600 ring-1 ring-rose-100">
+              <span className="rounded-full bg-white/90 px-2.5 py-1 text-[11px] font-bold text-rose-600 ring-1 ring-rose-100">
                 今日獎勵 {Math.min(rpgView.miniGamesRewardsToday, 3)}/3
               </span>
             </div>
@@ -210,7 +212,7 @@ export function TodayPage() {
       </div>
 
       {total > 0 && pct < 100 ? (
-        <p className="mt-3 text-center text-[10px] text-stone-400">
+        <p className="mt-3 text-center text-[11px] text-stone-500">
           今日任務進度 {pct}% · 完成可獲愛心幣
         </p>
       ) : null}
@@ -235,10 +237,10 @@ function HomeCoreFeatureCard({
 }) {
   return (
     <article
-      className={`relative flex min-h-[9.75rem] flex-col rounded-2xl border border-rose-100/90 bg-white/95 p-2.5 shadow-[0_6px_22px_-12px_rgba(244,114,182,0.38)] transition active:scale-[0.99]`}
+      className={`relative flex min-h-[10.5rem] flex-col rounded-2xl border border-rose-100/90 bg-white/95 p-3 shadow-[0_6px_22px_-12px_rgba(244,114,182,0.38)] transition active:scale-[0.99]`}
     >
       {badge ? (
-        <span className="absolute right-2 top-2 max-w-[calc(100%-3.5rem)] truncate rounded-full bg-rose-50 px-1.5 py-0.5 text-[8px] font-bold text-rose-600 ring-1 ring-rose-100/90">
+        <span className="absolute right-2 top-2 max-w-[calc(100%-3.75rem)] truncate rounded-full bg-rose-50 px-2 py-0.5 text-[10px] font-bold text-rose-600 ring-1 ring-rose-100/90">
           {badge}
         </span>
       ) : null}
@@ -248,9 +250,9 @@ function HomeCoreFeatureCard({
       >
         {emoji}
       </span>
-      <h3 className="mt-1.5 pr-1 text-[11px] font-bold leading-snug text-stone-900">{title}</h3>
-      <p className="mt-0.5 line-clamp-2 flex-1 text-[9px] leading-snug text-stone-500">{description}</p>
-      <button type="button" onClick={onAction} className={`mt-2 w-full rounded-lg py-1.5 text-[10px] font-bold ${lq.btnPrimary}`}>
+      <h3 className="mt-1.5 pr-1 text-[12px] font-extrabold leading-snug text-stone-900">{title}</h3>
+      <p className="mt-0.5 line-clamp-2 flex-1 text-[11px] leading-snug text-stone-600">{description}</p>
+      <button type="button" onClick={onAction} className={`mt-2 w-full rounded-lg py-2 text-[11px] font-bold ${lq.btnPrimary}`}>
         {cta}
       </button>
     </article>
@@ -259,9 +261,9 @@ function HomeCoreFeatureCard({
 
 function CompactStat({ label, value, hint }: { label: string; value: string; hint?: string }) {
   return (
-    <div className={`min-w-0 flex-1 rounded-lg px-1.5 py-1 text-center ${lq.cardSoft}`} title={hint}>
-      <p className="text-[8px] font-bold text-stone-500">{label}</p>
-      <p className={`truncate text-[11px] font-extrabold ${lq.accent}`}>{value}</p>
+    <div className={`min-w-0 flex-1 rounded-lg px-1.5 py-1.5 text-center ${lq.cardSoft}`} title={hint}>
+      <p className="text-[9px] font-bold leading-tight text-stone-600">{label}</p>
+      <p className={`mt-0.5 truncate text-[12px] font-extrabold leading-none ${lq.accent}`}>{value}</p>
     </div>
   );
 }
@@ -276,13 +278,13 @@ function ImportantDatesCard({
   if (!preview.hasConfigured) {
     return (
       <section className={`mb-2.5 rounded-2xl border border-rose-100/80 bg-rose-50/40 px-3 py-2.5 ${lq.cardSoft}`}>
-        <p className="text-[11px] font-semibold leading-snug text-stone-700">
+        <p className="text-[12px] font-semibold leading-snug text-stone-700">
           設定生日與紀念日，LoveQuest 會幫你記住重要日子。
         </p>
         <button
           type="button"
           onClick={onGoSettings}
-          className="mt-2 w-full rounded-xl bg-rose-600 py-2 text-[11px] font-bold text-white shadow-sm active:scale-[0.99]"
+          className="mt-2 w-full rounded-xl bg-rose-600 py-2 text-[12px] font-bold text-white shadow-sm active:scale-[0.99]"
         >
           去設定
         </button>
@@ -292,10 +294,10 @@ function ImportantDatesCard({
 
   if (preview.items.length === 0) {
     return (
-      <section className={`mb-2.5 px-2.5 py-2 ${lq.card}`}>
-        <p className="mb-0.5 text-[10px] font-bold text-rose-800">重要日子</p>
-        <p className="text-[10px] text-stone-500">請以正確日期格式（YYYY-MM-DD）填寫，以便顯示倒數。</p>
-        <button type="button" onClick={onGoSettings} className="mt-2 text-[10px] font-bold text-rose-700 underline">
+      <section className={`mb-2.5 px-2.5 py-2.5 ${lq.card}`}>
+        <p className="mb-1 text-[12px] font-extrabold text-rose-800">重要日子</p>
+        <p className="text-[11px] leading-snug text-stone-600">請以正確日期格式（YYYY-MM-DD）填寫，以便顯示倒數。</p>
+        <button type="button" onClick={onGoSettings} className="mt-2 text-[11px] font-bold text-rose-700 underline">
           前往設定
         </button>
       </section>
@@ -303,15 +305,15 @@ function ImportantDatesCard({
   }
 
   return (
-    <section className={`mb-2.5 px-2.5 py-2 ${lq.card}`}>
-      <p className="mb-1.5 text-[10px] font-bold text-rose-800">重要日子</p>
-      <ul className="space-y-1">
+    <section className={`mb-2.5 px-2.5 py-2.5 ${lq.card}`}>
+      <p className="mb-2 text-[12px] font-extrabold text-rose-800">重要日子</p>
+      <ul className="space-y-1.5">
         {preview.items.map((it) => (
-          <li key={it.id} className="text-[11px] leading-snug text-stone-700">
+          <li key={it.id} className="text-[13px] leading-snug text-stone-800">
             {it.isToday ? (
               <span className="font-bold text-rose-700">{it.todayLine}</span>
             ) : (
-              <span>{it.countdownLine}</span>
+              <span className="font-medium">{it.countdownLine}</span>
             )}
           </li>
         ))}
