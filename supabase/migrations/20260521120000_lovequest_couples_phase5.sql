@@ -214,9 +214,9 @@ set search_path = public
 as $$
   select exists (
     select 1
-    from public.couple_members m
-    where m.couple_id = p_couple_id
-      and m.user_id = auth.uid()
+    from public.couple_members cm
+    where cm.couple_id = p_couple_id
+      and cm.user_id = auth.uid()
   );
 $$;
 
@@ -229,10 +229,10 @@ set search_path = public
 as $$
   select exists (
     select 1
-    from public.couple_members m
-    where m.couple_id = p_couple_id
-      and m.user_id = auth.uid()
-      and m.role = 'owner'
+    from public.couple_members cm
+    where cm.couple_id = p_couple_id
+      and cm.user_id = auth.uid()
+      and cm.role = 'owner'
   );
 $$;
 
@@ -244,8 +244,8 @@ security definer
 set search_path = public
 as $$
   select count(*)::int
-  from public.couple_members m
-  where m.couple_id = p_couple_id;
+  from public.couple_members cm
+  where cm.couple_id = p_couple_id;
 $$;
 
 revoke all on function public.is_couple_member(uuid) from public;
@@ -303,32 +303,33 @@ create or replace function public.create_couple_space(
   p_partner_a_label text default null,
   p_partner_b_label text default null
 )
-returns table (couple_id uuid, invite_code text)
+returns table (out_couple_id uuid, out_invite_code text)
 language plpgsql
 security definer
 set search_path = public
 as $$
+#variable_conflict use_column
 declare
   v_uid uuid := auth.uid();
   v_couple_id uuid;
   v_code text;
-  attempts int := 0;
+  v_attempts int := 0;
 begin
   if v_uid is null then
     raise exception 'not_authenticated';
   end if;
 
-  if exists (select 1 from public.couple_members m where m.user_id = v_uid) then
+  if exists (select 1 from public.couple_members cm where cm.user_id = v_uid) then
     raise exception 'already_in_couple';
   end if;
 
   loop
-    attempts := attempts + 1;
+    v_attempts := v_attempts + 1;
     v_code := public.generate_invite_code(6);
     exit when not exists (
       select 1 from public.couples c where lower(c.invite_code) = lower(v_code)
     );
-    if attempts > 20 then
+    if v_attempts > 20 then
       raise exception 'invite_code_generation_failed';
     end if;
   end loop;
@@ -368,6 +369,7 @@ language plpgsql
 security definer
 set search_path = public
 as $$
+#variable_conflict use_column
 declare
   v_uid uuid := auth.uid();
   v_couple_id uuid;
@@ -386,8 +388,9 @@ begin
   end if;
 
   if exists (
-    select 1 from public.couple_members m
-    where m.couple_id = v_couple_id and m.user_id = v_uid
+    select 1
+    from public.couple_members cm
+    where cm.couple_id = v_couple_id and cm.user_id = v_uid
   ) then
     return v_couple_id;
   end if;
@@ -396,7 +399,7 @@ begin
     raise exception 'couple_full';
   end if;
 
-  if exists (select 1 from public.couple_members m where m.user_id = v_uid) then
+  if exists (select 1 from public.couple_members cm where cm.user_id = v_uid) then
     raise exception 'already_in_couple';
   end if;
 
@@ -416,10 +419,11 @@ language plpgsql
 security definer
 set search_path = public
 as $$
+#variable_conflict use_column
 declare
   v_uid uuid := auth.uid();
   v_code text;
-  attempts int := 0;
+  v_attempts int := 0;
 begin
   if v_uid is null then
     raise exception 'not_authenticated';
@@ -429,19 +433,19 @@ begin
   end if;
 
   loop
-    attempts := attempts + 1;
+    v_attempts := v_attempts + 1;
     v_code := public.generate_invite_code(6);
     exit when not exists (
       select 1 from public.couples c where lower(c.invite_code) = lower(v_code)
     );
-    if attempts > 20 then
+    if v_attempts > 20 then
       raise exception 'invite_code_generation_failed';
     end if;
   end loop;
 
-  update public.couples
+  update public.couples c
   set invite_code = v_code
-  where id = p_couple_id;
+  where c.id = p_couple_id;
 
   return v_code;
 end;

@@ -99,12 +99,14 @@ export async function createCoupleSpace(
 
   if (error) throw new Error(mapCoupleSpaceError(error));
 
-  const row = Array.isArray(data) ? data[0] : data;
-  if (!row?.couple_id || !row?.invite_code) {
+  const row = (Array.isArray(data) ? data[0] : data) as Record<string, string> | null;
+  const coupleId = row?.out_couple_id ?? row?.couple_id;
+  const inviteCode = row?.out_invite_code ?? row?.invite_code;
+  if (!coupleId || !inviteCode) {
     throw new Error('建立失敗，請稍後再試');
   }
 
-  return { coupleId: row.couple_id as string, inviteCode: row.invite_code as string };
+  return { coupleId, inviteCode };
 }
 
 export async function acceptCoupleInvite(supabase: SupabaseClient, code: string): Promise<string> {

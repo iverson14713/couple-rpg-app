@@ -139,8 +139,10 @@ security definer
 set search_path = public
 as $$
   select exists (
-    select 1 from public.couple_members m
-    where m.couple_id = p_couple_id and m.user_id = auth.uid()
+    select 1
+    from public.couple_members cm
+    where cm.couple_id = p_couple_id
+      and cm.user_id = auth.uid()
   );
 $$;
 
@@ -152,10 +154,11 @@ security definer
 set search_path = public
 as $$
   select exists (
-    select 1 from public.couple_members m
-    where m.couple_id = p_couple_id
-      and m.user_id = auth.uid()
-      and m.role = 'owner'
+    select 1
+    from public.couple_members cm
+    where cm.couple_id = p_couple_id
+      and cm.user_id = auth.uid()
+      and cm.role = 'owner'
   );
 $$;
 
@@ -166,7 +169,9 @@ stable
 security definer
 set search_path = public
 as $$
-  select count(*)::int from public.couple_members m where m.couple_id = p_couple_id;
+  select count(*)::int
+  from public.couple_members cm
+  where cm.couple_id = p_couple_id;
 $$;
 
 create or replace function public.my_couple_id()
@@ -176,7 +181,10 @@ stable
 security definer
 set search_path = public
 as $$
-  select m.couple_id from public.couple_members m where m.user_id = auth.uid() limit 1;
+  select cm.couple_id
+  from public.couple_members cm
+  where cm.user_id = auth.uid()
+  limit 1;
 $$;
 
 revoke all on function public.is_couple_member(uuid) from public;
@@ -235,16 +243,17 @@ $$;
 create or replace function public.create_couple_space(
   p_couple_name text default null
 )
-returns table (couple_id uuid, invite_code text)
+returns table (out_couple_id uuid, out_invite_code text)
 language plpgsql
 security definer
 set search_path = public
 as $$
+#variable_conflict use_column
 declare
   v_uid uuid := auth.uid();
   v_couple_id uuid;
   v_code text;
-  attempts int := 0;
+  v_attempts int := 0;
   v_empty_state jsonb := jsonb_build_object('version', 1);
 begin
   if v_uid is null then
@@ -256,12 +265,12 @@ begin
   end if;
 
   loop
-    attempts := attempts + 1;
+    v_attempts := v_attempts + 1;
     v_code := public.generate_invite_code(6);
     exit when not exists (
       select 1 from public.couples c where lower(c.invite_code) = lower(v_code)
     );
-    if attempts > 20 then
+    if v_attempts > 20 then
       raise exception 'invite_code_generation_failed';
     end if;
   end loop;
@@ -315,6 +324,7 @@ language plpgsql
 security definer
 set search_path = public
 as $$
+#variable_conflict use_column
 declare
   v_uid uuid := auth.uid();
   v_couple_id uuid;
@@ -333,8 +343,9 @@ begin
   end if;
 
   if exists (
-    select 1 from public.couple_members m
-    where m.couple_id = v_couple_id and m.user_id = v_uid
+    select 1
+    from public.couple_members cm
+    where cm.couple_id = v_couple_id and cm.user_id = v_uid
   ) then
     return v_couple_id;
   end if;
@@ -372,11 +383,13 @@ language plpgsql
 security definer
 set search_path = public
 as $$
+#variable_conflict use_column
 declare
+  v_uid uuid := auth.uid();
   v_code text;
-  attempts int := 0;
+  v_attempts int := 0;
 begin
-  if auth.uid() is null then
+  if v_uid is null then
     raise exception 'not_authenticated';
   end if;
   if not public.is_couple_owner(p_couple_id) then
@@ -384,17 +397,20 @@ begin
   end if;
 
   loop
-    attempts := attempts + 1;
+    v_attempts := v_attempts + 1;
     v_code := public.generate_invite_code(6);
     exit when not exists (
       select 1 from public.couples c where lower(c.invite_code) = lower(v_code)
     );
-    if attempts > 20 then
+    if v_attempts > 20 then
       raise exception 'invite_code_generation_failed';
     end if;
   end loop;
 
-  update public.couples set invite_code = v_code where id = p_couple_id;
+  update public.couples c
+  set invite_code = v_code
+  where c.id = p_couple_id;
+
   return v_code;
 end;
 $$;
@@ -408,11 +424,12 @@ create or replace function public.save_couple_app_state(
   p_state jsonb,
   p_base_updated_at timestamptz default null
 )
-returns table (ok boolean, updated_at timestamptz, conflict boolean)
+returns table (out_ok boolean, out_updated_at timestamptz, out_conflict boolean)
 language plpgsql
 security definer
 set search_path = public
 as $$
+#variable_conflict use_column
 declare
   v_uid uuid := auth.uid();
   v_now timestamptz := timezone('utc', now());
@@ -442,11 +459,12 @@ begin
     return;
   end if;
 
-  update public.couple_app_state
-  set state = coalesce(p_state, '{}'::jsonb),
-      updated_at = v_now,
-      updated_by = v_uid
-  where couple_id = p_couple_id;
+  update public.couple_app_state s
+  set
+    state = coalesce(p_state, '{}'::jsonb),
+    updated_at = v_now,
+    updated_by = v_uid
+  where s.couple_id = p_couple_id;
 
   return query select true, v_now, false;
 end;
