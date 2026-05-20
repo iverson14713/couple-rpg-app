@@ -64,15 +64,40 @@ export type PendingHouseworkSpin = {
 
 export type LoveTask = {
   id: string;
+  templateId: string;
   label: string;
   emoji: string;
   done: boolean;
-  rewardedAt?: string;
 };
 
 export type TasksData = {
-  loveTasks: LoveTask[];
-  lastResetDate: string;
+  /** Date key when dailyTasks were generated. */
+  date: string;
+  dailyTasks: LoveTask[];
+};
+
+export type FlirtGameId = 'dice' | 'truth' | 'coquettish' | 'stare' | 'massage';
+
+export type CompletionRecord = {
+  id: string;
+  kind: 'task' | 'game';
+  date: string;
+  time: string;
+  title: string;
+  emoji: string;
+  gameId?: FlirtGameId;
+  detail?: string;
+};
+
+export type FlirtGameSession = {
+  gameId: FlirtGameId;
+  prompt: string;
+  startedAt: string;
+};
+
+export type FlirtGamesData = {
+  completedToday: Partial<Record<FlirtGameId, string>>;
+  activeSession: FlirtGameSession | null;
 };
 
 export type ActivityLogEntry = {

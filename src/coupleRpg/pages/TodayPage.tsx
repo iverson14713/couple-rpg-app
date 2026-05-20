@@ -6,10 +6,10 @@ import { todayKey } from '../lib/dates';
 import { lq } from '../theme';
 
 export function TodayPage() {
-  const { todayDinner, draftPick, housework, tasks, rpgView } = useLoveQuest();
+  const { todayDinner, draftPick, housework, tasks, taskProgress, rpgView } = useLoveQuest();
   const dinnerLabel = todayDinner?.label ?? draftPick;
-  const doneTasks = tasks.loveTasks.filter((t) => t.done).length;
   const pendingHw = housework.pendingSpin;
+  const { done, total } = taskProgress;
 
   return (
     <>
@@ -34,9 +34,9 @@ export function TodayPage() {
         )}
       </TodayCard>
 
-      <TodayCard emoji="💌" title="今日戀愛任務" accent={`${doneTasks}/${tasks.loveTasks.length}`}>
+      <TodayCard emoji="💌" title="今日戀愛任務" accent={`${done}/${total}`}>
         <ul className="space-y-1">
-          {tasks.loveTasks.map((t) => (
+          {tasks.dailyTasks.map((t) => (
             <li key={t.id} className="flex items-center gap-2 text-[13px]">
               <span>{t.done ? '✅' : '⬜'}</span>
               <span className={t.done ? 'text-stone-400 line-through' : 'text-stone-700'}>
@@ -45,6 +45,7 @@ export function TodayPage() {
             </li>
           ))}
         </ul>
+        {total === 0 ? <p className="mt-1 text-[12px] text-stone-500">到「任務」查看今日隨機任務</p> : null}
       </TodayCard>
     </>
   );

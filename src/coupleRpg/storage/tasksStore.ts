@@ -1,59 +1,73 @@
-import { todayKey } from '../lib/dates';
+import { LOVE_TASK_POOL } from '../data/loveTaskPool';
 import { makeId } from '../lib/id';
+import { pickCountForDay, shuffleWithSeed } from '../lib/seededRandom';
+import { todayKey } from '../lib/dates';
 import type { LoveTask, TasksData } from './types';
 import { LQ_KEYS } from './keys';
 import { loadJson, saveJson } from './persist';
 
-const DEFAULT_LOVE_TASKS: Omit<LoveTask, 'done'>[] = [
-  { id: 'lt-1', label: '傳一則甜蜜訊息', emoji: '💌' },
-  { id: 'lt-2', label: '說一句稱讚的話', emoji: '✨' },
-  { id: 'lt-3', label: '牽手散步 10 分鐘', emoji: '🚶' },
-  { id: 'lt-4', label: '規劃週末小約會', emoji: '📅' },
-];
+export function generateDailyTasks(dateKey: string): LoveTask[] {
+  const count = pickCountForDay(dateKey, 1, 3);
+  const shuffled = shuffleWithSeed(LOVE_TASK_POOL, `${dateKey}-tasks`);
+  return shuffled.slice(0, count).map((t) => ({
+    id: makeId(),
+    templateId: t.id,
+    label: t.label,
+    emoji: t.emoji,
+    done: false,
+  }));
+}
 
 export function defaultTasksData(): TasksData {
   const today = todayKey();
-  return {
-    lastResetDate: today,
-    loveTasks: DEFAULT_LOVE_TASKS.map((t) => ({ ...t, done: false })),
-  };
+  return { date: today, dailyTasks: generateDailyTasks(today) };
 }
 
-function resetIfNewDay(data: TasksData): TasksData {
+export function ensureTodayTasks(data: TasksData): TasksData {
   const today = todayKey();
-  if (data.lastResetDate === today) return data;
-  return {
-    lastResetDate: today,
-    loveTasks: data.loveTasks.map((t) => ({ ...t, done: false, rewardedAt: undefined })),
-  };
+  if (data.date === today && data.dailyTasks.length > 0) return data;
+  return { date: today, dailyTasks: generateDailyTasks(today) };
+}
+
+function migrateLegacyTasks(raw: unknown): TasksData | null {
+  if (!raw || typeof raw !== 'object') return null;
+  if ('dailyTasks' in raw && Array.isArray((raw as TasksData).dailyTasks)) {
+    return raw as TasksData;
+  }
+  return null;
 }
 
 export function loadTasks(): TasksData {
-  const raw = loadJson(LQ_KEYS.tasks, defaultTasksData());
-  return resetIfNewDay(raw);
+  const raw = loadJson<unknown>(LQ_KEYS.tasks, null);
+  const parsed = migrateLegacyTasks(raw) ?? defaultTasksData();
+  const next = ensureTodayTasks(parsed);
+  if (
+    !raw ||
+    (parsed as TasksData).date !== next.date ||
+    next.dailyTasks.length !== (parsed as TasksData).dailyTasks?.length
+  ) {
+    saveTasks(next);
+  }
+  return next;
 }
 
 export function saveTasks(data: TasksData): void {
   saveJson(LQ_KEYS.tasks, data);
 }
 
-export function toggleLoveTask(data: TasksData, id: string): { data: TasksData; task: LoveTask | null } {
-  const today = todayKey();
+export function toggleDailyTask(data: TasksData, id: string): { data: TasksData; task: LoveTask | null } {
   let changed: LoveTask | null = null;
-  const loveTasks = data.loveTasks.map((t) => {
+  const dailyTasks = data.dailyTasks.map((t) => {
     if (t.id !== id) return t;
-    const nextDone = !t.done;
-    changed = { ...t, done: nextDone, rewardedAt: nextDone ? today : undefined };
+    changed = { ...t, done: !t.done };
     return changed;
   });
-  return { data: { ...data, loveTasks }, task: changed };
+  return { data: { ...data, dailyTasks }, task: changed };
 }
 
-export function addLoveTask(data: TasksData, label: string): TasksData {
-  const trimmed = label.trim();
-  if (!trimmed) return data;
-  return {
-    ...data,
-    loveTasks: [...data.loveTasks, { id: makeId(), label: trimmed, emoji: '💕', done: false }],
-  };
+export function dailyTaskProgress(tasks: LoveTask[]) {
+  const done = tasks.filter((t) => t.done).length;
+  const total = tasks.length;
+  const pct = total ? Math.round((done / total) * 100) : 0;
+  return { done, total, pct };
 }

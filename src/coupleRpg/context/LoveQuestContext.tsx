@@ -6,6 +6,7 @@ import {
   useState,
   type ReactNode,
 } from 'react';
+import { FLIRT_GAMES, type FlirtGameId } from '../data/flirtGames';
 import { loadJson, saveJson } from '../storage/persist';
 import { LQ_KEYS } from '../storage/keys';
 import {
@@ -23,7 +24,26 @@ import {
   saveHousework,
   spinHousework,
 } from '../storage/houseworkStore';
-import { loadTasks, saveTasks, toggleLoveTask } from '../storage/tasksStore';
+import {
+  dailyTaskProgress,
+  loadTasks,
+  saveTasks,
+  toggleDailyTask,
+} from '../storage/tasksStore';
+import {
+  clearSession,
+  isGameDoneToday,
+  loadFlirtGames,
+  markGameCompleted,
+  rollGamePrompt,
+  saveFlirtGames,
+  startGameSession,
+} from '../storage/flirtGamesStore';
+import {
+  appendCompletion,
+  getRecentCompletions,
+  loadCompletionHistory,
+} from '../storage/completionHistoryStore';
 import { appendActivity, loadActivity } from '../storage/activityStore';
 import {
   applyReward,
@@ -34,8 +54,10 @@ import {
 } from '../storage/rpgLogic';
 import type {
   ActivityLogEntry,
+  CompletionRecord,
   CoupleProfile,
   DinnerData,
+  FlirtGamesData,
   HouseworkData,
   PartnerId,
   RpgState,
@@ -61,6 +83,10 @@ type LoveQuestContextValue = {
   housework: HouseworkData;
   weeklyStats: WeeklyHouseworkStats;
   tasks: TasksData;
+  taskProgress: ReturnType<typeof dailyTaskProgress>;
+  flirtGames: FlirtGamesData;
+  flirtGameDefs: typeof FLIRT_GAMES;
+  completionHistory: CompletionRecord[];
   activity: ActivityLogEntry[];
   draftPick: string | null;
   spinning: boolean;
@@ -73,7 +99,12 @@ type LoveQuestContextValue = {
   rollHousework: () => void;
   completeHouseworkSpin: () => void;
   clearHouseworkSpin: () => void;
-  toggleTask: (id: string) => void;
+  toggleDailyTask: (id: string) => void;
+  startFlirtGame: (gameId: FlirtGameId) => void;
+  rerollFlirtPrompt: () => void;
+  completeFlirtGame: () => void;
+  cancelFlirtGame: () => void;
+  isFlirtGameDoneToday: (gameId: FlirtGameId) => boolean;
   partnerName: (id: PartnerId) => string;
   partnerEmoji: (id: PartnerId) => string;
 };
@@ -98,9 +129,13 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
   const [dinner, setDinner] = useState(loadDinner);
   const [housework, setHousework] = useState(loadHousework);
   const [tasks, setTasks] = useState(loadTasks);
+  const [flirtGames, setFlirtGames] = useState(loadFlirtGames);
+  const [completionHistory, setCompletionHistory] = useState(loadCompletionHistory);
   const [activity, setActivity] = useState(loadActivity);
   const [draftPick, setDraftPick] = useState<string | null>(null);
   const [spinning, setSpinning] = useState(false);
+
+  const taskProgress = useMemo(() => dailyTaskProgress(tasks.dailyTasks), [tasks.dailyTasks]);
 
   const grantReward = useCallback((reward: RpgReward, log: string) => {
     setRpg((prev) => {
@@ -110,6 +145,14 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
     });
     setActivity(appendActivity(log));
   }, []);
+
+  const addCompletion = useCallback(
+    (kind: CompletionRecord['kind'], title: string, emoji: string, meta?: { gameId?: FlirtGameId; detail?: string }) => {
+      const next = appendCompletion(kind, title, emoji, meta);
+      setCompletionHistory(next);
+    },
+    []
+  );
 
   const addDinnerOption = useCallback((label: string) => {
     const trimmed = label.trim();
@@ -200,10 +243,7 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
       const { data: next, completion } = completePending(prev, prev.pendingSpin);
       saveHousework(next);
       const name = completion.partner === 'A' ? couple.nameA : couple.nameB;
-      grantReward(
-        REWARDS.houseworkComplete,
-        `${name} 完成「${completion.taskLabel}」家事 +10 分`
-      );
+      grantReward(REWARDS.houseworkComplete, `${name} 完成「${completion.taskLabel}」家事 +10 分`);
       return next;
     });
   }, [couple.nameA, couple.nameB, grantReward]);
@@ -216,19 +256,78 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
-  const toggleTask = useCallback(
+  const toggleDailyTaskFn = useCallback(
     (id: string) => {
       setTasks((prev) => {
-        const wasDone = prev.loveTasks.find((t) => t.id === id)?.done ?? false;
-        const { data: next, task } = toggleLoveTask(prev, id);
+        const wasDone = prev.dailyTasks.find((t) => t.id === id)?.done ?? false;
+        const { data: next, task } = toggleDailyTask(prev, id);
         saveTasks(next);
         if (task?.done && !wasDone) {
           grantReward(REWARDS.loveTaskComplete, `完成戀愛任務「${task.label}」`);
+          addCompletion('task', task.label, task.emoji);
         }
         return next;
       });
     },
-    [grantReward]
+    [grantReward, addCompletion]
+  );
+
+  const startFlirtGame = useCallback((gameId: FlirtGameId) => {
+    setFlirtGames((prev) => {
+      const next = startGameSession(prev, gameId);
+      saveFlirtGames(next);
+      return next;
+    });
+  }, []);
+
+  const rerollFlirtPrompt = useCallback(() => {
+    setFlirtGames((prev) => {
+      const gid = prev.activeSession?.gameId;
+      if (!gid) return prev;
+      const prompt = rollGamePrompt(gid, String(Date.now()));
+      const next = {
+        ...prev,
+        activeSession: { ...prev.activeSession!, prompt },
+      };
+      saveFlirtGames(next);
+      return next;
+    });
+  }, []);
+
+  const completeFlirtGame = useCallback(() => {
+    setFlirtGames((prev) => {
+      const session = prev.activeSession;
+      if (!session?.gameId) return prev;
+      const gameId = session.gameId;
+      const def = FLIRT_GAMES.find((g) => g.id === gameId);
+      const alreadyDone = isGameDoneToday(prev, gameId);
+
+      const next = markGameCompleted(prev, gameId);
+      saveFlirtGames(next);
+
+      if (!alreadyDone) {
+        grantReward(REWARDS.flirtGameComplete, `完成小遊戲「${def?.title ?? gameId}」`);
+      }
+      addCompletion('game', def?.title ?? '曖昧小遊戲', def?.emoji ?? '🎮', {
+        gameId,
+        detail: session.prompt,
+      });
+
+      return next;
+    });
+  }, [grantReward, addCompletion]);
+
+  const cancelFlirtGame = useCallback(() => {
+    setFlirtGames((prev) => {
+      const next = clearSession(prev);
+      saveFlirtGames(next);
+      return next;
+    });
+  }, []);
+
+  const isFlirtGameDoneTodayFn = useCallback(
+    (gameId: FlirtGameId) => isGameDoneToday(flirtGames, gameId),
+    [flirtGames]
   );
 
   const partnerName = useCallback(
@@ -252,6 +351,10 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
       housework,
       weeklyStats: getWeeklyStats(housework.completions),
       tasks,
+      taskProgress,
+      flirtGames,
+      flirtGameDefs: FLIRT_GAMES,
+      completionHistory: getRecentCompletions(completionHistory),
       activity,
       draftPick,
       spinning,
@@ -264,7 +367,12 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
       rollHousework,
       completeHouseworkSpin,
       clearHouseworkSpin,
-      toggleTask,
+      toggleDailyTask: toggleDailyTaskFn,
+      startFlirtGame,
+      rerollFlirtPrompt,
+      completeFlirtGame,
+      cancelFlirtGame,
+      isFlirtGameDoneToday: isFlirtGameDoneTodayFn,
       partnerName,
       partnerEmoji,
     }),
@@ -274,6 +382,9 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
       dinner,
       housework,
       tasks,
+      taskProgress,
+      flirtGames,
+      completionHistory,
       activity,
       draftPick,
       spinning,
@@ -286,7 +397,12 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
       rollHousework,
       completeHouseworkSpin,
       clearHouseworkSpin,
-      toggleTask,
+      toggleDailyTaskFn,
+      startFlirtGame,
+      rerollFlirtPrompt,
+      completeFlirtGame,
+      cancelFlirtGame,
+      isFlirtGameDoneTodayFn,
       partnerName,
       partnerEmoji,
     ]

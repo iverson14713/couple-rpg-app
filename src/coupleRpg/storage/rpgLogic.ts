@@ -13,6 +13,7 @@ export type RpgReward = {
 export const REWARDS = {
   houseworkComplete: { heart: 3, compatibility: 2, xp: 20, houseworkPoints: 10 },
   loveTaskComplete: { heart: 2, compatibility: 1, xp: 12, houseworkPoints: 0 },
+  flirtGameComplete: { heart: 3, compatibility: 2, xp: 15, houseworkPoints: 0 },
   dinnerSaved: { heart: 2, compatibility: 1, xp: 8, houseworkPoints: 0 },
 } as const;
 
