@@ -1,6 +1,5 @@
 import { useMemo } from 'react';
 import { useSupabaseAuth } from '../../useSupabaseAuth';
-import { FeatureActionCard } from '../components/FeatureActionCard';
 import { useCoupleRpgNav } from '../context/CoupleRpgNavContext';
 import { useLoveQuest } from '../context/LoveQuestContext';
 import { getUpcomingImportantDates, formatHomeCoupleHeaderLine } from '../lib/importantDates';
@@ -18,7 +17,6 @@ export function TodayPage() {
     housework,
     taskProgress,
     rpgView,
-    rpg,
     datePlanner,
     activeAnniversaryReminders,
     dismissAnniversaryReminder,
@@ -175,46 +173,40 @@ export function TodayPage() {
           </div>
         </section>
 
-        <FeatureActionCard
-          emoji="🍽️"
-          title="今晚吃什麼？"
-          description="不知道吃什麼就交給命運決定"
-          cta="開始抽晚餐"
-          badge={dinnerLabel ? '已決定' : undefined}
-          onAction={() => navigateTo('dinner')}
-        />
-        <FeatureActionCard
-          emoji="🏠"
-          title="家事誰來做？"
-          description="公平分配，不再吵架"
-          cta="分配家事"
-          badge={pendingHw ? '待完成' : undefined}
-          onAction={() => navigateTo('housework')}
-        />
-        <FeatureActionCard
-          emoji="💌"
-          title="今日戀愛任務"
-          description="完成小任務，累積愛心幣"
-          cta="查看任務"
-          badge={total > 0 ? `${done}/${total}` : undefined}
-          onAction={() => navigateTo('tasks')}
-        />
-        <FeatureActionCard
-          emoji="💑"
-          title="約會去哪裡？"
-          description="今天來一點不一樣的"
-          cta="抽約會"
-          badge={datePlanner.current ? '有提案' : undefined}
-          onAction={() => navigateTo('dates')}
-        />
-        <FeatureActionCard
-          emoji="🎁"
-          title="獎勵商城"
-          description="用愛心幣兌換專屬卡券"
-          cta="去兌換"
-          badge={rpg.loveCoins > 0 ? `${rpg.loveCoins} 幣` : undefined}
-          onAction={() => navigateTo('rewards')}
-        />
+        <div className="grid grid-cols-2 gap-2">
+          <HomeCoreFeatureCard
+            emoji="🍽️"
+            title="今晚吃什麼？"
+            description="不知道吃什麼就交給命運決定"
+            badge={dinnerLabel ? '已決定' : undefined}
+            cta="開始抽晚餐"
+            onAction={() => navigateTo('dinner')}
+          />
+          <HomeCoreFeatureCard
+            emoji="🏠"
+            title="家事誰來做？"
+            description="公平分配，不再吵架"
+            badge={pendingHw ? '待完成' : undefined}
+            cta="分配家事"
+            onAction={() => navigateTo('housework')}
+          />
+          <HomeCoreFeatureCard
+            emoji="💌"
+            title="今日戀愛任務"
+            description="完成小任務，累積愛心幣"
+            badge={total > 0 ? `${done}/${total}` : undefined}
+            cta="查看任務"
+            onAction={() => navigateTo('tasks')}
+          />
+          <HomeCoreFeatureCard
+            emoji="💑"
+            title="約會去哪裡？"
+            description="今天來一點不一樣的"
+            badge={datePlanner.current ? '有提案' : undefined}
+            cta="抽約會"
+            onAction={() => navigateTo('dates')}
+          />
+        </div>
       </div>
 
       {total > 0 && pct < 100 ? (
@@ -223,6 +215,45 @@ export function TodayPage() {
         </p>
       ) : null}
     </>
+  );
+}
+
+function HomeCoreFeatureCard({
+  emoji,
+  title,
+  description,
+  badge,
+  cta,
+  onAction,
+}: {
+  emoji: string;
+  title: string;
+  description: string;
+  badge?: string;
+  cta: string;
+  onAction: () => void;
+}) {
+  return (
+    <article
+      className={`relative flex min-h-[9.75rem] flex-col rounded-2xl border border-rose-100/90 bg-white/95 p-2.5 shadow-[0_6px_22px_-12px_rgba(244,114,182,0.38)] transition active:scale-[0.99]`}
+    >
+      {badge ? (
+        <span className="absolute right-2 top-2 max-w-[calc(100%-3.5rem)] truncate rounded-full bg-rose-50 px-1.5 py-0.5 text-[8px] font-bold text-rose-600 ring-1 ring-rose-100/90">
+          {badge}
+        </span>
+      ) : null}
+      <span
+        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-rose-50 to-pink-100 text-lg ring-1 ring-rose-100/70"
+        aria-hidden
+      >
+        {emoji}
+      </span>
+      <h3 className="mt-1.5 pr-1 text-[11px] font-bold leading-snug text-stone-900">{title}</h3>
+      <p className="mt-0.5 line-clamp-2 flex-1 text-[9px] leading-snug text-stone-500">{description}</p>
+      <button type="button" onClick={onAction} className={`mt-2 w-full rounded-lg py-1.5 text-[10px] font-bold ${lq.btnPrimary}`}>
+        {cta}
+      </button>
+    </article>
   );
 }
 
