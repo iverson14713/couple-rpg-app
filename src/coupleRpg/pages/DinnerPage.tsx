@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Dices, UtensilsCrossed } from 'lucide-react';
 import { useLoveQuest } from '../context/LoveQuestContext';
 import { formatDateShort } from '../lib/dates';
@@ -9,6 +9,11 @@ import { lq } from '../theme';
 export function DinnerPage({ embedded }: { embedded?: boolean } = {}) {
   const lqState = useLoveQuest();
   const [newLabel, setNewLabel] = useState('');
+  const [syncBusy, setSyncBusy] = useState(false);
+
+  useEffect(() => {
+    void lqState.pullDinnerFromCloud();
+  }, [lqState.pullDinnerFromCloud]);
 
   const displayResult = lqState.draftPick ?? lqState.todayDinner?.label ?? null;
 
@@ -20,6 +25,20 @@ export function DinnerPage({ embedded }: { embedded?: boolean } = {}) {
           <RpgMiniStats compact />
         </>
       ) : null}
+
+      <div className="mb-3 flex justify-end">
+        <button
+          type="button"
+          disabled={syncBusy}
+          onClick={() => {
+            setSyncBusy(true);
+            void lqState.syncDinnerFoodOptions().finally(() => setSyncBusy(false));
+          }}
+          className="rounded-xl border border-rose-200 bg-white px-3 py-1.5 text-[11px] font-bold text-rose-700 shadow-sm active:scale-[0.98] disabled:opacity-50"
+        >
+          {syncBusy ? '同步中…' : '同步晚餐資料'}
+        </button>
+      </div>
 
       <section className={`mb-3 p-4 ${lq.card}`}>
         <h2 className="mb-2 text-sm font-bold text-stone-900">今晚吃什麼？</h2>

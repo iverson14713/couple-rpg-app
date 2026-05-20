@@ -105,6 +105,7 @@ import type {
   CompletionRecord,
   CoupleProfile,
   DinnerData,
+  DinnerOption,
   FlirtGamesData,
   HouseworkData,
   PartnerId,
@@ -114,6 +115,16 @@ import type {
 import type { WeeklyHouseworkStats } from '../storage/houseworkStore';
 import { makeId } from '../lib/id';
 import { todayKey } from '../lib/dates';
+import { useOnlineStatus } from '../../hooks/useOnlineStatus';
+import { useSupabaseAuth } from '../../useSupabaseAuth';
+import {
+  canSyncFoodOptions,
+  deleteFoodOptionRemote,
+  pullRemoteFoodOptions,
+  pushAllLocalDinnerOptions,
+  pushDinnerOptionToSupabase,
+} from '../services/foodOptionsSync';
+import { useCoupleSpace } from './CoupleSpaceContext';
 
 const DEFAULT_COUPLE: CoupleProfile = {
   nameA: '小晴',
@@ -143,6 +154,8 @@ type LoveQuestContextValue = {
   removeDinnerOption: (id: string) => void;
   rollDinner: () => void;
   saveDinnerResult: (label?: string) => void;
+  pullDinnerFromCloud: () => Promise<void>;
+  syncDinnerFoodOptions: () => Promise<void>;
   addHouseworkItem: (label: string, emoji?: string) => void;
   removeHouseworkItem: (id: string) => void;
   rollHousework: () => void;
@@ -226,6 +239,11 @@ function loadCouple(): CoupleProfile {
 }
 
 export function LoveQuestProvider({ children }: { children: ReactNode }) {
+  const auth = useSupabaseAuth();
+  const isOnline = useOnlineStatus();
+  const { space, loading: coupleSpaceLoading } = useCoupleSpace();
+  const coupleId = space?.coupleId ?? null;
+
   const [couple] = useState(loadCouple);
   const [rpg, setRpg] = useState(loadRpg);
   const [dinner, setDinner] = useState(loadDinner);
@@ -289,26 +307,113 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
     []
   );
 
-  const addDinnerOption = useCallback((label: string) => {
-    const trimmed = label.trim();
-    if (!trimmed) return;
-    setDinner((prev) => {
-      const next: DinnerData = {
-        ...prev,
-        options: [...prev.options, { id: makeId(), label: trimmed }],
-      };
-      saveDinner(next);
-      return next;
-    });
-  }, []);
+  const pullDinnerFromCloud = useCallback(async () => {
+    if (coupleSpaceLoading) return;
+    if (!canSyncFoodOptions({
+      configured: auth.configured,
+      userId: auth.user?.id ?? null,
+      coupleId,
+      online: isOnline,
+    })) {
+      return;
+    }
+    if (!auth.supabase || !coupleId) return;
+    try {
+      const cur = loadDinner();
+      const merged = await pullRemoteFoodOptions(auth.supabase, coupleId, cur);
+      saveDinner(merged);
+      setDinner(merged);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      console.error('[food-sync] pull failed:', msg);
+    }
+  }, [auth.configured, auth.supabase, auth.user?.id, coupleId, coupleSpaceLoading, isOnline]);
 
-  const removeDinnerOption = useCallback((id: string) => {
-    setDinner((prev) => {
-      const next = { ...prev, options: prev.options.filter((o) => o.id !== id) };
-      saveDinner(next);
-      return next;
-    });
-  }, []);
+  const syncDinnerFoodOptions = useCallback(async () => {
+    if (!canSyncFoodOptions({
+      configured: auth.configured,
+      userId: auth.user?.id ?? null,
+      coupleId,
+      online: isOnline,
+    })) {
+      console.warn('[food-sync] sync skipped: 需要登入、情侶空間與網路');
+      return;
+    }
+    if (!auth.supabase || !coupleId) return;
+    try {
+      const cur = loadDinner();
+      await pushAllLocalDinnerOptions(auth.supabase, coupleId, cur);
+      const merged = await pullRemoteFoodOptions(auth.supabase, coupleId, cur);
+      saveDinner(merged);
+      setDinner(merged);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      console.error('[food-sync] sync failed:', msg);
+    }
+  }, [auth.configured, auth.supabase, auth.user?.id, coupleId, isOnline]);
+
+  const addDinnerOption = useCallback(
+    (label: string) => {
+      const trimmed = label.trim();
+      if (!trimmed) return;
+      const newId = makeId();
+      setDinner((prev) => {
+        const next: DinnerData = {
+          ...prev,
+          options: [...prev.options, { id: newId, label: trimmed }],
+        };
+        saveDinner(next);
+        console.log('[food-sync] local saved');
+        const sortOrder = next.options.length - 1;
+        const opt: DinnerOption = { id: newId, label: trimmed };
+        if (
+          canSyncFoodOptions({
+            configured: auth.configured,
+            userId: auth.user?.id ?? null,
+            coupleId,
+            online: isOnline,
+          }) &&
+          auth.supabase &&
+          coupleId
+        ) {
+          console.log(`[food-sync] current couple_id = ${coupleId}`);
+          void pushDinnerOptionToSupabase(auth.supabase, coupleId, opt, sortOrder).catch((e) => {
+            const msg = e instanceof Error ? e.message : String(e);
+            console.error('[food-sync] push failed:', msg);
+          });
+        }
+        return next;
+      });
+    },
+    [auth.configured, auth.supabase, auth.user?.id, coupleId, isOnline]
+  );
+
+  const removeDinnerOption = useCallback(
+    (id: string) => {
+      setDinner((prev) => {
+        const next = { ...prev, options: prev.options.filter((o) => o.id !== id) };
+        saveDinner(next);
+        console.log('[food-sync] local saved');
+        if (
+          canSyncFoodOptions({
+            configured: auth.configured,
+            userId: auth.user?.id ?? null,
+            coupleId,
+            online: isOnline,
+          }) &&
+          auth.supabase &&
+          coupleId
+        ) {
+          void deleteFoodOptionRemote(auth.supabase, coupleId, id).catch((e) => {
+            const msg = e instanceof Error ? e.message : String(e);
+            console.error('[food-sync] delete remote failed:', msg);
+          });
+        }
+        return next;
+      });
+    },
+    [auth.configured, auth.supabase, auth.user?.id, coupleId, isOnline]
+  );
 
   const rollDinner = useCallback(() => {
     setDinner((prev) => {
@@ -721,6 +826,8 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
       removeDinnerOption,
       rollDinner,
       saveDinnerResult,
+      pullDinnerFromCloud,
+      syncDinnerFoodOptions,
       addHouseworkItem,
       removeHouseworkItem,
       rollHousework,
@@ -785,6 +892,8 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
       removeDinnerOption,
       rollDinner,
       saveDinnerResult,
+      pullDinnerFromCloud,
+      syncDinnerFoodOptions,
       addHouseworkItem,
       removeHouseworkItem,
       rollHousework,

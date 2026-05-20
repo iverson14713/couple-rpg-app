@@ -18,13 +18,13 @@ import { lq } from './theme';
 
 export default function CoupleRpgApp() {
   return (
-    <LoveQuestProvider>
-      <CoupleSpaceProvider>
+    <CoupleSpaceProvider>
+      <LoveQuestProvider>
         <CoupleRpgNavProvider>
           <CoupleRpgShell />
         </CoupleRpgNavProvider>
-      </CoupleSpaceProvider>
-    </LoveQuestProvider>
+      </LoveQuestProvider>
+    </CoupleSpaceProvider>
   );
 }
 
