@@ -1,56 +1,49 @@
-import { MOCK_HISTORY, MOCK_MEMORIES } from '../mockData';
+import { useLoveQuest } from '../context/LoveQuestContext';
+import { PageHero } from '../components/ui';
 import { lq } from '../theme';
 
 export function MemoriesPage() {
+  const { activity, dinnerHistory } = useLoveQuest();
+
   return (
     <>
-      <section className={`mb-4 p-4 ${lq.card}`}>
-        <span className="text-3xl" aria-hidden>
-          📷
-        </span>
-        <h1 className="mt-2 text-xl font-bold text-stone-900">回憶與歷史</h1>
-        <p className="mt-1 text-sm text-stone-500">珍藏時光與活動紀錄（示範資料）</p>
-      </section>
+      <PageHero emoji="📷" title="回憶與歷史" subtitle="晚餐紀錄與你們的成長足跡" />
 
-      <section className={`mb-4 p-4 ${lq.card}`}>
-        <h2 className="mb-3 text-base font-bold text-stone-900">甜蜜回憶</h2>
-        <ul className="space-y-3">
-          {MOCK_MEMORIES.map((m) => (
-            <li key={m.id} className={`rounded-2xl p-3 ${lq.cardSoft}`}>
-              <MemoryRow entry={m} />
-            </li>
-          ))}
-        </ul>
+      <section className={`mb-3 p-4 ${lq.card}`}>
+        <h2 className="mb-2 text-sm font-bold text-stone-900">晚餐回憶</h2>
+        {dinnerHistory.length === 0 ? (
+          <p className="text-[13px] text-stone-500">尚無晚餐紀錄</p>
+        ) : (
+          <ul className="space-y-1.5">
+            {dinnerHistory.map((h) => (
+              <li
+                key={h.id}
+                className="flex items-center justify-between rounded-xl bg-rose-50/50 px-3 py-2 text-[13px]"
+              >
+                <span className="font-semibold text-stone-800">🍽️ {h.label}</span>
+                <span className="text-stone-400">{h.date}</span>
+              </li>
+            ))}
+          </ul>
+        )}
       </section>
 
       <section className={`p-4 ${lq.card}`}>
-        <h2 className="mb-3 text-base font-bold text-stone-900">歷史紀錄</h2>
-        <ul className="space-y-2">
-          {MOCK_HISTORY.map((h) => (
-            <li key={h.id} className="rounded-xl border border-rose-50 bg-white/80 px-3 py-2.5 text-[13px]">
-              <span className="font-semibold text-stone-900">{h.actor}</span>
-              <span className="text-stone-400">
-                {' '}
-                · {h.date} {h.time}
-              </span>
-              <p className="mt-0.5 text-stone-600">{h.summary}</p>
-            </li>
-          ))}
-        </ul>
+        <h2 className="mb-2 text-sm font-bold text-stone-900">活動歷史</h2>
+        {activity.length === 0 ? (
+          <p className="text-[13px] text-stone-500">完成家事、任務或儲存晚餐後會出現在這裡</p>
+        ) : (
+          <ul className="space-y-2">
+            {activity.map((h) => (
+              <li key={h.id} className="rounded-xl border border-rose-50 bg-white/80 px-3 py-2.5 text-[13px]">
+                <span className="font-semibold text-stone-900">{h.date}</span>
+                <span className="text-stone-400"> · {h.time}</span>
+                <p className="mt-0.5 text-stone-600">{h.summary}</p>
+              </li>
+            ))}
+          </ul>
+        )}
       </section>
     </>
-  );
-}
-
-function MemoryRow({ entry }: { entry: (typeof MOCK_MEMORIES)[number] }) {
-  return (
-    <div className="flex gap-3">
-      <span className="text-2xl">{entry.emoji}</span>
-      <div className="min-w-0">
-        <p className="text-[11px] font-medium text-stone-400">{entry.date}</p>
-        <p className="font-bold text-stone-900">{entry.title}</p>
-        <p className="mt-0.5 text-[13px] leading-relaxed text-stone-600">{entry.note}</p>
-      </div>
-    </div>
   );
 }

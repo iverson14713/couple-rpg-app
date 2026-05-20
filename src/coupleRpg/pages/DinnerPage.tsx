@@ -1,26 +1,96 @@
-import { ChecklistSection } from '../components/ChecklistSection';
-import { useToggleChecklist } from '../hooks/useToggleChecklist';
-import { MOCK_DINNER } from '../mockData';
+import { useState } from 'react';
+import { Dices, UtensilsCrossed } from 'lucide-react';
+import { useLoveQuest } from '../context/LoveQuestContext';
+import { formatDateShort } from '../lib/dates';
+import { RpgMiniStats } from '../components/RpgMiniStats';
+import { ChipRow, InlineInput, OptionChip, PageHero, PrimaryButton } from '../components/ui';
 import { lq } from '../theme';
 
 export function DinnerPage() {
-  const dinner = useToggleChecklist(MOCK_DINNER);
+  const lqState = useLoveQuest();
+  const [newLabel, setNewLabel] = useState('');
+
+  const displayResult = lqState.draftPick ?? lqState.todayDinner?.label ?? null;
 
   return (
     <>
-      <section className={`mb-4 p-4 ${lq.card}`}>
-        <span className="text-3xl" aria-hidden>
-          🍽️
-        </span>
-        <h1 className="mt-2 text-xl font-bold text-stone-900">晚餐計畫</h1>
-        <p className="mt-1 text-sm text-stone-500">今晚想吃什麼？一起勾選完成吧（示範資料）</p>
+      <PageHero emoji="🍽️" title="晚餐決定器" subtitle="新增選項、隨機抽籤，再也不吵架" />
+      <RpgMiniStats compact />
+
+      <section className={`mb-3 p-4 ${lq.card}`}>
+        <h2 className="mb-2 text-sm font-bold text-stone-900">今晚吃什麼？</h2>
+        <div
+          className={`mb-3 flex min-h-[88px] flex-col items-center justify-center rounded-2xl border-2 border-dashed px-4 py-5 text-center ${
+            displayResult ? 'border-rose-200 bg-gradient-to-br from-rose-50 to-amber-50/80' : 'border-rose-100 bg-rose-50/40'
+          }`}
+        >
+          {displayResult ? (
+            <>
+              <UtensilsCrossed className="mb-1 h-6 w-6 text-rose-400" aria-hidden />
+              <p className="text-xl font-extrabold text-rose-700">{displayResult}</p>
+              {lqState.todayDinner && !lqState.draftPick ? (
+                <p className="mt-1 text-[11px] text-stone-500">已儲存今日結果</p>
+              ) : lqState.draftPick ? (
+                <p className="mt-1 text-[11px] text-stone-500">抽籤結果 · 記得儲存</p>
+              ) : null}
+            </>
+          ) : (
+            <p className="text-sm text-stone-500">按下隨機抽籤開始</p>
+          )}
+        </div>
+
+        <PrimaryButton onClick={lqState.rollDinner} className="flex items-center justify-center gap-2">
+          <Dices className="h-4 w-4" aria-hidden />
+          隨機抽籤
+        </PrimaryButton>
+        <PrimaryButton
+          variant="secondary"
+          disabled={!displayResult}
+          onClick={() => lqState.saveDinnerResult()}
+          className="mt-2"
+        >
+          儲存今日結果
+        </PrimaryButton>
       </section>
-      <ChecklistSection title="今晚流程" items={dinner.items} onToggle={dinner.toggle} />
-      <section className={`p-4 ${lq.cardSoft}`}>
-        <p className="text-sm font-bold text-rose-800">💡 小提示</p>
-        <p className="mt-1 text-[13px] leading-relaxed text-stone-600">
-          完成晚餐任務可獲得愛心值 +2，並提升默契度。
-        </p>
+
+      <section className={`mb-3 p-4 ${lq.card}`}>
+        <h2 className="mb-2 text-sm font-bold text-stone-900">晚餐選項</h2>
+        <InlineInput
+          value={newLabel}
+          onChange={setNewLabel}
+          placeholder="例如：麻辣鍋、披薩…"
+          onSubmit={() => {
+            lqState.addDinnerOption(newLabel);
+            setNewLabel('');
+          }}
+        />
+        <ChipRow>
+          {lqState.dinner.options.map((o) => (
+            <OptionChip key={o.id} label={o.label} onRemove={() => lqState.removeDinnerOption(o.id)} />
+          ))}
+        </ChipRow>
+        {lqState.dinner.options.length === 0 ? (
+          <p className="mt-2 text-[12px] text-stone-500">至少新增一個選項才能抽籤</p>
+        ) : null}
+      </section>
+
+      <section className={`p-4 ${lq.card}`}>
+        <h2 className="mb-2 text-sm font-bold text-stone-900">最近 7 天晚餐</h2>
+        {lqState.dinnerHistory.length === 0 ? (
+          <p className="text-[13px] text-stone-500">尚無紀錄，儲存今日結果後會出現在這裡</p>
+        ) : (
+          <ul className="space-y-1.5">
+            {lqState.dinnerHistory.map((h) => (
+              <li
+                key={h.id}
+                className="flex items-center justify-between rounded-xl bg-rose-50/50 px-3 py-2 text-[13px]"
+              >
+                <span className="font-semibold text-stone-800">{h.label}</span>
+                <span className="text-stone-400">{formatDateShort(h.date)}</span>
+              </li>
+            ))}
+          </ul>
+        )}
       </section>
     </>
   );

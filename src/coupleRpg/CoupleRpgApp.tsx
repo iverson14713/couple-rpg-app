@@ -2,6 +2,7 @@ import { useState, type ReactNode } from 'react';
 import { OfflineBanner } from '../components/OfflineBanner';
 import { useOnlineStatus } from '../hooks/useOnlineStatus';
 import { useSupabaseAuth } from '../useSupabaseAuth';
+import { LoveQuestProvider } from './context/LoveQuestContext';
 import { BottomNav, type CoupleTabId } from './components/BottomNav';
 import { DinnerPage } from './pages/DinnerPage';
 import { HouseworkPage } from './pages/HouseworkPage';
@@ -18,20 +19,22 @@ export default function CoupleRpgApp() {
   const auth = useSupabaseAuth();
 
   return (
-    <AppRoot>
-      {!isOnline ? <OfflineBanner message="目前離線，部分功能可能無法同步。" /> : null}
-      {auth.configured && auth.authReady && auth.user ? <LoggedInStrip auth={auth} /> : null}
-      <main key={tab} className="page-tab-fade">
-        {tab === 'today' && <TodayPage />}
-        {tab === 'dinner' && <DinnerPage />}
-        {tab === 'housework' && <HouseworkPage />}
-        {tab === 'tasks' && <TasksPage />}
-        {tab === 'rpg' && <RpgPage />}
-        {tab === 'memories' && <MemoriesPage />}
-        {tab === 'settings' && <SettingsPage />}
-      </main>
-      <BottomNav active={tab} onChange={setTab} />
-    </AppRoot>
+    <LoveQuestProvider>
+      <AppRoot>
+        {!isOnline ? <OfflineBanner message="目前離線，部分功能可能無法同步。" /> : null}
+        {auth.configured && auth.authReady && auth.user ? <LoggedInStrip auth={auth} /> : null}
+        <main key={tab} className="page-tab-fade">
+          {tab === 'today' && <TodayPage />}
+          {tab === 'dinner' && <DinnerPage />}
+          {tab === 'housework' && <HouseworkPage />}
+          {tab === 'tasks' && <TasksPage />}
+          {tab === 'rpg' && <RpgPage />}
+          {tab === 'memories' && <MemoriesPage />}
+          {tab === 'settings' && <SettingsPage />}
+        </main>
+        <BottomNav active={tab} onChange={setTab} />
+      </AppRoot>
+    </LoveQuestProvider>
   );
 }
 

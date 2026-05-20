@@ -1,11 +1,12 @@
+import { useLoveQuest } from '../context/LoveQuestContext';
 import { APP_NAME, APP_NAME_EN, lq } from '../theme';
-import { MOCK_COUPLE } from '../mockData';
 
 type Props = {
   dateLabel: string;
 };
 
 export function AppHeader({ dateLabel }: Props) {
+  const { couple } = useLoveQuest();
   return (
     <header className={`mb-4 p-4 ${lq.card}`}>
       <div className="flex items-center gap-3">
@@ -16,7 +17,7 @@ export function AppHeader({ dateLabel }: Props) {
           <h1 className="truncate text-lg font-bold text-stone-900">{APP_NAME}</h1>
           <p className="text-[11px] font-medium tracking-wide text-stone-400">{APP_NAME_EN}</p>
           <p className="mt-0.5 truncate text-xs text-stone-600">
-            {MOCK_COUPLE.emojiA} {MOCK_COUPLE.nameA} · {MOCK_COUPLE.emojiB} {MOCK_COUPLE.nameB} · {dateLabel}
+            {couple.emojiA} {couple.nameA} · {couple.emojiB} {couple.nameB} · {dateLabel}
           </p>
         </div>
       </div>

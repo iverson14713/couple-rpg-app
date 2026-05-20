@@ -1,12 +1,9 @@
-import type { CoupleStats } from '../mockData';
+import { useLoveQuest } from '../context/LoveQuestContext';
 import { lq } from '../theme';
 
-type Props = {
-  stats: CoupleStats;
-};
-
-export function StatsCard({ stats }: Props) {
-  const heartPct = Math.round((stats.heartPoints / stats.heartMax) * 100);
+export function StatsCard() {
+  const { rpgView } = useLoveQuest();
+  const heartPct = Math.round((rpgView.heartPoints / rpgView.heartMax) * 100);
 
   return (
     <section className={`mb-4 p-4 ${lq.card}`}>
@@ -15,17 +12,17 @@ export function StatsCard({ stats }: Props) {
         <StatBlock
           emoji="💖"
           label="愛心值"
-          value={`${stats.heartPoints}`}
-          sub={`/ ${stats.heartMax}`}
+          value={`${rpgView.heartPoints}`}
+          sub={`/ ${rpgView.heartMax}`}
           pct={heartPct}
           barClass={lq.progress}
         />
         <StatBlock
           emoji="🤝"
           label="默契度"
-          value={`${stats.compatibility}%`}
-          sub="本週穩定上升"
-          pct={stats.compatibility}
+          value={`${rpgView.compatibility}%`}
+          sub={`Lv.${rpgView.level} ${rpgView.title}`}
+          pct={rpgView.compatibility}
           barClass="bg-gradient-to-r from-amber-200 via-pink-300 to-rose-400"
         />
       </div>
@@ -53,11 +50,16 @@ function StatBlock({
       <span className="text-2xl">{emoji}</span>
       <p className="mt-1 text-[11px] font-bold text-stone-500">{label}</p>
       <p className={`text-2xl font-extrabold tabular-nums ${lq.accent}`}>{value}</p>
-      <p className="text-[10px] text-stone-400">{sub}</p>
-      <div className={`mt-2 h-1.5 overflow-hidden rounded-full ${lq.progressTrack}`}>
-        <div className={`h-full rounded-full ${barClass} transition-all`} style={{ width: `${pct}%` }} />
-      </div>
+      <p className="truncate text-[10px] text-stone-400">{sub}</p>
+      <ProgressTrack pct={pct} barClass={barClass} />
     </div>
   );
 }
 
+function ProgressTrack({ pct, barClass }: { pct: number; barClass: string }) {
+  return (
+    <div className={`mt-2 h-1.5 overflow-hidden rounded-full ${lq.progressTrack}`}>
+      <div className={`h-full rounded-full ${barClass} transition-all`} style={{ width: `${pct}%` }} />
+    </div>
+  );
+}
