@@ -1,27 +1,11 @@
-import { Cloud, Bell, Smartphone } from 'lucide-react';
-import { useAppBootstrap } from '../../AppBootstrapContext';
-import { useSupabaseAuth } from '../../useSupabaseAuth';
-import { useOnlineStatus } from '../../hooks/useOnlineStatus';
+import { Bell, Smartphone } from 'lucide-react';
 import { AuthSettingsSection } from '../components/AuthSettingsSection';
+import { CloudSyncSection } from '../components/CloudSyncSection';
 import { CoupleBindSection } from '../components/CoupleBindSection';
 import { MOCK_REMINDERS } from '../mockData';
 import { lq } from '../theme';
 
 export function SettingsPage({ embedded }: { embedded?: boolean } = {}) {
-  const bootstrap = useAppBootstrap();
-  const auth = useSupabaseAuth();
-  const isOnline = useOnlineStatus();
-
-  const cloudLabel = !auth.configured
-    ? '未設定 Supabase'
-    : !auth.user
-      ? '請登入以啟用雲端同步'
-      : bootstrap.cloudSyncDone
-        ? '雲端同步已完成'
-        : bootstrap.bootstrapStatus === 'error'
-          ? '同步部分失敗'
-          : '已連線（示範模式使用假資料）';
-
   return (
     <>
       {!embedded ? (
@@ -38,20 +22,7 @@ export function SettingsPage({ embedded }: { embedded?: boolean } = {}) {
 
       <CoupleBindSection />
 
-      <section className={`mb-4 p-4 ${lq.card}`}>
-        <div className="mb-2 flex items-center gap-2">
-          <Cloud className="h-5 w-5 text-rose-500" aria-hidden />
-          <h2 className="text-base font-bold text-stone-900">雲端同步</h2>
-        </div>
-        <p className="text-sm text-stone-600">{cloudLabel}</p>
-        <p className="mt-2 text-[12px] text-stone-500">
-          網路：{isOnline ? '已連線' : '離線'}
-          {auth.user ? ' · 已登入' : ''}
-        </p>
-        <p className="mt-2 rounded-xl bg-rose-50/80 px-3 py-2 text-[11px] leading-relaxed text-rose-900/90">
-          第一階段 UI 使用假資料展示；Supabase schema 與 RLS 維持不變，登入後仍會執行啟動同步。
-        </p>
-      </section>
+      <CloudSyncSection />
 
       <section className={`mb-4 p-4 ${lq.card}`}>
         <RemindersHeader />
