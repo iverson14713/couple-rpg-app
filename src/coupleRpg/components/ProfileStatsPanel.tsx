@@ -1,4 +1,5 @@
 import { useLoveQuest } from '../context/LoveQuestContext';
+import { CoupleBindSection } from './CoupleBindSection';
 import { RpgMiniStats } from './RpgMiniStats';
 import { lq } from '../theme';
 
@@ -43,19 +44,7 @@ export function ProfileStatsPanel() {
         </div>
       </section>
 
-      <section className={`mb-3 p-3 ${lq.card}`}>
-        <h2 className="mb-1 text-sm font-bold text-stone-900">綁定另一半</h2>
-        <p className="text-[12px] leading-relaxed text-stone-500">
-          雲端情侶空間即將推出：邀請碼綁定後，任務、家事與回憶可雙向同步。
-        </p>
-        <button
-          type="button"
-          disabled
-          className="mt-2 w-full rounded-xl bg-rose-100/80 py-2 text-[12px] font-bold text-rose-400"
-        >
-          產生邀請碼（敬請期待）
-        </button>
-      </section>
+      <CoupleBindSection />
 
       <RpgMiniStats compact />
 

@@ -4,13 +4,13 @@ import { FeatureActionCard } from '../components/FeatureActionCard';
 import { useCoupleRpgNav } from '../context/CoupleRpgNavContext';
 import { useLoveQuest } from '../context/LoveQuestContext';
 import { todayKey } from '../lib/dates';
-import { LQ_KEYS } from '../storage/keys';
-import { loadJson } from '../storage/persist';
+import { useCoupleSpace } from '../context/CoupleSpaceContext';
 import { lq } from '../theme';
 
 export function TodayPage() {
   const { navigateTo } = useCoupleRpgNav();
   const auth = useSupabaseAuth();
+  const { showBindReminder, hasMembership } = useCoupleSpace();
   const {
     couple,
     todayDinner,
@@ -25,8 +25,7 @@ export function TodayPage() {
     todayCoinEarned,
   } = useLoveQuest();
 
-  const coupleSpaceId = loadJson<string | null>(LQ_KEYS.coupleSpaceId, null);
-  const showBindCard = !coupleSpaceId;
+  const showBindCard = showBindReminder;
 
   const dinnerLabel = todayDinner?.label ?? draftPick;
   const pendingHw = housework.pendingSpin;
@@ -74,16 +73,22 @@ export function TodayPage() {
             💞
           </span>
           <div className="min-w-0 flex-1">
-            <p className="text-[12px] font-bold text-amber-950">還沒綁定另一半</p>
+            <p className="text-[12px] font-bold text-amber-950">
+              {auth.user && hasMembership ? '等待另一半加入' : '還沒綁定另一半'}
+            </p>
             <p className="text-[10px] leading-snug text-amber-900/80">
               {auth.user
-                ? '邀請對方加入後，就能一起記錄晚餐、家事與約會'
+                ? hasMembership
+                  ? '邀請碼已產生，請對方輸入加入即可完成綁定'
+                  : '邀請對方加入後，就能一起記錄晚餐、家事與約會'
                 : '登入並綁定後，雙方可同步晚餐、家事與約會'}
             </p>
           </div>
           <button
             type="button"
-            onClick={() => navigateTo('profile', { profileSection: 'status' })}
+            onClick={() =>
+              navigateTo('profile', { profileSection: auth.user ? 'status' : 'settings' })
+            }
             className="shrink-0 rounded-xl bg-amber-600 px-2.5 py-1.5 text-[11px] font-bold text-white shadow-sm active:scale-95"
           >
             立即綁定

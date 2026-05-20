@@ -5,6 +5,7 @@ import { useSupabaseAuth } from '../useSupabaseAuth';
 import { BottomNav } from './components/BottomNav';
 import { TabPageHeader } from './components/TabPageHeader';
 import { CoupleRpgNavProvider, useCoupleRpgNav, type CoupleNavTabId } from './context/CoupleRpgNavContext';
+import { CoupleSpaceProvider } from './context/CoupleSpaceContext';
 import { LoveQuestProvider } from './context/LoveQuestContext';
 import { DinnerPage } from './pages/DinnerPage';
 import { HouseworkPage } from './pages/HouseworkPage';
@@ -18,9 +19,11 @@ import { lq } from './theme';
 export default function CoupleRpgApp() {
   return (
     <LoveQuestProvider>
-      <CoupleRpgNavProvider>
-        <CoupleRpgShell />
-      </CoupleRpgNavProvider>
+      <CoupleSpaceProvider>
+        <CoupleRpgNavProvider>
+          <CoupleRpgShell />
+        </CoupleRpgNavProvider>
+      </CoupleSpaceProvider>
     </LoveQuestProvider>
   );
 }

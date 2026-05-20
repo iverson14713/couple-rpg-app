@@ -3,6 +3,7 @@ import { useAppBootstrap } from '../../AppBootstrapContext';
 import { useSupabaseAuth } from '../../useSupabaseAuth';
 import { useOnlineStatus } from '../../hooks/useOnlineStatus';
 import { AuthSettingsSection } from '../components/AuthSettingsSection';
+import { CoupleBindSection } from '../components/CoupleBindSection';
 import { MOCK_REMINDERS } from '../mockData';
 import { lq } from '../theme';
 
@@ -34,6 +35,8 @@ export function SettingsPage({ embedded }: { embedded?: boolean } = {}) {
       ) : null}
 
       <AuthSettingsSection />
+
+      <CoupleBindSection />
 
       <section className={`mb-4 p-4 ${lq.card}`}>
         <div className="mb-2 flex items-center gap-2">
