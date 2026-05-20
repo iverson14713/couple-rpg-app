@@ -164,6 +164,8 @@ type LoveQuestContextValue = {
   addDinnerOption: (label: string) => void;
   removeDinnerOption: (id: string) => void;
   rollDinner: () => void;
+  /** 設定晚餐抽籤預覽結果（動畫結束後寫入，與 `rollDinner` 邏輯分離） */
+  setDinnerDraftPick: (label: string | null) => void;
   saveDinnerResult: (label?: string) => void;
   pullDinnerFromCloud: () => Promise<void>;
   syncDinnerFoodOptions: () => Promise<void>;
@@ -470,6 +472,10 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
       queueMicrotask(() => setDraftPick(label));
       return prev;
     });
+  }, []);
+
+  const setDinnerDraftPick = useCallback((label: string | null) => {
+    setDraftPick(label);
   }, []);
 
   const saveDinnerResult = useCallback(
@@ -979,6 +985,7 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
       addDinnerOption,
       removeDinnerOption,
       rollDinner,
+      setDinnerDraftPick,
       saveDinnerResult,
       pullDinnerFromCloud,
       syncDinnerFoodOptions,
@@ -1049,6 +1056,7 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
       addDinnerOption,
       removeDinnerOption,
       rollDinner,
+      setDinnerDraftPick,
       saveDinnerResult,
       pullDinnerFromCloud,
       syncDinnerFoodOptions,
