@@ -24,9 +24,9 @@ export function RpgMiniStats({ compact }: { compact?: boolean }) {
       </div>
       <div className="mt-2">
         <div className="mb-0.5 flex justify-between text-[10px] text-stone-500">
-          <span>EXP</span>
+          <span>EXP（本等級）</span>
           <span>
-            {rpgView.xp}/{rpgView.xpNext}
+            {rpgView.levelSegmentXp}/{rpgView.xpNext}
           </span>
         </div>
         <div className={`h-1.5 overflow-hidden rounded-full ${lq.progressTrack}`}>

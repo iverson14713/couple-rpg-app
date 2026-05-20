@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useLayoutEffect, useState } from 'react';
 import { HubShell } from '../components/HubShell';
 import { ProfileStatsPanel } from '../components/ProfileStatsPanel';
 import { useCoupleRpgNav } from '../context/CoupleRpgNavContext';
@@ -15,7 +15,7 @@ export function ProfileHubPage() {
   const { profileSection } = useCoupleRpgNav();
   const [section, setSection] = useState<ProfileSection>('status');
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     setSection(profileSection);
   }, [profileSection]);
 

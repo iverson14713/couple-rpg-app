@@ -127,16 +127,14 @@ export function processDailyLogin(state: RpgState): {
   })();
 
   const loginStreak = state.lastLoginDate === yesterday ? state.loginStreak + 1 : 1;
-  const coinsEarned = Math.min(5 + loginStreak * 2, 30);
 
   return {
     state: {
       ...state,
       lastLoginDate: today,
       loginStreak,
-      loveCoins: state.loveCoins + coinsEarned,
     },
-    coinsEarned,
+    coinsEarned: 0,
     isNewDay: true,
   };
 }

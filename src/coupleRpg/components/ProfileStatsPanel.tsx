@@ -33,9 +33,9 @@ export function ProfileStatsPanel() {
         </div>
         <div className="mt-3">
           <div className="mb-1 flex justify-between text-[10px] text-stone-500">
-            <span>EXP</span>
+            <span>EXP（本等級）</span>
             <span>
-              {rpgView.xp}/{rpgView.xpNext}
+              {rpgView.levelSegmentXp}/{rpgView.xpNext}
             </span>
           </div>
           <div className={`h-2 overflow-hidden rounded-full ${lq.progressTrack}`}>

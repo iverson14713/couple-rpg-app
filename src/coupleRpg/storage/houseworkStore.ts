@@ -63,6 +63,7 @@ export function completePending(
     partner: pending.partner,
     completedAt: new Date().toISOString(),
     points: 10,
+    rpgRewardGranted: false,
   };
   return {
     data: {

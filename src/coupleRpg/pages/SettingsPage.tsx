@@ -2,6 +2,7 @@ import { Bell, Smartphone } from 'lucide-react';
 import { AuthSettingsSection } from '../components/AuthSettingsSection';
 import { CloudSyncSection } from '../components/CloudSyncSection';
 import { CoupleBindSection } from '../components/CoupleBindSection';
+import { CoupleDetailsSection } from '../components/CoupleDetailsSection';
 import { MOCK_REMINDERS } from '../mockData';
 import { lq } from '../theme';
 
@@ -23,6 +24,8 @@ export function SettingsPage({ embedded }: { embedded?: boolean } = {}) {
       <CoupleBindSection />
 
       <CloudSyncSection />
+
+      <CoupleDetailsSection />
 
       <section className={`mb-4 p-4 ${lq.card}`}>
         <RemindersHeader />

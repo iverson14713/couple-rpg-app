@@ -7,9 +7,26 @@ export type CoupleProfile = {
   emojiB: string;
 };
 
+export type DailyRpgGuard = {
+  /** 與下列計數對齊的曆日 YYYY-MM-DD；換日時重置 */
+  anchorDate: string;
+  /** 當日「決定晚餐」可領 RPG 次數上限 2 */
+  dinnerRewardCount: number;
+  /** 當日完成約會 RPG 是否已領 */
+  dateRewardClaimed: boolean;
+  /** 當日完成情侶重要日資料是否已領 RPG */
+  coupleProfileImportantRewardClaimed: boolean;
+  /** 當日情侶小遊戲可領 RPG／LoveCoin 次數上限 3 */
+  miniGamesRewardCount: number;
+};
+
 export type RpgState = {
   heartPoints: number;
   compatibility: number;
+  /**
+   * 累積總 EXP（v2）。等級公式：level = floor(xp / 100) + 1；當前環為 xp % 100 / 100。
+   * v1 舊存檔會在載入時換算成總量。
+   */
   xp: number;
   level: number;
   houseworkPoints: number;
@@ -22,6 +39,10 @@ export type RpgState = {
   loginStreak: number;
   /** YYYY-MM-DD */
   lastLoginDate: string;
+  /** 每日 RPG／LoveCoin 防刷（換日自動重置） */
+  dailyGuard?: DailyRpgGuard | null;
+  /** 2 = 總 EXP 制；缺省視為 1 並遷移 */
+  rpgSchemaVersion?: number;
 };
 
 export type DinnerOption = {
@@ -55,6 +76,8 @@ export type HouseworkCompletion = {
   partner: PartnerId;
   completedAt: string;
   points: number;
+  /** 若已領過此筆完成所觸發的 RPG／LoveCoin 獎勵，避免重複發放 */
+  rpgRewardGranted?: boolean;
 };
 
 export type HouseworkData = {
@@ -83,6 +106,16 @@ export type TasksData = {
   /** Date key when dailyTasks were generated. */
   date: string;
   dailyTasks: LoveTask[];
+  /**
+   * Legacy: per-instance ids from older builds; kept for migration only.
+   * LoveCoin for daily tasks is gated by `dailyRewardClaimedDate`, not this array.
+   */
+  rewardedTaskIds: string[];
+  /**
+   * YYYY-MM-DD when LoveQuest daily love-task LoveCoin was last claimed, or null.
+   * At most one LoveCoin grant per calendar day for this feature (reroll-safe).
+   */
+  dailyRewardClaimedDate: string | null;
 };
 
 export type FlirtGameId = 'dice' | 'truth' | 'coquettish' | 'stare' | 'massage';

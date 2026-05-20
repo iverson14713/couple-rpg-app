@@ -18,23 +18,82 @@ export function generateDailyTasks(dateKey: string): LoveTask[] {
   }));
 }
 
+/** Normalize persisted / partial task blobs (legacy + new fields). */
+export function normalizeTasksShape(raw: Partial<TasksData> & { dailyTasks?: LoveTask[] }): TasksData {
+  const today = todayKey();
+  const date = typeof raw.date === 'string' && raw.date ? raw.date : today;
+  const dailyTasks = Array.isArray(raw.dailyTasks) ? raw.dailyTasks : [];
+  const rewardedTaskIds = Array.isArray(raw.rewardedTaskIds) ? raw.rewardedTaskIds : [];
+
+  let dailyRewardClaimedDate: string | null = null;
+  if (typeof raw.dailyRewardClaimedDate === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(raw.dailyRewardClaimedDate)) {
+    dailyRewardClaimedDate = raw.dailyRewardClaimedDate;
+  }
+  // Legacy: old builds used rewardedTaskIds + task instance ids; if any id was stored for today's
+  // task set, treat LoveCoin as already claimed for today so we never double-grant after upgrade.
+  if (!dailyRewardClaimedDate && date === today && rewardedTaskIds.length > 0) {
+    dailyRewardClaimedDate = today;
+  }
+
+  return {
+    date,
+    dailyTasks,
+    rewardedTaskIds,
+    dailyRewardClaimedDate,
+  };
+}
+
 export function defaultTasksData(): TasksData {
   const today = todayKey();
-  return { date: today, dailyTasks: generateDailyTasks(today) };
+  return normalizeTasksShape({
+    date: today,
+    dailyTasks: generateDailyTasks(today),
+    rewardedTaskIds: [],
+    dailyRewardClaimedDate: null,
+  });
 }
 
 export function ensureTodayTasks(data: TasksData): TasksData {
   const today = todayKey();
-  if (data.date === today && data.dailyTasks.length > 0) return data;
-  return { date: today, dailyTasks: generateDailyTasks(today) };
+  const cur = normalizeTasksShape(data);
+
+  if (cur.date === today && cur.dailyTasks.length > 0) {
+    return cur;
+  }
+
+  if (cur.date === today && cur.dailyTasks.length === 0) {
+    return {
+      date: today,
+      dailyTasks: generateDailyTasks(today),
+      rewardedTaskIds: cur.rewardedTaskIds,
+      dailyRewardClaimedDate: cur.dailyRewardClaimedDate,
+    };
+  }
+
+  return {
+    date: today,
+    dailyTasks: generateDailyTasks(today),
+    rewardedTaskIds: [],
+    dailyRewardClaimedDate: null,
+  };
 }
 
 function migrateLegacyTasks(raw: unknown): TasksData | null {
   if (!raw || typeof raw !== 'object') return null;
   if ('dailyTasks' in raw && Array.isArray((raw as TasksData).dailyTasks)) {
-    return raw as TasksData;
+    return normalizeTasksShape(raw as TasksData);
   }
   return null;
+}
+
+function rawMissingRewardedIds(raw: unknown): boolean {
+  if (!raw || typeof raw !== 'object') return false;
+  return !Array.isArray((raw as { rewardedTaskIds?: unknown }).rewardedTaskIds);
+}
+
+function rawMissingDailyRewardClaimed(raw: unknown): boolean {
+  if (!raw || typeof raw !== 'object') return false;
+  return !('dailyRewardClaimedDate' in (raw as object));
 }
 
 export function loadTasks(): TasksData {
@@ -44,7 +103,9 @@ export function loadTasks(): TasksData {
   if (
     !raw ||
     (parsed as TasksData).date !== next.date ||
-    next.dailyTasks.length !== (parsed as TasksData).dailyTasks?.length
+    next.dailyTasks.length !== (parsed as TasksData).dailyTasks?.length ||
+    rawMissingRewardedIds(raw) ||
+    rawMissingDailyRewardClaimed(raw)
   ) {
     saveTasks(next);
   }
@@ -52,7 +113,7 @@ export function loadTasks(): TasksData {
 }
 
 export function saveTasks(data: TasksData): void {
-  saveJson(LQ_KEYS.tasks, data);
+  saveJson(LQ_KEYS.tasks, normalizeTasksShape(data));
 }
 
 export function toggleDailyTask(data: TasksData, id: string): { data: TasksData; task: LoveTask | null } {
@@ -62,7 +123,34 @@ export function toggleDailyTask(data: TasksData, id: string): { data: TasksData;
     changed = { ...t, done: !t.done };
     return changed;
   });
-  return { data: { ...data, dailyTasks }, task: changed };
+  const base = normalizeTasksShape(data);
+  return { data: { ...base, dailyTasks }, task: changed };
+}
+
+/**
+ * Replace one daily love task with another template (no reward).
+ * Excludes the current template and templates already used by other slots when possible.
+ * Does not clear `dailyRewardClaimedDate` (daily LoveCoin claim is date-scoped, not per task id).
+ */
+export function replaceLoveTask(data: TasksData, taskId: string): TasksData {
+  const base = normalizeTasksShape(data);
+  const task = base.dailyTasks.find((t) => t.id === taskId);
+  if (!task) return base;
+  const usedByOthers = new Set(base.dailyTasks.filter((t) => t.id !== taskId).map((t) => t.templateId));
+  const candidates = LOVE_TASK_POOL.filter((tpl) => tpl.id !== task.templateId && !usedByOthers.has(tpl.id));
+  const pool = candidates.length > 0 ? candidates : LOVE_TASK_POOL.filter((tpl) => tpl.id !== task.templateId);
+  const picked = pool[Math.floor(Math.random() * Math.max(pool.length, 1))] ?? LOVE_TASK_POOL[0];
+  const newTask: LoveTask = {
+    id: makeId(),
+    templateId: picked.id,
+    label: picked.label,
+    emoji: picked.emoji,
+    done: false,
+  };
+  return {
+    ...base,
+    dailyTasks: base.dailyTasks.map((t) => (t.id === taskId ? newTask : t)),
+  };
 }
 
 export function dailyTaskProgress(tasks: LoveTask[]) {

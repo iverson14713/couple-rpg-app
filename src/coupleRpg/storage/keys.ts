@@ -1,6 +1,8 @@
 export const LQ_KEYS = {
   rpg: 'lovequest-rpg',
   couple: 'lovequest-couple',
+  /** Local-only extended couple profile (birthdays, anniversaries); no Supabase yet */
+  coupleExtended: 'lovequest-couple-profile',
   dinner: 'lovequest-dinner',
   housework: 'lovequest-housework',
   tasks: 'lovequest-tasks',

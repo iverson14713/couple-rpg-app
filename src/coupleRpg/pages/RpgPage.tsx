@@ -18,7 +18,7 @@ export function RpgPage() {
 
       <section className={`mb-3 overflow-hidden p-5 ${lq.card}`}>
         <LevelBlock level={rpgView.level} title={rpgView.title} />
-        <XpBar xp={rpgView.xp} xpNext={rpgView.xpNext} pct={rpgView.xpPct} />
+        <XpBar xp={rpgView.levelSegmentXp} xpNext={rpgView.xpNext} pct={rpgView.xpPct} />
       </section>
 
       <section className="mb-3 grid grid-cols-2 gap-2">

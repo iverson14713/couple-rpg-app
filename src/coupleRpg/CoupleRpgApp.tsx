@@ -13,6 +13,7 @@ import { ProfileHubPage } from './pages/ProfileHubPage';
 import { RewardsPage } from './pages/RewardsPage';
 import { TasksPage } from './pages/TasksPage';
 import { DatesPage } from './pages/DatesPage';
+import { MiniGamesPage } from './pages/MiniGamesPage';
 import { TodayPage } from './pages/TodayPage';
 import { lq } from './theme';
 
@@ -70,6 +71,12 @@ function CoupleRpgShell() {
           <>
             <TabPageHeader emoji="💑" title="約會去哪裡" subtitle="今天來一點不一樣的" />
             <DatesPage embedded />
+          </>
+        )}
+        {tab === 'miniGames' && (
+          <>
+            <TabPageHeader emoji="🎲" title="情侶小遊戲" subtitle="骰子、真心話、默契問答，讓今天更有趣" />
+            <MiniGamesPage />
           </>
         )}
       </main>
