@@ -4,15 +4,28 @@ import { RpgMiniStats } from '../components/RpgMiniStats';
 import { PageHero } from '../components/ui';
 import { lq } from '../theme';
 
-export function TasksPage() {
+export function TasksPage({
+  embedded,
+  section = 'all',
+}: {
+  embedded?: boolean;
+  section?: 'tasks' | 'games' | 'all';
+} = {}) {
   const { tasks, taskProgress, toggleDailyTask } = useLoveQuest();
   const { done, total, pct } = taskProgress;
+  const showTasks = section === 'all' || section === 'tasks';
+  const showGames = section === 'all' || section === 'games';
 
   return (
     <>
-      <PageHero emoji="💕" title="戀愛任務" subtitle="每日隨機任務 + 曖昧小遊戲" />
-      <RpgMiniStats compact />
+      {!embedded ? (
+        <>
+          <PageHero emoji="💕" title="戀愛任務" subtitle="每日隨機任務 + 曖昧小遊戲" />
+          <RpgMiniStats compact />
+        </>
+      ) : null}
 
+      {showTasks ? (
       <section className={`mb-3 p-4 ${lq.card}`}>
         <div className="mb-2 flex items-center justify-between">
           <h2 className="text-sm font-bold text-stone-900">今日戀愛任務</h2>
@@ -55,10 +68,11 @@ export function TasksPage() {
           </div>
         )}
 
-        <p className="mt-3 text-[11px] text-stone-500">每完成一項：愛心 +2 · 默契 +1 · EXP +12</p>
+        <p className="mt-3 text-[11px] text-stone-500">每完成一項：愛心 +2 · 默契 +1 · EXP +12 · 愛心幣 +10</p>
       </section>
+      ) : null}
 
-      <FlirtGamesPanel />
+      {showGames ? <FlirtGamesPanel /> : null}
     </>
   );
 }

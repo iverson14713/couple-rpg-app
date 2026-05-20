@@ -28,6 +28,8 @@ export function RpgPage() {
         <BigStat emoji="⭐" label="情侶等級" value={`Lv.${rpgView.level}`} sub={rpgView.title} />
         <BigStat emoji="💑" label="約會成就" value={String(rpgView.dateAchievements)} sub="次" />
         <BigStat emoji="🎀" label="紀念成就" value={String(rpgView.anniversaryAchievements)} sub="次" />
+        <BigStat emoji="🪙" label="愛心幣" value={String(rpgView.loveCoins)} sub="可兌換卡券" />
+        <BigStat emoji="🔥" label="連續登入" value={`${rpgView.loginStreak} 天`} />
       </section>
 
       <section className={`mb-3 p-4 ${lq.card}`}>

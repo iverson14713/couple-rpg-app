@@ -17,6 +17,11 @@ export type RpgState = {
   dateAchievements: number;
   /** 累計紀念日相關成就 */
   anniversaryAchievements: number;
+  /** 愛心幣（可兌換獎勵） */
+  loveCoins: number;
+  loginStreak: number;
+  /** YYYY-MM-DD */
+  lastLoginDate: string;
 };
 
 export type DinnerOption = {

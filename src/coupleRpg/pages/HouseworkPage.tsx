@@ -5,15 +5,19 @@ import { RpgMiniStats } from '../components/RpgMiniStats';
 import { ChipRow, InlineInput, PageHero, PrimaryButton } from '../components/ui';
 import { lq } from '../theme';
 
-export function HouseworkPage() {
+export function HouseworkPage({ embedded }: { embedded?: boolean } = {}) {
   const game = useLoveQuest();
   const [newLabel, setNewLabel] = useState('');
   const pending = game.housework.pendingSpin;
 
   return (
     <>
-      <PageHero emoji="🏠" title="家事轉盤" subtitle="公平隨機分配，完成可獲得積分與愛心值" />
-      <RpgMiniStats compact />
+      {!embedded ? (
+        <>
+          <PageHero emoji="🏠" title="家事轉盤" subtitle="公平隨機分配，完成可獲得積分與愛心值" />
+          <RpgMiniStats compact />
+        </>
+      ) : null}
 
       <section className={`mb-3 p-4 ${lq.card}`}>
         <h2 className="mb-2 text-sm font-bold text-stone-900">轉盤結果</h2>

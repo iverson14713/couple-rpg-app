@@ -2,7 +2,7 @@ import { useLoveQuest } from '../context/LoveQuestContext';
 import { lq } from '../theme';
 
 export function StatsCard() {
-  const { rpgView } = useLoveQuest();
+  const { rpgView, rpg, todayCoinEarned } = useLoveQuest();
   const heartPct = Math.round((rpgView.heartPoints / rpgView.heartMax) * 100);
 
   return (
@@ -26,6 +26,10 @@ export function StatsCard() {
           barClass="bg-gradient-to-r from-amber-200 via-pink-300 to-rose-400"
         />
       </div>
+      <p className="mt-3 text-center text-[11px] font-semibold text-amber-800">
+        🪙 愛心幣 {rpg.loveCoins}
+        <span className="text-stone-400"> · 今日 +{todayCoinEarned}</span>
+      </p>
     </section>
   );
 }

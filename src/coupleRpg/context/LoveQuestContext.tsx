@@ -2,6 +2,7 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
   useState,
   type ReactNode,
@@ -80,6 +81,19 @@ import { mockAnniversaryPlan } from '../data/mockAnniversaryPlans';
 import { mockGiftSuggestions } from '../data/mockGiftSuggestions';
 import { appendActivity, loadActivity } from '../storage/activityStore';
 import {
+  addCoinEarn,
+  getActiveCoupons,
+  getRecentEarns,
+  getUsedCoupons,
+  getWeeklyTitles,
+  loadRewards,
+  markCouponUsed,
+  processDailyLogin,
+  redeemCoupon,
+  saveRewards,
+} from '../storage/rewardsStore';
+import type { CoinEarnMeta, RewardsData, ShopItemId } from '../storage/rewardTypes';
+import {
   applyReward,
   defaultRpgState,
   REWARDS,
@@ -99,6 +113,7 @@ import type {
 } from '../storage/types';
 import type { WeeklyHouseworkStats } from '../storage/houseworkStore';
 import { makeId } from '../lib/id';
+import { todayKey } from '../lib/dates';
 
 const DEFAULT_COUPLE: CoupleProfile = {
   nameA: '小晴',
@@ -175,6 +190,14 @@ type LoveQuestContextValue = {
   updateGiftPrefs: (prefs: GiftPreferences) => void;
   generateGiftSuggestions: () => void;
   dismissAnniversaryReminder: (reminderId: string) => void;
+  rewards: RewardsData;
+  todayCoinEarned: number;
+  recentCoinEarns: ReturnType<typeof getRecentEarns>;
+  weeklyTitles: ReturnType<typeof getWeeklyTitles>;
+  activeCoupons: ReturnType<typeof getActiveCoupons>;
+  usedCoupons: ReturnType<typeof getUsedCoupons>;
+  redeemRewardItem: (itemId: ShopItemId) => boolean;
+  useCoupon: (couponId: string) => void;
   partnerName: (id: PartnerId) => string;
   partnerEmoji: (id: PartnerId) => string;
 };
@@ -188,6 +211,9 @@ function loadRpg(): RpgState {
     ...raw,
     dateAchievements: raw.dateAchievements ?? 0,
     anniversaryAchievements: raw.anniversaryAchievements ?? 0,
+    loveCoins: raw.loveCoins ?? 0,
+    loginStreak: raw.loginStreak ?? 0,
+    lastLoginDate: raw.lastLoginDate ?? '',
   };
 }
 
@@ -209,19 +235,50 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
   const [completionHistory, setCompletionHistory] = useState(loadCompletionHistory);
   const [datePlanner, setDatePlanner] = useState(loadDatePlanner);
   const [anniversaries, setAnniversaries] = useState(loadAnniversaries);
+  const [rewards, setRewards] = useState(loadRewards);
   const [activity, setActivity] = useState(loadActivity);
   const [draftPick, setDraftPick] = useState<string | null>(null);
   const [spinning, setSpinning] = useState(false);
 
   const taskProgress = useMemo(() => dailyTaskProgress(tasks.dailyTasks), [tasks.dailyTasks]);
+  const weeklyStats = useMemo(() => getWeeklyStats(housework.completions), [housework.completions]);
 
-  const grantReward = useCallback((reward: RpgReward, log: string) => {
+  const grantReward = useCallback((reward: RpgReward, log: string, coin?: CoinEarnMeta) => {
     setRpg((prev) => {
       const next = applyReward(prev, reward);
       saveRpg(next);
       return next;
     });
+    if (coin && (reward.loveCoins ?? 0) > 0) {
+      setRewards((prev) => {
+        const next = addCoinEarn(prev, reward.loveCoins ?? 0, coin);
+        saveRewards(next);
+        return next;
+      });
+    }
     setActivity(appendActivity(log));
+  }, []);
+
+  useEffect(() => {
+    setRpg((prev) => {
+      const { state: next, coinsEarned, isNewDay } = processDailyLogin(prev);
+      if (!isNewDay) return prev;
+      const withBonus = applyReward(next, { ...REWARDS.loginBonus, loveCoins: 0 });
+      saveRpg(withBonus);
+      if (coinsEarned > 0) {
+        setRewards((rPrev) => {
+          const rNext = addCoinEarn(rPrev, coinsEarned, {
+            source: 'login',
+            title: `連續登入 ${withBonus.loginStreak} 天`,
+            emoji: '🔥',
+          });
+          saveRewards(rNext);
+          return rNext;
+        });
+        setActivity(appendActivity(`連續登入 ${withBonus.loginStreak} 天 · 愛心幣 +${coinsEarned}`));
+      }
+      return withBonus;
+    });
   }, []);
 
   const addCompletion = useCallback(
@@ -272,7 +329,11 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
         return next;
       });
       setDraftPick(null);
-      grantReward(REWARDS.dinnerSaved, `今晚晚餐：${choice}`);
+      grantReward(REWARDS.dinnerSaved, `今晚晚餐：${choice}`, {
+        source: 'dinner',
+        title: '決定晚餐',
+        emoji: '🍽️',
+      });
     },
     [draftPick, grantReward]
   );
@@ -321,7 +382,11 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
       const { data: next, completion } = completePending(prev, prev.pendingSpin);
       saveHousework(next);
       const name = completion.partner === 'A' ? couple.nameA : couple.nameB;
-      grantReward(REWARDS.houseworkComplete, `${name} 完成「${completion.taskLabel}」家事 +10 分`);
+      grantReward(REWARDS.houseworkComplete, `${name} 完成「${completion.taskLabel}」家事 +10 分`, {
+        source: 'housework',
+        title: completion.taskLabel,
+        emoji: completion.emoji,
+      });
       return next;
     });
   }, [couple.nameA, couple.nameB, grantReward]);
@@ -341,7 +406,11 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
         const { data: next, task } = toggleDailyTask(prev, id);
         saveTasks(next);
         if (task?.done && !wasDone) {
-          grantReward(REWARDS.loveTaskComplete, `完成戀愛任務「${task.label}」`);
+          grantReward(REWARDS.loveTaskComplete, `完成戀愛任務「${task.label}」`, {
+            source: 'task',
+            title: task.label,
+            emoji: task.emoji,
+          });
           addCompletion('task', task.label, task.emoji);
         }
         return next;
@@ -384,7 +453,11 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
       saveFlirtGames(next);
 
       if (!alreadyDone) {
-        grantReward(REWARDS.flirtGameComplete, `完成小遊戲「${def?.title ?? gameId}」`);
+        grantReward(REWARDS.flirtGameComplete, `完成小遊戲「${def?.title ?? gameId}」`, {
+          source: 'game',
+          title: def?.title ?? '曖昧小遊戲',
+          emoji: def?.emoji ?? '🎮',
+        });
       }
       addCompletion('game', def?.title ?? '曖昧小遊戲', def?.emoji ?? '🎮', {
         gameId,
@@ -453,7 +526,11 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
       const { data: next, entry } = completeCurrentDate(prev);
       if (!entry) return prev;
       saveDatePlanner(next);
-      grantReward(REWARDS.dateComplete, `完成約會「${entry.title}」`);
+      grantReward(REWARDS.dateComplete, `完成約會「${entry.title}」`, {
+        source: 'date',
+        title: entry.title,
+        emoji: entry.emoji,
+      });
       addCompletion('date', entry.title, entry.emoji);
       return next;
     });
@@ -525,7 +602,11 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
         if (!canRewardPlan(event, year)) return prev;
         const next = markPlanRewarded(prev, eventId, year);
         saveAnniversaries(next);
-        grantReward(REWARDS.anniversaryPlanComplete, `完成「${event.name}」紀念日規劃`);
+        grantReward(REWARDS.anniversaryPlanComplete, `完成「${event.name}」紀念日規劃`, {
+          source: 'anniversary',
+          title: `${event.name} 規劃`,
+          emoji: '✨',
+        });
         addCompletion('anniversary', `${event.name} 規劃`, '✨');
         return next;
       });
@@ -543,7 +624,11 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
         if (!canRewardCelebrate(event, year)) return prev;
         const next = markCelebrated(prev, eventId, year);
         saveAnniversaries(next);
-        grantReward(REWARDS.anniversaryCelebrated, `慶祝「${event.name}」紀念日`);
+        grantReward(REWARDS.anniversaryCelebrated, `慶祝「${event.name}」紀念日`, {
+          source: 'anniversary',
+          title: `${event.name} 慶祝`,
+          emoji: '🎉',
+        });
         addCompletion('anniversary', `${event.name} 慶祝`, '🎉');
         return next;
       });
@@ -576,6 +661,34 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
+  const redeemRewardItemFn = useCallback((itemId: ShopItemId): boolean => {
+    const rpgPrev = loadRpg();
+    const rewPrev = loadRewards();
+    const result = redeemCoupon(rewPrev, itemId, rpgPrev.loveCoins);
+    if (result.error || !result.coupon) return false;
+    const nextRpg = { ...rpgPrev, loveCoins: rpgPrev.loveCoins - result.coupon.cost };
+    saveRpg(nextRpg);
+    saveRewards(result.rewards);
+    setRpg(nextRpg);
+    setRewards(result.rewards);
+    setActivity(appendActivity(`兌換卡券「${result.coupon.title}」`));
+    return true;
+  }, []);
+
+  const useCouponFn = useCallback((couponId: string) => {
+    setRewards((prev) => {
+      const next = markCouponUsed(prev, couponId);
+      saveRewards(next);
+      return next;
+    });
+    setActivity(appendActivity('使用了一張情侶卡券'));
+  }, []);
+
+  const weeklyTitles = useMemo(
+    () => getWeeklyTitles(weeklyStats, completionHistory, couple),
+    [weeklyStats, completionHistory, couple]
+  );
+
   const partnerName = useCallback(
     (id: PartnerId) => (id === 'A' ? couple.nameA : couple.nameB),
     [couple]
@@ -595,7 +708,7 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
       todayDinner: getTodayDinner(dinner.history),
       dinnerHistory: getRecentHistory(dinner.history),
       housework,
-      weeklyStats: getWeeklyStats(housework.completions),
+      weeklyStats,
       tasks,
       taskProgress,
       flirtGames,
@@ -640,6 +753,14 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
       updateGiftPrefs: updateGiftPrefsFn,
       generateGiftSuggestions: generateGiftSuggestionsFn,
       dismissAnniversaryReminder: dismissAnniversaryReminderFn,
+      rewards,
+      todayCoinEarned: rewards.todayEarnedDate === todayKey() ? rewards.todayEarnedCoins : 0,
+      recentCoinEarns: getRecentEarns(rewards),
+      weeklyTitles,
+      activeCoupons: getActiveCoupons(rewards),
+      usedCoupons: getUsedCoupons(rewards),
+      redeemRewardItem: redeemRewardItemFn,
+      useCoupon: useCouponFn,
       partnerName,
       partnerEmoji,
     }),
@@ -648,12 +769,15 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
       rpg,
       dinner,
       housework,
+      weeklyStats,
       tasks,
       taskProgress,
       flirtGames,
       completionHistory,
       datePlanner,
       anniversaries,
+      rewards,
+      weeklyTitles,
       activity,
       draftPick,
       spinning,
@@ -686,6 +810,8 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
       updateGiftPrefsFn,
       generateGiftSuggestionsFn,
       dismissAnniversaryReminderFn,
+      redeemRewardItemFn,
+      useCouponFn,
       partnerName,
       partnerEmoji,
     ]

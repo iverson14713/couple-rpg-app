@@ -9,4 +9,5 @@ export const LQ_KEYS = {
   activity: 'lovequest-activity',
   datePlanner: 'lovequest-date-planner',
   anniversaries: 'lovequest-anniversaries',
+  rewards: 'lovequest-rewards',
 } as const;

@@ -6,7 +6,7 @@ import { RpgMiniStats } from '../components/RpgMiniStats';
 import { ChipRow, InlineInput, OptionChip, PageHero, PrimaryButton } from '../components/ui';
 import { lq } from '../theme';
 
-export function DinnerPage() {
+export function DinnerPage({ embedded }: { embedded?: boolean } = {}) {
   const lqState = useLoveQuest();
   const [newLabel, setNewLabel] = useState('');
 
@@ -14,8 +14,12 @@ export function DinnerPage() {
 
   return (
     <>
-      <PageHero emoji="🍽️" title="晚餐決定器" subtitle="新增選項、隨機抽籤，再也不吵架" />
-      <RpgMiniStats compact />
+      {!embedded ? (
+        <>
+          <PageHero emoji="🍽️" title="晚餐決定器" subtitle="新增選項、隨機抽籤，再也不吵架" />
+          <RpgMiniStats compact />
+        </>
+      ) : null}
 
       <section className={`mb-3 p-4 ${lq.card}`}>
         <h2 className="mb-2 text-sm font-bold text-stone-900">今晚吃什麼？</h2>

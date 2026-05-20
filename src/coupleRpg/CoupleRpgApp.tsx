@@ -4,15 +4,11 @@ import { useOnlineStatus } from '../hooks/useOnlineStatus';
 import { useSupabaseAuth } from '../useSupabaseAuth';
 import { LoveQuestProvider } from './context/LoveQuestContext';
 import { BottomNav, type CoupleTabId } from './components/BottomNav';
-import { DinnerPage } from './pages/DinnerPage';
-import { HouseworkPage } from './pages/HouseworkPage';
-import { MemoriesPage } from './pages/MemoriesPage';
-import { RpgPage } from './pages/RpgPage';
-import { SettingsPage } from './pages/SettingsPage';
-import { TasksPage } from './pages/TasksPage';
-import { DatesPage } from './pages/DatesPage';
-import { AnniversariesPage } from './pages/AnniversariesPage';
 import { TodayPage } from './pages/TodayPage';
+import { LifeHubPage } from './pages/LifeHubPage';
+import { PlayHubPage } from './pages/PlayHubPage';
+import { MemoriesHubPage } from './pages/MemoriesHubPage';
+import { ProfileHubPage } from './pages/ProfileHubPage';
 import { lq } from './theme';
 
 export default function CoupleRpgApp() {
@@ -27,14 +23,10 @@ export default function CoupleRpgApp() {
         {auth.configured && auth.authReady && auth.user ? <LoggedInStrip auth={auth} /> : null}
         <main key={tab} className="page-tab-fade">
           {tab === 'today' && <TodayPage />}
-          {tab === 'dinner' && <DinnerPage />}
-          {tab === 'housework' && <HouseworkPage />}
-          {tab === 'tasks' && <TasksPage />}
-          {tab === 'dates' && <DatesPage />}
-          {tab === 'anniversaries' && <AnniversariesPage />}
-          {tab === 'rpg' && <RpgPage />}
-          {tab === 'memories' && <MemoriesPage />}
-          {tab === 'settings' && <SettingsPage />}
+          {tab === 'life' && <LifeHubPage />}
+          {tab === 'play' && <PlayHubPage />}
+          {tab === 'memories' && <MemoriesHubPage />}
+          {tab === 'profile' && <ProfileHubPage />}
         </main>
         <BottomNav active={tab} onChange={setTab} />
       </AppRoot>

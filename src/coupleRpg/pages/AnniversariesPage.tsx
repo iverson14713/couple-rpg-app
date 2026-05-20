@@ -6,7 +6,7 @@ import { useLoveQuest } from '../context/LoveQuestContext';
 import type { AnniversaryEventType } from '../storage/anniversaryTypes';
 import { lq } from '../theme';
 
-export function AnniversariesPage() {
+export function AnniversariesPage({ embedded }: { embedded?: boolean } = {}) {
   const {
     rpg,
     anniversaries,
@@ -30,13 +30,15 @@ export function AnniversariesPage() {
 
   return (
     <>
-      <PageHero emoji="🎀" title="紀念日" subtitle="節日提醒 · AI 計畫 · 禮物靈感" />
+      {!embedded ? <PageHero emoji="🎀" title="紀念日" subtitle="節日提醒 · AI 計畫 · 禮物靈感" /> : null}
+      {!embedded ? (
       <div className="mb-3 flex flex-wrap items-center gap-2">
         <RpgMiniStats compact />
         <span className="inline-flex items-center gap-1 rounded-full bg-violet-50 px-2.5 py-1 text-[11px] font-bold text-violet-800 ring-1 ring-violet-100">
           🏆 紀念成就 {rpg.anniversaryAchievements}
         </span>
       </div>
+      ) : null}
 
       {nextAnniversary ? (
         <section className={`mb-3 p-3 ${lq.card}`}>

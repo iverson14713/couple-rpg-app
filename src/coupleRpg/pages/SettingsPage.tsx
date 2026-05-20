@@ -6,7 +6,7 @@ import { AuthSettingsSection } from '../components/AuthSettingsSection';
 import { MOCK_REMINDERS } from '../mockData';
 import { lq } from '../theme';
 
-export function SettingsPage() {
+export function SettingsPage({ embedded }: { embedded?: boolean } = {}) {
   const bootstrap = useAppBootstrap();
   const auth = useSupabaseAuth();
   const isOnline = useOnlineStatus();
@@ -23,13 +23,15 @@ export function SettingsPage() {
 
   return (
     <>
-      <section className={`mb-4 p-4 ${lq.card}`}>
-        <span className="text-3xl" aria-hidden>
-          ⚙️
-        </span>
-        <h1 className="mt-2 text-xl font-bold text-stone-900">設定</h1>
-        <p className="mt-1 text-sm text-stone-500">帳號、提醒、雲端與 App</p>
-      </section>
+      {!embedded ? (
+        <section className={`mb-4 p-4 ${lq.card}`}>
+          <span className="text-3xl" aria-hidden>
+            ⚙️
+          </span>
+          <h1 className="mt-2 text-xl font-bold text-stone-900">設定</h1>
+          <p className="mt-1 text-sm text-stone-500">帳號、綁定另一半、雲端與 App</p>
+        </section>
+      ) : null}
 
       <AuthSettingsSection />
 

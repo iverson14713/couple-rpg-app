@@ -2,14 +2,16 @@ import { useLoveQuest } from '../context/LoveQuestContext';
 import { PageHero } from '../components/ui';
 import { lq } from '../theme';
 
-export function MemoriesPage() {
+export function MemoriesPage({ embedded }: { embedded?: boolean } = {}) {
   const { dinnerHistory, completionHistory, dateHistory } = useLoveQuest();
 
   const taskRecords = completionHistory.filter((r) => r.kind === 'task');
   const gameRecords = completionHistory.filter((r) => r.kind === 'game');
   return (
     <>
-      <PageHero emoji="📷" title="回憶與歷史" subtitle="晚餐、約會、任務與小遊戲的甜蜜紀錄" />
+      {!embedded ? (
+        <PageHero emoji="📷" title="回憶與歷史" subtitle="晚餐、約會、任務與小遊戲的甜蜜紀錄" />
+      ) : null}
 
       <section className={`mb-3 p-4 ${lq.card}`}>
         <h2 className="mb-2 text-sm font-bold text-stone-900">晚餐回憶</h2>

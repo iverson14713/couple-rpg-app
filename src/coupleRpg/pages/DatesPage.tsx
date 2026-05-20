@@ -9,7 +9,7 @@ import { PageHero, PrimaryButton } from '../components/ui';
 import { useLoveQuest } from '../context/LoveQuestContext';
 import { lq } from '../theme';
 
-export function DatesPage() {
+export function DatesPage({ embedded }: { embedded?: boolean } = {}) {
   const {
     rpg,
     datePlanner,
@@ -38,13 +38,17 @@ export function DatesPage() {
 
   return (
     <>
-      <PageHero emoji="💑" title="約會去哪" subtitle="假日行程 · Date Ideas" />
-      <div className="mb-3 flex flex-wrap items-center gap-2">
-        <RpgMiniStats compact />
-        <span className="inline-flex items-center gap-1 rounded-full bg-pink-50 px-2.5 py-1 text-[11px] font-bold text-pink-800 ring-1 ring-pink-100">
-          🏆 約會成就 {rpg.dateAchievements}
-        </span>
-      </div>
+      {!embedded ? (
+        <>
+          <PageHero emoji="💑" title="約會去哪" subtitle="假日行程 · Date Ideas" />
+          <div className="mb-3 flex flex-wrap items-center gap-2">
+            <RpgMiniStats compact />
+            <span className="inline-flex items-center gap-1 rounded-full bg-pink-50 px-2.5 py-1 text-[11px] font-bold text-pink-800 ring-1 ring-pink-100">
+              🏆 約會成就 {rpg.dateAchievements}
+            </span>
+          </div>
+        </>
+      ) : null}
 
       <section className={`mb-3 p-3 ${lq.card}`}>
         <div className="mb-2 flex items-center justify-between gap-2">
