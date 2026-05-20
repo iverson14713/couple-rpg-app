@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import App from './App.tsx';
+import CoupleRpgApp from './coupleRpg/CoupleRpgApp.tsx';
 import { SplashScreen } from './components/SplashScreen.tsx';
 import {
   delay,
@@ -15,7 +15,7 @@ type Phase = 'splash' | 'app';
 
 function splashSubtitle(): string {
   const nav = typeof navigator !== 'undefined' ? navigator.language : 'zh';
-  return nav.toLowerCase().startsWith('zh') ? '正在準備你的照護資料...' : 'Preparing your care data...';
+  return nav.toLowerCase().startsWith('zh') ? '正在準備 LoveQuest...' : 'Preparing LoveQuest...';
 }
 
 export function AppLaunchGate() {
@@ -66,7 +66,7 @@ export function AppLaunchGate() {
 
   return (
     <AppBootstrapProvider value={bootstrap}>
-      <App />
+      <CoupleRpgApp />
     </AppBootstrapProvider>
   );
 }

@@ -1,11 +1,11 @@
 {
-  "name": "寵物日曆 Pet Calendar",
-  "short_name": "寵物日曆",
-  "description": "Pet care calendar",
+  "name": "LoveQuest 情侶生活",
+  "short_name": "LoveQuest",
+  "description": "Couple life RPG — daily quests, love points, and memories",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#f97316",
-  "theme_color": "#f97316",
+  "background_color": "#fff1f2",
+  "theme_color": "#f9a8d4",
   "icons": [
     {
       "src": "/icon-192.png",
