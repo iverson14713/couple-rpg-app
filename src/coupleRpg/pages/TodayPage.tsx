@@ -237,10 +237,10 @@ function HomeCoreFeatureCard({
 }) {
   return (
     <article
-      className={`relative flex min-h-[10.5rem] flex-col rounded-2xl border border-rose-100/90 bg-white/95 p-3 shadow-[0_6px_22px_-12px_rgba(244,114,182,0.38)] transition active:scale-[0.99]`}
+      className={`relative flex min-h-[11rem] flex-col rounded-2xl border border-rose-100/90 bg-white/95 p-3 shadow-[0_6px_22px_-12px_rgba(244,114,182,0.38)] transition active:scale-[0.99]`}
     >
       {badge ? (
-        <span className="absolute right-2 top-2 max-w-[calc(100%-3.75rem)] truncate rounded-full bg-rose-50 px-2 py-0.5 text-[10px] font-bold text-rose-600 ring-1 ring-rose-100/90">
+        <span className="absolute right-2 top-2 max-w-[calc(100%-3.75rem)] truncate rounded-full bg-rose-50 px-2 py-0.5 text-[11px] font-bold text-rose-600 ring-1 ring-rose-100/90">
           {badge}
         </span>
       ) : null}
@@ -250,9 +250,9 @@ function HomeCoreFeatureCard({
       >
         {emoji}
       </span>
-      <h3 className="mt-1.5 pr-1 text-[12px] font-extrabold leading-snug text-stone-900">{title}</h3>
-      <p className="mt-0.5 line-clamp-2 flex-1 text-[11px] leading-snug text-stone-600">{description}</p>
-      <button type="button" onClick={onAction} className={`mt-2 w-full rounded-lg py-2 text-[11px] font-bold ${lq.btnPrimary}`}>
+      <h3 className="mt-1.5 pr-1 text-[13px] font-extrabold leading-snug text-stone-900">{title}</h3>
+      <p className="mt-0.5 line-clamp-2 flex-1 text-[12px] leading-snug text-stone-700">{description}</p>
+      <button type="button" onClick={onAction} className={`mt-2 w-full rounded-lg py-2 text-[12px] font-bold ${lq.btnPrimary}`}>
         {cta}
       </button>
     </article>
