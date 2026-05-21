@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
-import { Cloud, Coins, Gift, RefreshCw, Ticket, Wallet } from 'lucide-react';
+import { ChevronDown, ChevronUp, Cloud, Coins, Gift, RefreshCw, Ticket, Wallet } from 'lucide-react';
+import { COMPLETED_REWARD_CARD_RETENTION_DAYS } from '../constants/rewardCardRetention';
 import { REWARD_CATEGORY_LABEL, REWARD_SHOP_ITEMS } from '../data/rewardShopCatalog';
 import { EmptyState } from '../components/EmptyState';
 import { CustomRewardCardPanel } from '../components/CustomRewardCardPanel';
@@ -64,16 +65,19 @@ export function RewardsPage({ embedded }: { embedded?: boolean } = {}) {
     completeRewardCard,
     redeemedCoupons,
     inProgressCoupons,
-    completedCoupons,
+    completedCouponsSorted,
     rewardCardSyncStatus,
     rewardCardSyncError,
     pullRewardCardsFromCloud,
     syncRewardCards,
+    cleanupOldCompletedRewardCards,
   } = useLoveQuest();
 
   const [tab, setTab] = useState<Tab>('wallet');
   const [redeemMsg, setRedeemMsg] = useState<string | null>(null);
   const [syncingManual, setSyncingManual] = useState(false);
+  const [completedExpanded, setCompletedExpanded] = useState(false);
+  const [cleanupMsg, setCleanupMsg] = useState<string | null>(null);
   const syncPro = useProFeature('full_sync');
   const customCardPro = useProFeature('custom_reward_cards');
 
@@ -82,6 +86,8 @@ export function RewardsPage({ embedded }: { embedded?: boolean } = {}) {
       void pullRewardCardsFromCloud();
     }
   }, [tab, pullRewardCardsFromCloud]);
+
+  const completedCount = completedCouponsSorted.length;
 
   const shopByCategory = useMemo(() => {
     const map = new Map<RewardShopCategory, typeof REWARD_SHOP_ITEMS>();
@@ -122,7 +128,15 @@ export function RewardsPage({ embedded }: { embedded?: boolean } = {}) {
   const hasAnyCoupons =
     redeemedCoupons.length > 0 ||
     inProgressCoupons.length > 0 ||
-    completedCoupons.length > 0;
+    completedCount > 0;
+
+  const handleCleanupOld = async () => {
+    const removed = await cleanupOldCompletedRewardCards();
+    setCleanupMsg(
+      removed > 0 ? `已清理 ${removed} 筆超過 ${COMPLETED_REWARD_CARD_RETENTION_DAYS} 天的舊紀錄` : '目前沒有需要清理的舊紀錄。'
+    );
+    setTimeout(() => setCleanupMsg(null), 2800);
+  };
 
   return (
     <>
@@ -372,15 +386,27 @@ export function RewardsPage({ embedded }: { embedded?: boolean } = {}) {
             </CouponSection>
           ) : null}
 
-          {completedCoupons.length > 0 ? (
-            <CouponSection title="已完成" count={completedCoupons.length} accent="stone">
-              <CouponList
-                coupons={completedCoupons}
-                currentUserId={currentUserId}
-                myNickname={coupleExtended.myNickname}
-                partnerNickname={coupleExtended.partnerNickname}
-              />
-            </CouponSection>
+          {completedCount > 0 ? (
+            <CompletedRecordsSection
+              count={completedCount}
+              expanded={completedExpanded}
+              onToggle={() => setCompletedExpanded((v) => !v)}
+              retentionDays={COMPLETED_REWARD_CARD_RETENTION_DAYS}
+              cleanupMsg={cleanupMsg}
+              onCleanup={() => void handleCleanupOld()}
+            >
+              <ul className="space-y-1.5">
+                {completedCouponsSorted.map((c) => (
+                  <CompletedCouponRow
+                    key={c.id}
+                    coupon={c}
+                    currentUserId={currentUserId}
+                    myNickname={coupleExtended.myNickname}
+                    partnerNickname={coupleExtended.partnerNickname}
+                  />
+                ))}
+              </ul>
+            </CompletedRecordsSection>
           ) : null}
         </section>
         </>
@@ -402,6 +428,95 @@ export function RewardsPage({ embedded }: { embedded?: boolean } = {}) {
         </ul>
       </section>
     </>
+  );
+}
+
+function CompletedRecordsSection({
+  count,
+  expanded,
+  onToggle,
+  retentionDays,
+  cleanupMsg,
+  onCleanup,
+  children,
+}: {
+  count: number;
+  expanded: boolean;
+  onToggle: () => void;
+  retentionDays: number;
+  cleanupMsg: string | null;
+  onCleanup: () => void;
+  children: ReactNode;
+}) {
+  const Chevron = expanded ? ChevronUp : ChevronDown;
+  return (
+    <div className="space-y-1.5">
+      <button
+        type="button"
+        onClick={onToggle}
+        className="flex w-full min-h-[44px] items-center justify-between gap-2 rounded-xl border border-stone-200/80 bg-stone-50/60 px-3 py-2.5 text-left transition active:scale-[0.99]"
+        aria-expanded={expanded}
+      >
+        <span className="text-[12px] font-bold text-stone-600">已完成紀錄</span>
+        <span className="flex items-center gap-2 text-[12px] font-extrabold text-stone-500">
+          {count}
+          <Chevron className="h-4 w-4 shrink-0" aria-hidden />
+        </span>
+      </button>
+
+      {expanded ? (
+        <>
+          {children}
+          <p className="px-0.5 text-[10px] leading-relaxed text-stone-400">
+            已完成卡券會保留 {retentionDays} 天，之後自動清理。
+          </p>
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={onCleanup}
+              className="rounded-lg px-2 py-1 text-[11px] font-semibold text-stone-500 underline-offset-2 hover:text-stone-700 hover:underline"
+            >
+              清理舊紀錄
+            </button>
+            {cleanupMsg ? (
+              <span className="text-[11px] font-medium text-stone-500">{cleanupMsg}</span>
+            ) : null}
+          </div>
+        </>
+      ) : null}
+    </div>
+  );
+}
+
+function CompletedCouponRow({
+  coupon: c,
+  currentUserId,
+  myNickname,
+  partnerNickname,
+}: {
+  coupon: OwnedCoupon;
+  currentUserId: string | null;
+  myNickname: string;
+  partnerNickname: string;
+}) {
+  const user = c.usedBy
+    ? displayNameForUserId(c.usedBy, currentUserId, myNickname, partnerNickname)
+    : displayNameForUserId(c.redeemedBy, currentUserId, myNickname, partnerNickname);
+
+  return (
+    <li className="flex items-center justify-between gap-2 rounded-lg border border-stone-100 bg-stone-50/50 px-2.5 py-2 text-[12px]">
+      <div className="min-w-0 flex-1">
+        <p className="truncate font-semibold text-stone-800">
+          {c.emoji} {c.title}
+        </p>
+        <p className="mt-0.5 truncate text-[11px] text-stone-500">
+          {user} 使用 · {c.completedAt ? formatIso(c.completedAt) : '—'}
+        </p>
+      </div>
+      <span className="shrink-0 rounded-full bg-stone-200/80 px-2 py-0.5 text-[10px] font-bold text-stone-600">
+        {REWARD_CARD_STATUS_LABEL.completed}
+      </span>
+    </li>
   );
 }
 

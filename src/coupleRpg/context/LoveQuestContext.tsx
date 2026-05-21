@@ -104,9 +104,11 @@ import {
 } from '../storage/rewardsStore';
 import {
   canSyncRewardCards,
+  cleanupOldCompletedRewardCards,
   completeRewardCard as pushCompleteRewardCardRemote,
   pullRewardCardsFromRemote,
   redeemRewardCard,
+  sortCompletedCoupons,
   syncRewardCards as syncRewardCardsRemote,
   useRewardCard as pushUseRewardCardRemote,
   type RewardCardSyncStatus,
@@ -294,6 +296,9 @@ type LoveQuestContextValue = {
   completeRewardCard: (couponId: string) => void;
   pullRewardCardsFromCloud: () => Promise<void>;
   syncRewardCards: () => Promise<void>;
+  /** 清理超過保留期的已完成卡券，回傳刪除筆數 */
+  cleanupOldCompletedRewardCards: () => Promise<number>;
+  completedCouponsSorted: ReturnType<typeof sortCompletedCoupons>;
   partnerName: (id: PartnerId) => string;
   partnerEmoji: (id: PartnerId) => string;
 };
@@ -1375,17 +1380,52 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
     ]
   );
 
-  const pullRewardCardsFromCloud = useCallback(async () => {
-    if (coupleSpaceLoading) return;
-    if (
-      !canSyncRewardCards({
-        configured: auth.configured,
-        userId: currentUserId,
+  const runRewardCardCleanup = useCallback(
+    async (syncRemote: boolean) => {
+      const canRemote = syncRemote && Boolean(auth.supabase && coupleId);
+      const { removedCount, rewards: cleaned } = await cleanupOldCompletedRewardCards(
+        canRemote ? auth.supabase : null,
         coupleId,
-        online: isOnline,
-        isFullyBound,
-      })
-    ) {
+        { syncRemote: canRemote }
+      );
+      if (removedCount > 0) {
+        setRewards(cleaned);
+      }
+      return removedCount;
+    },
+    [auth.supabase, coupleId]
+  );
+
+  const cleanupOldCompletedRewardCardsFn = useCallback(async () => {
+    const canRemote = canSyncRewardCards({
+      configured: auth.configured,
+      userId: currentUserId,
+      coupleId,
+      online: isOnline,
+      isFullyBound,
+    });
+    return runRewardCardCleanup(canRemote);
+  }, [
+    auth.configured,
+    coupleId,
+    currentUserId,
+    isFullyBound,
+    isOnline,
+    runRewardCardCleanup,
+  ]);
+
+  const pullRewardCardsFromCloud = useCallback(async () => {
+    const canRemote = canSyncRewardCards({
+      configured: auth.configured,
+      userId: currentUserId,
+      coupleId,
+      online: isOnline,
+      isFullyBound,
+    });
+    await runRewardCardCleanup(canRemote);
+
+    if (coupleSpaceLoading) return;
+    if (!canRemote) {
       setRewardCardSyncStatus('local');
       return;
     }
@@ -1413,6 +1453,7 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
     currentUserId,
     isFullyBound,
     isOnline,
+    runRewardCardCleanup,
   ]);
 
   const syncRewardCards = useCallback(async () => {
@@ -1456,6 +1497,7 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
       })
     ) {
       setRewardCardSyncStatus('local');
+      void runRewardCardCleanup(false);
       return;
     }
     if (!auth.supabase || !coupleId || coupleSpaceLoading) return;
@@ -1463,6 +1505,9 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
     let cancelled = false;
     void (async () => {
       try {
+        if (!cancelled) {
+          await runRewardCardCleanup(true);
+        }
         const cur = loadRewards();
         const merged = await pullRewardCardsFromRemote(auth.supabase!, coupleId, cur);
         if (cancelled) return;
@@ -1489,7 +1534,13 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
     currentUserId,
     isFullyBound,
     isOnline,
+    runRewardCardCleanup,
   ]);
+
+  const completedCouponsSorted = useMemo(
+    () => sortCompletedCoupons(getCouponsByStatus(rewards, 'completed')),
+    [rewards]
+  );
 
   const weeklyTitles = useMemo(
     () => getWeeklyTitles(weeklyStats, completionHistory, couple),
@@ -1585,6 +1636,7 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
       redeemedCoupons: getCouponsByStatus(rewards, 'redeemed'),
       inProgressCoupons: getCouponsByStatus(rewards, 'used'),
       completedCoupons: getCouponsByStatus(rewards, 'completed'),
+      completedCouponsSorted,
       rewardCardSyncStatus,
       rewardCardSyncError,
       redeemRewardItem: redeemRewardItemFn,
@@ -1593,6 +1645,7 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
       completeRewardCard: completeRewardCardFn,
       pullRewardCardsFromCloud,
       syncRewardCards,
+      cleanupOldCompletedRewardCards: cleanupOldCompletedRewardCardsFn,
       partnerName,
       partnerEmoji,
     }),
@@ -1665,6 +1718,8 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
       completeRewardCardFn,
       pullRewardCardsFromCloud,
       syncRewardCards,
+      cleanupOldCompletedRewardCardsFn,
+      completedCouponsSorted,
       rewardCardSyncStatus,
       rewardCardSyncError,
       partnerName,

@@ -61,4 +61,9 @@ create policy "reward_card_records_update_member"
   using (public.is_couple_member(couple_id))
   with check (public.is_couple_member(couple_id));
 
+drop policy if exists "reward_card_records_delete_member" on public.reward_card_records;
+create policy "reward_card_records_delete_member"
+  on public.reward_card_records for delete to authenticated
+  using (public.is_couple_member(couple_id));
+
 grant select, insert, update, delete on table public.reward_card_records to authenticated;
