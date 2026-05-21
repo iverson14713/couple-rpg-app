@@ -10,9 +10,9 @@ export const lq = {
   card: 'rounded-2xl border border-stone-200/70 bg-white shadow-[0_8px_28px_-10px_rgba(15,23,42,0.08)]',
   cardSoft: 'rounded-xl border border-stone-200/55 bg-stone-50/90',
   nav: 'border-t border-stone-200/80 bg-white/95 backdrop-blur-md shadow-[0_-1px_0_0_rgba(0,0,0,0.04)]',
-  /** iOS tab：僅強調色，無大光暈 */
+  /** 底部 Tab：active / inactive 文字與 icon 色 */
   navActive: 'text-rose-500',
-  navIdle: 'text-stone-400',
+  navIdle: 'text-stone-500',
   btnPrimary:
     'inline-flex h-11 min-h-[44px] items-center justify-center rounded-[14px] bg-gradient-to-r from-rose-400 via-pink-400 to-rose-500 px-4 text-[15px] font-semibold text-white shadow-sm shadow-rose-300/35 active:scale-[0.98] disabled:opacity-50',
   btnSecondary:

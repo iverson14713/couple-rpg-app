@@ -22,7 +22,7 @@ export function BottomNav({ activeTab, onChange }: Props) {
 
   return (
     <nav
-      className={`fixed bottom-0 left-0 right-0 z-40 px-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-1 ${lq.nav}`}
+      className={`fixed bottom-0 left-0 right-0 z-40 px-1.5 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2 ${lq.nav}`}
       aria-label="主要功能"
     >
       <div className="mx-auto flex max-w-md">
@@ -35,13 +35,25 @@ export function BottomNav({ activeTab, onChange }: Props) {
               type="button"
               onClick={() => onChange(tab.id)}
               aria-current={isActive ? 'page' : undefined}
-              className={`flex min-w-0 flex-1 flex-col items-center gap-0.5 rounded-lg px-1 py-2 transition active:opacity-80 ${
-                isActive ? lq.navActive : lq.navIdle
+              className={`relative flex min-h-[52px] min-w-0 flex-1 flex-col items-center justify-center gap-1 rounded-xl px-1 py-2.5 transition active:scale-[0.97] ${
+                isActive ? 'bg-rose-50/90' : 'bg-transparent active:bg-stone-50/80'
               }`}
             >
-              <TabIcon className="h-[22px] w-[22px] shrink-0" strokeWidth={isActive ? 2.25 : 1.75} aria-hidden />
+              {isActive ? (
+                <span
+                  className="absolute top-1.5 left-1/2 h-1 w-1 -translate-x-1/2 rounded-full bg-rose-400"
+                  aria-hidden
+                />
+              ) : null}
+              <TabIcon
+                className={`h-[26px] w-[26px] shrink-0 ${isActive ? 'text-rose-500' : lq.navIdle}`}
+                strokeWidth={isActive ? 2.5 : 2}
+                aria-hidden
+              />
               <span
-                className={`truncate text-[11px] leading-tight ${isActive ? 'font-semibold text-rose-500' : 'font-medium text-stone-400'}`}
+                className={`truncate text-[13px] leading-tight ${
+                  isActive ? 'font-bold text-rose-500' : 'font-medium text-stone-500'
+                }`}
               >
                 {tab.label}
               </span>
