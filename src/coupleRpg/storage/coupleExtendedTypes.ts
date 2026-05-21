@@ -10,6 +10,8 @@ export type CustomImportantDate = {
 
 export type CoupleExtendedProfile = {
   version: 1;
+  /** ISO 8601 — 雲端合併用 */
+  updatedAt: string;
   myNickname: string;
   partnerNickname: string;
   /** YYYY-MM-DD 或空字串 */
@@ -24,6 +26,7 @@ export type CoupleExtendedProfile = {
 export function defaultCoupleExtendedProfile(): CoupleExtendedProfile {
   return {
     version: 1,
+    updatedAt: '',
     myNickname: '',
     partnerNickname: '',
     myBirthday: '',

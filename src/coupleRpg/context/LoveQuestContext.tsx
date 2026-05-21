@@ -159,7 +159,20 @@ import {
   pushDinnerOptionToSupabase,
 } from '../services/foodOptionsSync';
 import { useCoupleSpace } from './CoupleSpaceContext';
-import { loadCoupleExtendedProfile, saveCoupleExtendedProfile } from '../storage/coupleExtendedStore';
+import {
+  loadCoupleExtendedProfile,
+  saveCoupleExtendedProfile,
+  stampCoupleExtendedProfile,
+} from '../storage/coupleExtendedStore';
+import {
+  canSyncCoupleProfile,
+  getRemoteCoupleProfile,
+  mergeCoupleProfile,
+  pullCoupleProfileFromRemote,
+  pushCoupleProfileToRemote,
+  syncCoupleProfile,
+  type CoupleProfileSyncStatus,
+} from '../services/coupleProfileSyncService';
 import {
   loadImportantDateReminders,
   saveImportantDateReminders,
@@ -190,6 +203,9 @@ type LoveQuestContextValue = {
   taskProgress: ReturnType<typeof dailyTaskProgress>;
   coupleExtended: CoupleExtendedProfile;
   setCoupleExtendedProfile: (profile: CoupleExtendedProfile) => void;
+  coupleProfileSyncStatus: CoupleProfileSyncStatus;
+  coupleProfileSyncError: string | null;
+  syncCoupleProfile: () => Promise<void>;
   importantDateReminders: ImportantDateRemindersData;
   patchImportantDateReminder: (
     updater: (prev: ImportantDateRemindersData) => ImportantDateRemindersData
@@ -310,6 +326,9 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
   const currentUserId = auth.user?.id ?? null;
 
   const [rewardCardSyncError, setRewardCardSyncError] = useState<string | null>(null);
+  const [coupleProfileSyncStatus, setCoupleProfileSyncStatus] =
+    useState<CoupleProfileSyncStatus>('local');
+  const [coupleProfileSyncError, setCoupleProfileSyncError] = useState<string | null>(null);
 
   const [coupleBase] = useState(loadCouple);
   const [rpg, setRpg] = useState(loadRpg);
@@ -686,37 +705,151 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
     []
   );
 
-  const setCoupleExtendedProfileFn = useCallback((profile: CoupleExtendedProfile) => {
-    setCoupleExtendedState((prev) => {
-      saveCoupleExtendedProfile(profile);
-      const prevSnap = { ...prev };
-      queueMicrotask(() => {
-        let gave = false;
-        setRpg((r0) => {
-          if (!importantDatesKnowledgeIncreased(prevSnap, profile)) return r0;
-          const rolled = rollDailyGuardForToday(normalizeRpgState(r0));
-          const g = rolled.dailyGuard ?? defaultDailyGuard();
-          if (g.coupleProfileImportantRewardClaimed) return rolled;
-          gave = true;
-          const after = applyReward(rolled, REWARDS.coupleProfileImportant);
-          const out = {
-            ...after,
-            dailyGuard: {
-              ...g,
-              coupleProfileImportantRewardClaimed: true,
-              anchorDate: todayKey(),
-            },
-          };
-          saveRpg(out);
-          return out;
-        });
-        if (gave) {
-          setActivity(appendActivity('情侶資料重要日子 · 獲得獎勵'));
+  const pushCoupleProfileBackground = useCallback(
+    async (profile: CoupleExtendedProfile) => {
+      if (
+        !canSyncCoupleProfile({
+          configured: auth.configured,
+          userId: currentUserId,
+          coupleId,
+          online: isOnline,
+          isFullyBound,
+        })
+      ) {
+        setCoupleProfileSyncStatus('local');
+        return;
+      }
+      const sb = auth.supabase;
+      if (!sb || !coupleId) return;
+
+      setCoupleProfileSyncStatus('syncing');
+      setCoupleProfileSyncError(null);
+      try {
+        const { serverUpdatedAt } = await getRemoteCoupleProfile(sb, coupleId);
+        const result = await pushCoupleProfileToRemote(sb, coupleId, profile, serverUpdatedAt);
+        if (result.conflict) {
+          const row = await pullCoupleProfileFromRemote(sb, coupleId);
+          const merged = mergeCoupleProfile(profile, row.profile);
+          saveCoupleExtendedProfile(merged);
+          setCoupleExtendedState(merged);
         }
+        setCoupleProfileSyncStatus('synced');
+      } catch (err) {
+        console.error('[couple-profile-sync] background push failed:', err);
+        setCoupleProfileSyncStatus('error');
+        setCoupleProfileSyncError('同步失敗，稍後再試');
+      }
+    },
+    [auth.configured, auth.supabase, coupleId, currentUserId, isFullyBound, isOnline]
+  );
+
+  const syncCoupleProfileFn = useCallback(async () => {
+    if (
+      !canSyncCoupleProfile({
+        configured: auth.configured,
+        userId: currentUserId,
+        coupleId,
+        online: isOnline,
+        isFullyBound,
+      })
+    ) {
+      setCoupleProfileSyncStatus('local');
+      setCoupleProfileSyncError(null);
+      return;
+    }
+    const sb = auth.supabase;
+    if (!sb || !coupleId) return;
+
+    setCoupleProfileSyncStatus('syncing');
+    setCoupleProfileSyncError(null);
+    try {
+      const result = await syncCoupleProfile(sb, coupleId);
+      setCoupleExtendedState(result.merged);
+      setCoupleProfileSyncStatus('synced');
+    } catch (err) {
+      console.error('[couple-profile-sync] sync failed:', err);
+      setCoupleProfileSyncStatus('error');
+      setCoupleProfileSyncError('同步失敗，稍後再試');
+    }
+  }, [auth.configured, auth.supabase, coupleId, currentUserId, isFullyBound, isOnline]);
+
+  useEffect(() => {
+    if (
+      !canSyncCoupleProfile({
+        configured: auth.configured,
+        userId: currentUserId,
+        coupleId,
+        online: isOnline,
+        isFullyBound,
+      })
+    ) {
+      setCoupleProfileSyncStatus('local');
+      setCoupleProfileSyncError(null);
+      return;
+    }
+    const sb = auth.supabase;
+    if (!sb || !coupleId) return;
+
+    let cancelled = false;
+    void (async () => {
+      try {
+        const row = await pullCoupleProfileFromRemote(sb, coupleId);
+        if (cancelled) return;
+        const local = loadCoupleExtendedProfile();
+        const merged = mergeCoupleProfile(local, row.profile);
+        saveCoupleExtendedProfile(merged);
+        setCoupleExtendedState(merged);
+        setCoupleProfileSyncStatus('synced');
+        setCoupleProfileSyncError(null);
+      } catch (err) {
+        if (cancelled) return;
+        console.error('[couple-profile-sync] pull on load failed:', err);
+        setCoupleProfileSyncStatus('error');
+        setCoupleProfileSyncError('同步失敗，稍後再試');
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [auth.configured, auth.supabase, coupleId, currentUserId, isFullyBound, isOnline]);
+
+  const setCoupleExtendedProfileFn = useCallback(
+    (profile: CoupleExtendedProfile) => {
+      const stamped = stampCoupleExtendedProfile(profile);
+      setCoupleExtendedState((prev) => {
+        saveCoupleExtendedProfile(stamped);
+        const prevSnap = { ...prev };
+        queueMicrotask(() => {
+          let gave = false;
+          setRpg((r0) => {
+            if (!importantDatesKnowledgeIncreased(prevSnap, stamped)) return r0;
+            const rolled = rollDailyGuardForToday(normalizeRpgState(r0));
+            const g = rolled.dailyGuard ?? defaultDailyGuard();
+            if (g.coupleProfileImportantRewardClaimed) return rolled;
+            gave = true;
+            const after = applyReward(rolled, REWARDS.coupleProfileImportant);
+            const out = {
+              ...after,
+              dailyGuard: {
+                ...g,
+                coupleProfileImportantRewardClaimed: true,
+                anchorDate: todayKey(),
+              },
+            };
+            saveRpg(out);
+            return out;
+          });
+          if (gave) {
+            setActivity(appendActivity('情侶資料重要日子 · 獲得獎勵'));
+          }
+        });
+        return stamped;
       });
-      return profile;
-    });
-  }, []);
+      void pushCoupleProfileBackground(stamped);
+    },
+    [pushCoupleProfileBackground]
+  );
 
   const rerollLoveTaskFn = useCallback((taskId: string) => {
     setTasks((prev) => {
@@ -1322,6 +1455,9 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
       taskProgress,
       coupleExtended,
       setCoupleExtendedProfile: setCoupleExtendedProfileFn,
+      coupleProfileSyncStatus,
+      coupleProfileSyncError,
+      syncCoupleProfile: syncCoupleProfileFn,
       importantDateReminders,
       patchImportantDateReminder: patchImportantDateReminderFn,
       rerollLoveTask: rerollLoveTaskFn,
@@ -1406,6 +1542,9 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
       coupleExtended,
       importantDateReminders,
       setCoupleExtendedProfileFn,
+      coupleProfileSyncStatus,
+      coupleProfileSyncError,
+      syncCoupleProfileFn,
       patchImportantDateReminderFn,
       rerollLoveTaskFn,
       flirtGames,

@@ -23,10 +23,21 @@ export function loadCoupleExtendedProfile(): CoupleExtendedProfile {
     ...defaultCoupleExtendedProfile(),
     ...raw,
     version: 1,
+    updatedAt: typeof raw.updatedAt === 'string' ? raw.updatedAt : '',
     customDates: sanitizeCustomDates(raw.customDates),
   };
 }
 
+export function stampCoupleExtendedProfile(data: CoupleExtendedProfile): CoupleExtendedProfile {
+  return {
+    ...defaultCoupleExtendedProfile(),
+    ...data,
+    version: 1,
+    updatedAt: new Date().toISOString(),
+    customDates: sanitizeCustomDates(data.customDates),
+  };
+}
+
 export function saveCoupleExtendedProfile(data: CoupleExtendedProfile): void {
-  saveJson(LQ_KEYS.coupleExtended, data);
+  saveJson(LQ_KEYS.coupleExtended, { ...data, version: 1 });
 }

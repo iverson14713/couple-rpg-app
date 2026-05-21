@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { useSupabaseAuth } from '../../useSupabaseAuth';
 import { useCoupleRpgNav } from '../context/CoupleRpgNavContext';
 import { useLoveQuest } from '../context/LoveQuestContext';
@@ -17,7 +18,12 @@ export function TodayPage() {
     taskProgress,
     rpgView,
     datePlanner,
+    syncCoupleProfile,
   } = useLoveQuest();
+
+  useEffect(() => {
+    void syncCoupleProfile();
+  }, [syncCoupleProfile]);
 
   const showBindCard = showBindReminder;
   const dinnerLabel = todayDinner?.label ?? draftPick;
