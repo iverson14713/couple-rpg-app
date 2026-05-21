@@ -44,6 +44,14 @@ export function shuffleTodayMessage(): DailyMessageRecord {
   return next;
 }
 
+export function loadDailyMessageExpanded(): boolean {
+  return loadJson<boolean>(LQ_KEYS.dailyMessageExpanded, false);
+}
+
+export function saveDailyMessageExpanded(expanded: boolean): void {
+  saveJson(LQ_KEYS.dailyMessageExpanded, expanded);
+}
+
 export function saveCustomTodayMessage(text: string): DailyMessageRecord | null {
   const trimmed = text.trim();
   if (!trimmed) return null;

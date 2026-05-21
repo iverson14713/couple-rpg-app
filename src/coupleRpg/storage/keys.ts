@@ -16,4 +16,6 @@ export const LQ_KEYS = {
   coupleSpaceId: 'lovequest-couple-space-id',
   /** 首頁「今天想對你說」每日一句（local only） */
   dailyMessage: 'lovequest-daily-message',
+  /** 首頁「今天想對你說」展開狀態（local only） */
+  dailyMessageExpanded: 'lovequest-daily-message-expanded',
 } as const;

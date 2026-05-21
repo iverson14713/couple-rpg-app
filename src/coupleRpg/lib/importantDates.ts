@@ -78,7 +78,7 @@ export function getUpcomingImportantDates(
   from: Date = new Date()
 ): { items: UpcomingImportant[]; hasConfigured: boolean } {
   if (!hasHomeImportantDates(profile)) {
-    return { items: [], hasConfigured: false };
+    return { items: [], totalCount: 0, hasConfigured: false };
   }
 
   const partner = profile.partnerNickname.trim() || '另一半';
@@ -157,7 +157,7 @@ export function getUpcomingImportantDates(
     return a.daysUntil - b.daysUntil;
   });
 
-  return { items: items.slice(0, 3), hasConfigured: true };
+  return { items, totalCount: items.length, hasConfigured: true };
 }
 
 /** 首頁抬頭：情侶資料暱稱（無則預設「我・另一半」）。 */

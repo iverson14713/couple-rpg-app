@@ -7,8 +7,8 @@ import { getUpcomingImportantDates, formatHomeCoupleHeaderLine } from '../lib/im
 import { getTogetherDaysInfo } from '../lib/relationshipDays';
 import { todayKey } from '../lib/dates';
 import { useCoupleSpace } from '../context/CoupleSpaceContext';
-import { TogetherDaysCard } from '../components/TogetherDaysCard';
 import { DailyPartnerMessageCard } from '../components/DailyPartnerMessageCard';
+import type { TogetherDaysInfo } from '../lib/relationshipDays';
 import { lq } from '../theme';
 
 export function TodayPage() {
@@ -115,9 +115,7 @@ export function TodayPage() {
         </section>
       ) : null}
 
-      <TogetherDaysCard info={togetherDays} onGoSettings={goCoupleProfile} />
-
-      <ImportantDatesCard preview={importantPreview} onGoSettings={goCoupleProfile} />
+      <ImportantDatesCard preview={importantPreview} togetherDays={togetherDays} onGoSettings={goCoupleProfile} />
 
       <DailyPartnerMessageCard />
 
@@ -267,65 +265,109 @@ function HudStat({
   );
 }
 
+const IMPORTANT_DATES_MAX_ROWS = 3;
+
 function ImportantDatesCard({
   preview,
+  togetherDays,
   onGoSettings,
 }: {
   preview: ReturnType<typeof getUpcomingImportantDates>;
+  togetherDays: TogetherDaysInfo;
   onGoSettings: () => void;
 }) {
-  if (!preview.hasConfigured) {
+  const showTogether =
+    togetherDays.kind === 'active' || togetherDays.kind === 'future' || togetherDays.kind === 'invalid';
+
+  if (!preview.hasConfigured && !showTogether) {
     return (
-      <section className={`mb-2.5 px-3 py-2.5 ${lq.cardSoft}`}>
-        <p className={`text-[13px] font-medium leading-snug ${lq.textSecondary}`}>
+      <section className={`mb-2 px-3 py-2 ${lq.cardSoft}`}>
+        <p className={`text-[12px] leading-snug ${lq.textSecondary}`}>
           設定生日與紀念日，LoveQuest 會幫你記住重要日子。
         </p>
-        <button type="button" onClick={onGoSettings} className={`mt-2 w-full ${lq.btnPrimary}`}>
-          去設定
+        <button type="button" onClick={onGoSettings} className={`mt-1.5 text-[12px] font-semibold ${lq.accent}`}>
+          去設定 →
         </button>
       </section>
     );
   }
 
-  if (preview.items.length === 0) {
-    return (
-      <section className={`mb-2.5 px-3 py-2.5 ${lq.card}`}>
-        <p className={`mb-1 ${lq.sectionTitle} !text-base`}>重要日子</p>
-        <p className={`text-[13px] ${lq.textSecondary}`}>請以正確日期格式（YYYY-MM-DD）填寫，以便顯示倒數。</p>
-        <button type="button" onClick={onGoSettings} className={`mt-2 text-[13px] font-semibold ${lq.accent}`}>
-          前往設定 →
-        </button>
-      </section>
-    );
-  }
+  const eventSlots = Math.max(0, IMPORTANT_DATES_MAX_ROWS - (showTogether ? 1 : 0));
+  const visibleEvents = preview.items.slice(0, eventSlots);
+  const hiddenCount = preview.totalCount - visibleEvents.length;
+  const showViewAll = hiddenCount > 0;
 
   return (
-    <section className={`mb-2.5 p-3 ${lq.card}`}>
-      <p className={`mb-2 ${lq.sectionTitle} !text-base`}>重要日子</p>
-      <ul className="space-y-2">
-        {preview.items.map((it) => (
-          <li
+    <section className={`mb-2 px-3 py-2 ${lq.card}`}>
+      <div className="mb-1 flex items-center justify-between gap-2">
+        <p className={`text-[14px] font-bold ${lq.text}`}>重要日子</p>
+        {showViewAll ? (
+          <button type="button" onClick={onGoSettings} className={`shrink-0 text-[11px] font-semibold ${lq.accent}`}>
+            查看全部
+          </button>
+        ) : null}
+      </div>
+
+      <ul className="divide-y divide-stone-100/90">
+        {showTogether ? (
+          <CompactDateRow
+            icon="💕"
+            title={
+              togetherDays.kind === 'active'
+                ? '在一起'
+                : togetherDays.kind === 'future'
+                  ? '在一起紀念日'
+                  : '在一起'
+            }
+            suffix={
+              togetherDays.kind === 'active'
+                ? `第 ${togetherDays.days} 天`
+                : togetherDays.kind === 'future'
+                  ? '尚未開始'
+                  : '日期格式有誤'
+            }
+            highlight={togetherDays.kind === 'active'}
+          />
+        ) : null}
+
+        {visibleEvents.map((it) => (
+          <CompactDateRow
             key={it.id}
-            className={`flex items-center gap-3 rounded-xl border px-3 py-2.5 ${
-              it.isToday
-                ? 'border-rose-200/80 bg-gradient-to-r from-rose-50/90 to-white'
-                : 'border-stone-200/70 bg-stone-50/50'
-            }`}
-          >
-            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white text-xl shadow-sm ring-1 ring-stone-200/60" aria-hidden>
-              {it.icon}
-            </span>
-            <div className="min-w-0 flex-1">
-              <p className={`text-[15px] font-bold ${lq.text}`}>{it.displayTitle}</p>
-              {it.isToday ? (
-                <p className={`mt-0.5 text-[13px] font-semibold ${lq.accent}`}>{it.todayLine}</p>
-              ) : (
-                <p className={`mt-0.5 text-[14px] font-medium ${lq.textSecondary}`}>還有 {it.daysUntil} 天</p>
-              )}
-            </div>
-          </li>
+            icon={it.icon}
+            title={it.displayTitle}
+            suffix={it.isToday ? '就是今天！' : `還有 ${it.daysUntil} 天`}
+            highlight={it.isToday}
+          />
         ))}
+
+        {preview.hasConfigured && preview.items.length === 0 && !showTogether ? (
+          <li className={`py-2 text-[12px] ${lq.textSecondary}`}>請以 YYYY-MM-DD 填寫日期以顯示倒數</li>
+        ) : null}
       </ul>
     </section>
+  );
+}
+
+function CompactDateRow({
+  icon,
+  title,
+  suffix,
+  highlight,
+}: {
+  icon: string;
+  title: string;
+  suffix: string;
+  highlight?: boolean;
+}) {
+  return (
+    <li className="flex min-h-[40px] items-center gap-2 py-1">
+      <span className="w-6 shrink-0 text-center text-base leading-none" aria-hidden>
+        {icon}
+      </span>
+      <span className={`min-w-0 flex-1 truncate text-[13px] font-semibold ${highlight ? lq.accent : lq.text}`}>
+        {title}
+      </span>
+      <span className={`shrink-0 text-[12px] font-medium ${lq.textSecondary}`}>{suffix}</span>
+    </li>
   );
 }
