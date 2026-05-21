@@ -4,14 +4,18 @@ import { DinnerSyncStatusLine } from '../components/DinnerSyncStatusLine';
 import { formatDateShort } from '../lib/dates';
 import { foodEmojiForLabel } from '../lib/dinnerFoodEmoji';
 import { pickRandomOption } from '../storage/dinnerStore';
-import { DinnerFateCard } from '../components/DinnerFateCard';
+import { DinnerFateCard, type DinnerFatePhase } from '../components/DinnerFateCard';
 import { EmptyState } from '../components/EmptyState';
 import { RpgMiniStats } from '../components/RpgMiniStats';
 import { ChipRow, InlineInput, OptionChip, PageHero, PrimaryButton } from '../components/ui';
 import { lq } from '../theme';
 
-const SHUFFLE_MS = 1500;
-const ROLL_TICK_MS = 80;
+const SHUFFLE_MS_MIN = 1200;
+const SHUFFLE_MS_MAX = 1800;
+
+function shuffleDurationMs(): number {
+  return SHUFFLE_MS_MIN + Math.floor(Math.random() * (SHUFFLE_MS_MAX - SHUFFLE_MS_MIN + 1));
+}
 
 export function DinnerPage({ embedded }: { embedded?: boolean } = {}) {
   const lqState = useLoveQuest();
@@ -19,17 +23,11 @@ export function DinnerPage({ embedded }: { embedded?: boolean } = {}) {
 
   const [isDrawing, setIsDrawing] = useState(false);
   const [emptyHint, setEmptyHint] = useState(false);
-  const [rollingFoodName, setRollingFoodName] = useState('');
 
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const timeoutRefs = useRef<ReturnType<typeof setTimeout>[]>([]);
   const drawRunIdRef = useRef(0);
 
   const clearDrawTimers = useCallback(() => {
-    if (intervalRef.current) {
-      clearInterval(intervalRef.current);
-      intervalRef.current = null;
-    }
     timeoutRefs.current.forEach((id) => clearTimeout(id));
     timeoutRefs.current = [];
   }, []);
@@ -51,39 +49,44 @@ export function DinnerPage({ embedded }: { embedded?: boolean } = {}) {
   const savedTodayResult =
     lqState.todayDinner?.label && !lqState.draftPick ? lqState.todayDinner.label : null;
 
-  const isRolling = isDrawing;
+  const fatePhase = useMemo((): DinnerFatePhase => {
+    if (isDrawing) return 'shuffling';
+    if (selectedFood) return 'revealed';
+    if (savedTodayResult) return 'saved';
+    return 'idle';
+  }, [isDrawing, selectedFood, savedTodayResult]);
 
-  const { displayName, displaySubtitle, cardMode } = useMemo(() => {
-    if (isRolling) {
-      return {
-        displayName: rollingFoodName || '…',
-        displaySubtitle: '正在替你們挑選今晚的答案...',
-        cardMode: 'rolling' as const,
-      };
+  const { displayTitle, displaySubtitle, displayEmoji } = useMemo(() => {
+    switch (fatePhase) {
+      case 'shuffling':
+        return {
+          displayTitle: '今晚命運卡',
+          displaySubtitle: '正在替你們挑選今晚的答案...',
+          displayEmoji: null,
+        };
+      case 'revealed':
+        return {
+          displayTitle: selectedFood!,
+          displaySubtitle: '今晚就決定吃這個！',
+          displayEmoji: foodEmojiForLabel(selectedFood!),
+        };
+      case 'saved':
+        return {
+          displayTitle: savedTodayResult!,
+          displaySubtitle: '已儲存今日結果',
+          displayEmoji: foodEmojiForLabel(savedTodayResult!),
+        };
+      default:
+        return {
+          displayTitle: '今晚命運卡',
+          displaySubtitle: '讓命運幫你們決定今晚吃什麼',
+          displayEmoji: null,
+        };
     }
-    if (selectedFood) {
-      return {
-        displayName: selectedFood,
-        displaySubtitle: '今晚就決定吃這個！',
-        cardMode: 'picked' as const,
-      };
-    }
-    if (savedTodayResult) {
-      return {
-        displayName: savedTodayResult,
-        displaySubtitle: '已儲存今日結果',
-        cardMode: 'saved' as const,
-      };
-    }
-    return {
-      displayName: '準備抽籤',
-      displaySubtitle: '讓命運幫你們決定今晚吃什麼',
-      cardMode: 'idle' as const,
-    };
-  }, [isRolling, rollingFoodName, selectedFood, savedTodayResult]);
+  }, [fatePhase, selectedFood, savedTodayResult]);
 
-  const canRedraw = optionCount > 0 && Boolean(selectedFood || savedTodayResult);
-  const drawButtonLabel = isDrawing ? '抽籤中…' : canRedraw ? '🔄 再抽一次' : '🎲 隨機抽籤';
+  const drawButtonLabel =
+    fatePhase === 'shuffling' ? '抽籤中...' : fatePhase === 'idle' ? '隨機抽籤' : '再抽一次';
 
   const startDinnerDraw = useCallback(() => {
     const opts = activeOptions;
@@ -101,33 +104,19 @@ export function DinnerPage({ embedded }: { embedded?: boolean } = {}) {
     drawRunIdRef.current += 1;
     const runId = drawRunIdRef.current;
     const finalLabel = picked.label;
-    const labels = opts.map((o) => o.label);
 
     setEmptyHint(false);
     setIsDrawing(true);
-    setRollingFoodName(labels[Math.floor(Math.random() * labels.length)] ?? finalLabel);
-
-    intervalRef.current = setInterval(() => {
-      if (drawRunIdRef.current !== runId) return;
-      if (labels.length === 1) {
-        setRollingFoodName(labels[0]!);
-        return;
-      }
-      setRollingFoodName(labels[Math.floor(Math.random() * labels.length)]!);
-    }, ROLL_TICK_MS);
 
     const tDone = window.setTimeout(() => {
       if (drawRunIdRef.current !== runId) return;
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-        intervalRef.current = null;
-      }
-      setRollingFoodName(finalLabel);
       lqState.setDinnerDraftPick(finalLabel);
       setIsDrawing(false);
-    }, SHUFFLE_MS);
+    }, shuffleDurationMs());
     timeoutRefs.current.push(tDone);
   }, [activeOptions, lqState.setDinnerDraftPick, clearDrawTimers]);
+
+  const showEmptyCard = emptyHint || optionCount === 0;
 
   return (
     <>
@@ -150,25 +139,33 @@ export function DinnerPage({ embedded }: { embedded?: boolean } = {}) {
           <span aria-hidden>🍽️</span> 今晚吃什麼？
         </h2>
 
-        <div className="mb-3 flex min-h-[180px] items-center justify-center py-1">
-          {emptyHint || optionCount === 0 ? (
+        <div className="mb-3 flex min-h-[200px] items-center justify-center py-1">
+          {showEmptyCard ? (
             <EmptyState
               emoji="🍽️"
               title={emptyHint ? '請先新增晚餐選項' : '還沒有晚餐選項'}
               hint="先新增幾個常吃的餐點吧"
-              className="min-h-[168px] w-full"
+              className="min-h-[188px] w-full"
             />
           ) : (
-            <DinnerFateCard mode={cardMode} displayName={displayName} displaySubtitle={displaySubtitle} />
+            <DinnerFateCard
+              phase={fatePhase}
+              displayTitle={displayTitle}
+              displaySubtitle={displaySubtitle}
+              displayEmoji={displayEmoji}
+            />
           )}
         </div>
 
-        <PrimaryButton onClick={startDinnerDraw} disabled={isDrawing || optionCount === 0}>
+        <PrimaryButton
+          onClick={startDinnerDraw}
+          disabled={fatePhase === 'shuffling' || optionCount === 0}
+        >
           {drawButtonLabel}
         </PrimaryButton>
         <PrimaryButton
           variant="secondary"
-          disabled={isDrawing || !lqState.draftPick}
+          disabled={fatePhase === 'shuffling' || !lqState.draftPick}
           onClick={() => lqState.saveDinnerResult()}
           className="mt-2"
         >
