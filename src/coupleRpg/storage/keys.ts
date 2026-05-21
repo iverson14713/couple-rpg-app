@@ -14,4 +14,6 @@ export const LQ_KEYS = {
   rewards: 'lovequest-rewards',
   /** Set after Phase 7 couple bind; until then bind reminder shows on home */
   coupleSpaceId: 'lovequest-couple-space-id',
+  /** 首頁「今天想對你說」每日一句（local only） */
+  dailyMessage: 'lovequest-daily-message',
 } as const;

@@ -4,8 +4,11 @@ import { useSupabaseAuth } from '../../useSupabaseAuth';
 import { useCoupleRpgNav } from '../context/CoupleRpgNavContext';
 import { useLoveQuest } from '../context/LoveQuestContext';
 import { getUpcomingImportantDates, formatHomeCoupleHeaderLine } from '../lib/importantDates';
+import { getTogetherDaysInfo } from '../lib/relationshipDays';
 import { todayKey } from '../lib/dates';
 import { useCoupleSpace } from '../context/CoupleSpaceContext';
+import { TogetherDaysCard } from '../components/TogetherDaysCard';
+import { DailyPartnerMessageCard } from '../components/DailyPartnerMessageCard';
 import { lq } from '../theme';
 
 export function TodayPage() {
@@ -26,7 +29,13 @@ export function TodayPage() {
   } = useLoveQuest();
 
   const importantPreview = useMemo(() => getUpcomingImportantDates(coupleExtended), [coupleExtended]);
+  const togetherDays = useMemo(
+    () => getTogetherDaysInfo(coupleExtended.relationshipStart),
+    [coupleExtended.relationshipStart]
+  );
   const coupleHeaderLine = useMemo(() => formatHomeCoupleHeaderLine(coupleExtended), [coupleExtended]);
+  const goCoupleProfile = () =>
+    navigateTo('profile', { profileSection: 'settings', scrollToElementId: 'lq-couple-profile' });
   const showBindCard = showBindReminder;
 
   const dinnerLabel = todayDinner?.label ?? draftPick;
@@ -106,12 +115,11 @@ export function TodayPage() {
         </section>
       ) : null}
 
-      <ImportantDatesCard
-        preview={importantPreview}
-        onGoSettings={() =>
-          navigateTo('profile', { profileSection: 'settings', scrollToElementId: 'lq-couple-profile' })
-        }
-      />
+      <TogetherDaysCard info={togetherDays} onGoSettings={goCoupleProfile} />
+
+      <ImportantDatesCard preview={importantPreview} onGoSettings={goCoupleProfile} />
+
+      <DailyPartnerMessageCard />
 
       {activeAnniversaryReminders.length > 0 ? (
         <section className={`mb-2.5 px-3 py-2 ${lq.card}`}>
