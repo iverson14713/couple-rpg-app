@@ -1,5 +1,6 @@
 import { makeId } from '../lib/id';
 import { todayKey, weekKey } from '../lib/dates';
+import { stampHouseworkData, touchAssignedChore } from './houseworkSyncMeta';
 import type {
   HouseworkAssignedChore,
   HouseworkCompletion,
@@ -70,7 +71,7 @@ export function loadHousework(): HouseworkData {
 }
 
 export function saveHousework(data: HouseworkData): void {
-  saveJson(LQ_KEYS.housework, data);
+  saveJson(LQ_KEYS.housework, stampHouseworkData(data));
 }
 
 export function getTodayAssignment(data: HouseworkData, today: string = todayKey()): HouseworkTodayAssignment | null {
@@ -199,13 +200,13 @@ export function completeAssignedChore(
 
   const grantNow = !chore.rewarded;
   const now = new Date().toISOString();
-  const updatedChore: HouseworkAssignedChore = {
+  const updatedChore: HouseworkAssignedChore = touchAssignedChore({
     ...chore,
     completed: true,
     rewarded: chore.rewarded || grantNow,
     completedAt: chore.completedAt ?? now,
     completedBy: chore.completedBy ?? completedByUserId ?? null,
-  };
+  });
   const chores = cur.chores.map((c) => (c.taskId === taskId ? updatedChore : c));
 
   let completions = data.completions;

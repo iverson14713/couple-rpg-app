@@ -18,7 +18,7 @@ const META_LOCAL_PREFIX = 'lq-hw-meta-';
 
 const DEFAULT_HW_IDS = new Set(DEFAULT_HOUSEWORK_ITEMS.map((i) => i.id));
 
-export type ChoreSyncStatus = 'local' | 'syncing' | 'synced' | 'error';
+export type ChoreSyncStatus = 'local' | 'editing' | 'syncing' | 'synced' | 'error';
 
 export type ChoreRow = {
   id: string;
@@ -148,6 +148,8 @@ export function rowToHouseworkItem(row: ChoreRow): HouseworkItem | null {
     emoji: rowIcon(row),
     isActive: row.is_active !== false,
     syncPending: false,
+    updatedAt: row.updated_at,
+    localVersion: 0,
   };
 }
 
@@ -191,11 +193,17 @@ export function mergeRemoteChores(local: HouseworkItem[], remoteRows: ChoreRow[]
     if (lo.isActive === false) continue;
     const existing = byId.get(lo.id);
     if (existing) {
+      const preferLocal = parseTs(lo.updatedAt) >= parseTs(existing.updatedAt);
+      const primary = preferLocal ? lo : existing;
+      const secondary = preferLocal ? existing : lo;
       byId.set(lo.id, {
-        ...existing,
-        label: existing.label || lo.label,
-        emoji: existing.emoji || lo.emoji,
+        ...primary,
+        label: primary.label || secondary.label,
+        emoji: primary.emoji || secondary.emoji,
         remoteId: existing.remoteId ?? lo.remoteId ?? null,
+        isActive: lo.isActive !== false && existing.isActive !== false,
+        localVersion: Math.max(lo.localVersion ?? 0, existing.localVersion ?? 0),
+        updatedAt: preferLocal ? lo.updatedAt : existing.updatedAt,
       });
     } else {
       byId.set(lo.id, { ...lo, syncPending: !lo.remoteId });
@@ -227,22 +235,38 @@ function mergeTwoAssignedChores(
   if (!local) return remote;
 
   const localRank = local.completed ? 2 : 0;
-  const remoteRank = remote.completed ? 2 : RECORD_STATUS_RANK.pending;
-  const preferRemote =
-    remoteRank > localRank ||
-    (remoteRank === localRank && parseTs(remoteUpdatedAt) >= parseTs(local.completedAt));
+  const remoteRank = remote.completed ? 2 : 0;
+  const localTs = Math.max(parseTs(local.updatedAt), parseTs(local.completedAt));
+  const remoteTs = Math.max(parseTs(remoteUpdatedAt), parseTs(remote.completedAt));
+  const localVer = local.localVersion ?? 0;
+  const remoteVer = remote.localVersion ?? 0;
+
+  let preferRemote = false;
+  if (remoteRank > localRank) preferRemote = true;
+  else if (localRank > remoteRank) preferRemote = false;
+  else if (remoteTs > localTs) preferRemote = true;
+  else if (localTs > remoteTs) preferRemote = false;
+  else if (remoteVer > localVer) preferRemote = true;
 
   const primary = preferRemote ? remote : local;
   const secondary = preferRemote ? local : remote;
 
+  const completed = local.completed || remote.completed;
+  const rewarded = local.rewarded || remote.rewarded;
+
   return {
     taskId: primary.taskId,
     assignee: primary.assignee,
-    completed: primary.completed || secondary.completed,
-    rewarded: primary.rewarded || secondary.rewarded,
+    completed,
+    rewarded,
     remoteId: remote.remoteId ?? local.remoteId ?? null,
-    completedAt: primary.completedAt ?? secondary.completedAt,
-    completedBy: primary.completedBy ?? secondary.completedBy,
+    completedAt: completed
+      ? primary.completedAt ?? secondary.completedAt ?? null
+      : null,
+    completedBy: primary.completedBy ?? secondary.completedBy ?? null,
+    updatedAt:
+      localTs >= remoteTs ? local.updatedAt ?? local.completedAt : remote.updatedAt ?? remote.completedAt,
+    localVersion: Math.max(localVer, remoteVer),
   };
 }
 
@@ -265,6 +289,8 @@ function recordToAssignedChore(row: ChoreRecordRow): HouseworkAssignedChore | nu
     remoteId: row.id,
     completedAt: row.completed_at,
     completedBy: row.completed_by,
+    updatedAt: row.updated_at,
+    localVersion: 0,
   };
 }
 
@@ -402,29 +428,37 @@ async function upsertChore(
   sortOrder: number,
   createdBy: string | null
 ): Promise<string | null> {
-  const payload = houseworkItemToChorePayload(item, coupleId, sortOrder, createdBy);
+  const payload = {
+    ...houseworkItemToChorePayload(item, coupleId, sortOrder, createdBy),
+    updated_at: item.updatedAt ?? new Date().toISOString(),
+  };
 
-  const { data: existing, error: selErr } = await supabase
+  const { data, error } = await supabase
     .from('chores')
+    .upsert(payload, { onConflict: 'couple_id,local_id' })
     .select('id')
-    .eq('couple_id', coupleId)
-    .eq('local_id', item.id)
-    .maybeSingle();
+    .single();
 
-  if (selErr) {
-    console.error(`${LOG} chore upsert select failed:`, selErr.message);
-    throw selErr;
+  if (error) {
+    console.warn(`${LOG} chore upsert failed, fallback select/update:`, error.message);
+    const { data: existing, error: selErr } = await supabase
+      .from('chores')
+      .select('id')
+      .eq('couple_id', coupleId)
+      .eq('local_id', item.id)
+      .maybeSingle();
+    if (selErr) throw selErr;
+    if (existing?.id) {
+      const { error: upErr } = await supabase.from('chores').update(payload).eq('id', existing.id);
+      if (upErr) throw upErr;
+      return existing.id as string;
+    }
+    const { data: ins, error: insErr } = await supabase.from('chores').insert(payload).select('id').single();
+    if (insErr) throw insErr;
+    return (ins as { id: string } | null)?.id ?? null;
   }
 
-  if (existing?.id) {
-    const { error: upErr } = await supabase.from('chores').update(payload).eq('id', existing.id);
-    if (upErr) throw upErr;
-    return existing.id as string;
-  }
-
-  const { data: ins, error: insErr } = await supabase.from('chores').insert(payload).select('id').single();
-  if (insErr) throw insErr;
-  return (ins as { id: string } | null)?.id ?? null;
+  return (data as { id: string } | null)?.id ?? null;
 }
 
 export async function pushChoresToRemote(
@@ -470,28 +504,41 @@ async function upsertChoreRecord(
   payload: Record<string, unknown>,
   localId: string
 ): Promise<string | null> {
-  const { data: existing, error: selErr } = await supabase
+  const fullPayload = {
+    ...payload,
+    updated_at: payload.updated_at ?? new Date().toISOString(),
+  };
+
+  const { data, error } = await supabase
     .from('chore_records')
-    .select('id')
-    .eq('couple_id', coupleId)
-    .eq('local_id', localId)
-    .maybeSingle();
-
-  if (selErr) throw selErr;
-
-  if (existing?.id) {
-    const { error: upErr } = await supabase.from('chore_records').update(payload).eq('id', existing.id);
-    if (upErr) throw upErr;
-    return existing.id as string;
-  }
-
-  const { data: ins, error: insErr } = await supabase
-    .from('chore_records')
-    .insert(payload)
+    .upsert(fullPayload, { onConflict: 'couple_id,local_id' })
     .select('id')
     .single();
-  if (insErr) throw insErr;
-  return (ins as { id: string } | null)?.id ?? null;
+
+  if (error) {
+    console.warn(`${LOG} record upsert failed, fallback:`, error.message);
+    const { data: existing, error: selErr } = await supabase
+      .from('chore_records')
+      .select('id')
+      .eq('couple_id', coupleId)
+      .eq('local_id', localId)
+      .maybeSingle();
+    if (selErr) throw selErr;
+    if (existing?.id) {
+      const { error: upErr } = await supabase.from('chore_records').update(fullPayload).eq('id', existing.id);
+      if (upErr) throw upErr;
+      return existing.id as string;
+    }
+    const { data: ins, error: insErr } = await supabase
+      .from('chore_records')
+      .insert(fullPayload)
+      .select('id')
+      .single();
+    if (insErr) throw insErr;
+    return (ins as { id: string } | null)?.id ?? null;
+  }
+
+  return (data as { id: string } | null)?.id ?? null;
 }
 
 function buildRecordPayload(input: {
@@ -532,6 +579,7 @@ function buildRecordPayload(input: {
     completed_at: chore.completed ? chore.completedAt ?? new Date().toISOString() : null,
     rewarded: chore.rewarded,
     created_by: currentUserId,
+    updated_at: chore.updatedAt ?? new Date().toISOString(),
   };
 }
 

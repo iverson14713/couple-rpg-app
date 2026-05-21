@@ -4,6 +4,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from 'react';
@@ -115,15 +116,8 @@ import {
 } from '../services/rewardCardSync';
 import { addActivityLog } from '../services/activityLogService';
 import type { ActivityLogInput } from '../storage/activityLogTypes';
-import {
-  canSyncChores,
-  pullChoresFromRemote,
-  pullTodayChoreRecordsFromRemote,
-  pushHouseworkChangeToRemote,
-  syncChores as syncChoresRemote,
-  syncTodayChores as syncTodayChoresRemote,
-  type ChoreSyncStatus,
-} from '../services/choreSyncService';
+import { canSyncChores, type ChoreSyncStatus } from '../services/choreSyncService';
+import { createChoreSyncScheduler, type ChoreSyncScheduler } from '../services/choreSyncScheduler';
 import {
   displayNameForUserId,
   formatCompleteFeedLine,
@@ -250,6 +244,7 @@ type LoveQuestContextValue = {
   choreSyncError: string | null;
   pullHouseworkFromCloud: () => Promise<void>;
   syncHousework: () => Promise<void>;
+  retryChoreSync: () => void;
   toggleDailyTask: (id: string) => void;
   startFlirtGame: (gameId: FlirtGameId) => void;
   rerollFlirtPrompt: () => void;
@@ -393,40 +388,60 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
     [coupleExtended, coupleId, currentUserId, isPro]
   );
 
-  const pushHouseworkToCloud = useCallback(
-    (data: HouseworkData) => {
-      if (
-        !canSyncChores({
+  const choreSchedulerRef = useRef<ChoreSyncScheduler | null>(null);
+
+  useEffect(() => {
+    choreSchedulerRef.current?.dispose();
+    choreSchedulerRef.current = createChoreSyncScheduler({
+      debounceMs: 1500,
+      canSync: () =>
+        canSyncChores({
           configured: auth.configured,
           userId: currentUserId,
           coupleId,
           online: isOnline,
           isFullyBound,
-        }) ||
-        !auth.supabase ||
-        !coupleId
-      ) {
-        setChoreSyncStatus('local');
-        return;
-      }
-      setChoreSyncStatus('syncing');
-      setChoreSyncError(null);
-      void pushHouseworkChangeToRemote(auth.supabase, coupleId, data, choreSyncCtx)
-        .then((next) => {
-          saveHousework(next);
-          setHousework(next);
-          setChoreSyncStatus('synced');
-          setChoreSyncError(null);
-        })
-        .catch((e) => {
-          const msg = e instanceof Error ? e.message : String(e);
-          console.warn('[chore-sync] push failed:', msg);
-          setChoreSyncStatus('error');
-          setChoreSyncError('同步失敗，稍後再試');
-        });
-    },
-    [auth.configured, auth.supabase, choreSyncCtx, coupleId, currentUserId, isFullyBound, isOnline]
-  );
+        }),
+      getSupabase: () => auth.supabase,
+      getCoupleId: () => coupleId,
+      getCtx: () => choreSyncCtx,
+      onStatusChange: (status, error) => {
+        setChoreSyncStatus(status);
+        setChoreSyncError(error);
+      },
+      onHouseworkUpdated: (data) => setHousework(data),
+    });
+    if (
+      canSyncChores({
+        configured: auth.configured,
+        userId: currentUserId,
+        coupleId,
+        online: isOnline,
+        isFullyBound,
+      })
+    ) {
+      void choreSchedulerRef.current.pullFromRemoteIfIdle();
+    } else {
+      setChoreSyncStatus('local');
+    }
+    return () => {
+      choreSchedulerRef.current?.dispose();
+      choreSchedulerRef.current = null;
+    };
+  }, [
+    auth.configured,
+    auth.supabase,
+    choreSyncCtx,
+    coupleId,
+    coupleSpaceLoading,
+    currentUserId,
+    isFullyBound,
+    isOnline,
+  ]);
+
+  const scheduleChoreSync = useCallback((reason?: string) => {
+    choreSchedulerRef.current?.scheduleChoreSync(reason);
+  }, []);
   const [flirtGames, setFlirtGames] = useState(loadFlirtGames);
   const [completionHistory, setCompletionHistory] = useState(loadCompletionHistory);
   const [datePlanner, setDatePlanner] = useState(loadDatePlanner);
@@ -703,7 +718,7 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
         items: [...prev.items, { id: makeId(), label: trimmed, emoji, isActive: true, syncPending: true }],
       };
       saveHousework(next);
-      pushHouseworkToCloud(next);
+      scheduleChoreSync('add-item');
       logTodayActivity({
         actionType: 'create',
         targetType: 'chore',
@@ -711,7 +726,7 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
       });
       return next;
     });
-  }, [logTodayActivity, pushHouseworkToCloud]);
+  }, [logTodayActivity, scheduleChoreSync]);
 
   const removeHouseworkItem = useCallback(
     (id: string) => {
@@ -753,11 +768,11 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
           };
         }
         saveHousework(next);
-        pushHouseworkToCloud(next);
+        scheduleChoreSync('remove-item');
         return next;
       });
     },
-    [auth.configured, auth.supabase, coupleId, currentUserId, isFullyBound, isOnline, pushHouseworkToCloud]
+    [auth.configured, auth.supabase, coupleId, currentUserId, isFullyBound, isOnline, scheduleChoreSync]
   );
 
   const setHouseworkSelectedTaskIdsFn = useCallback(
@@ -765,11 +780,11 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
       setHousework((prev) => {
         const next = setSelectedTaskIds(prev, taskIds);
         saveHousework(next);
-        pushHouseworkToCloud(next);
+        scheduleChoreSync('select-tasks');
         return next;
       });
     },
-    [pushHouseworkToCloud]
+    [scheduleChoreSync]
   );
 
   const startHouseworkAssignmentFn = useCallback((): boolean => {
@@ -779,14 +794,14 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
       if (!next) return prev;
       ok = true;
       saveHousework(next);
-      pushHouseworkToCloud(next);
+      scheduleChoreSync('start-assignment');
       return next;
     });
     if (ok) {
       logTodayActivity({ actionType: 'sync', targetType: 'chore' });
     }
     return ok;
-  }, [logTodayActivity, pushHouseworkToCloud]);
+  }, [logTodayActivity, scheduleChoreSync]);
 
   const completeHouseworkChoreFn = useCallback(
     (taskId: string) => {
@@ -804,7 +819,7 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
           });
         }
         saveHousework(next);
-        pushHouseworkToCloud(next);
+        scheduleChoreSync('complete-chore');
         if (item) {
           logTodayActivity({
             actionType: 'complete',
@@ -821,7 +836,7 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
       currentUserId,
       grantReward,
       logTodayActivity,
-      pushHouseworkToCloud,
+      scheduleChoreSync,
     ]
   );
 
@@ -829,9 +844,10 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
     setHousework((prev) => {
       const next = clearTodayAssignment(prev);
       saveHousework(next);
+      scheduleChoreSync('clear-today');
       return next;
     });
-  }, []);
+  }, [scheduleChoreSync]);
 
   const reassignTodayHouseworkFn = useCallback((): boolean => {
     let ok = false;
@@ -840,11 +856,11 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
       if (!next) return prev;
       ok = true;
       saveHousework(next);
-      pushHouseworkToCloud(next);
+      scheduleChoreSync('reassign');
       return next;
     });
     return ok;
-  }, [pushHouseworkToCloud]);
+  }, [scheduleChoreSync]);
 
   const patchImportantDateReminderFn = useCallback(
     (updater: (prev: ImportantDateRemindersData) => ImportantDateRemindersData) => {
@@ -1724,44 +1740,8 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
 
   const pullHouseworkFromCloud = useCallback(async () => {
     if (coupleSpaceLoading) return;
-    if (
-      !canSyncChores({
-        configured: auth.configured,
-        userId: currentUserId,
-        coupleId,
-        online: isOnline,
-        isFullyBound,
-      })
-    ) {
-      setChoreSyncStatus('local');
-      return;
-    }
-    if (!auth.supabase || !coupleId) return;
-    setChoreSyncStatus('syncing');
-    setChoreSyncError(null);
-    try {
-      let cur = loadHousework();
-      cur = await pullChoresFromRemote(auth.supabase, coupleId, cur);
-      cur = await pullTodayChoreRecordsFromRemote(auth.supabase, coupleId, cur);
-      saveHousework(cur);
-      setHousework(cur);
-      setChoreSyncStatus('synced');
-      setChoreSyncError(null);
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : String(e);
-      console.warn('[chore-sync] pull failed:', msg);
-      setChoreSyncStatus('error');
-      setChoreSyncError('同步失敗，稍後再試');
-    }
-  }, [
-    auth.configured,
-    auth.supabase,
-    coupleId,
-    coupleSpaceLoading,
-    currentUserId,
-    isFullyBound,
-    isOnline,
-  ]);
+    await choreSchedulerRef.current?.pullFromRemoteIfIdle();
+  }, [coupleSpaceLoading]);
 
   const syncHousework = useCallback(async () => {
     if (
@@ -1777,78 +1757,12 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
       setChoreSyncError('需要登入、完成情侶綁定並連上網路才能同步');
       return;
     }
-    if (!auth.supabase || !coupleId) return;
-    setChoreSyncStatus('syncing');
-    setChoreSyncError(null);
-    try {
-      let cur = loadHousework();
-      cur = await syncChoresRemote(auth.supabase, coupleId, choreSyncCtx, cur);
-      cur = await syncTodayChoresRemote(auth.supabase, coupleId, choreSyncCtx, cur);
-      setHousework(cur);
-      setChoreSyncStatus('synced');
-      setChoreSyncError(null);
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : String(e);
-      console.warn('[chore-sync] sync failed:', msg);
-      setChoreSyncStatus('error');
-      setChoreSyncError('同步失敗，稍後再試');
-    }
-  }, [
-    auth.configured,
-    auth.supabase,
-    choreSyncCtx,
-    coupleId,
-    currentUserId,
-    isFullyBound,
-    isOnline,
-  ]);
+    await choreSchedulerRef.current?.flushChoreSync();
+  }, [auth.configured, coupleId, currentUserId, isFullyBound, isOnline]);
 
-  useEffect(() => {
-    if (
-      !canSyncChores({
-        configured: auth.configured,
-        userId: currentUserId,
-        coupleId,
-        online: isOnline,
-        isFullyBound,
-      })
-    ) {
-      setChoreSyncStatus('local');
-      return;
-    }
-    if (!auth.supabase || !coupleId || coupleSpaceLoading) return;
-
-    let cancelled = false;
-    void (async () => {
-      try {
-        let cur = loadHousework();
-        cur = await pullChoresFromRemote(auth.supabase!, coupleId, cur);
-        cur = await pullTodayChoreRecordsFromRemote(auth.supabase!, coupleId, cur);
-        if (cancelled) return;
-        saveHousework(cur);
-        setHousework(cur);
-        setChoreSyncStatus('synced');
-        setChoreSyncError(null);
-      } catch (e) {
-        if (cancelled) return;
-        console.warn('[chore-sync] auto pull failed:', e);
-        setChoreSyncStatus('error');
-        setChoreSyncError('同步失敗，稍後再試');
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [
-    auth.configured,
-    auth.supabase,
-    coupleId,
-    coupleSpaceLoading,
-    currentUserId,
-    isFullyBound,
-    isOnline,
-  ]);
+  const retryChoreSync = useCallback(() => {
+    choreSchedulerRef.current?.retryChoreSync();
+  }, []);
 
   const weeklyTitles = useMemo(
     () => getWeeklyTitles(weeklyStats, completionHistory, couple),
@@ -1911,6 +1825,7 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
       choreSyncError,
       pullHouseworkFromCloud,
       syncHousework,
+      retryChoreSync,
       toggleDailyTask: toggleDailyTaskFn,
       startFlirtGame,
       rerollFlirtPrompt,
@@ -2007,6 +1922,7 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
       choreSyncError,
       pullHouseworkFromCloud,
       syncHousework,
+      retryChoreSync,
       toggleDailyTaskFn,
       startFlirtGame,
       rerollFlirtPrompt,

@@ -69,6 +69,8 @@ export type HouseworkItem = {
   remoteId?: string | null;
   isActive?: boolean;
   syncPending?: boolean;
+  updatedAt?: string;
+  localVersion?: number;
 };
 
 export type HouseworkCompletion = {
@@ -93,6 +95,8 @@ export type HouseworkAssignedChore = {
   remoteId?: string | null;
   completedAt?: string | null;
   completedBy?: string | null;
+  updatedAt?: string;
+  localVersion?: number;
 };
 
 export type HouseworkTodayAssignment = {
@@ -103,6 +107,7 @@ export type HouseworkTodayAssignment = {
   /** 已按下「開始分配」的時間；null 表示尚未分配 */
   assignedAt: string | null;
   chores: HouseworkAssignedChore[];
+  updatedAt?: string;
 };
 
 export type HouseworkData = {
@@ -113,6 +118,9 @@ export type HouseworkData = {
   todayAssignment: HouseworkTodayAssignment | null;
   /** 奇數分配時多一項的一方，下次輪流 */
   lastExtraAssignee: PartnerId | null;
+  /** 本地同步版本（每次變更 +1） */
+  syncRevision?: number;
+  updatedAt?: string;
 };
 
 export type PendingHouseworkSpin = {
