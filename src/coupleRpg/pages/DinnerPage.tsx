@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useLoveQuest } from '../context/LoveQuestContext';
+import { ChoreSyncStatusLine } from '../components/ChoreSyncStatusLine';
 import { formatDateShort } from '../lib/dates';
 import { foodEmojiForLabel } from '../lib/dinnerFoodEmoji';
 import { pickRandomOption } from '../storage/dinnerStore';
@@ -15,7 +16,6 @@ const ROLL_TICK_MS = 80;
 export function DinnerPage({ embedded }: { embedded?: boolean } = {}) {
   const lqState = useLoveQuest();
   const [newLabel, setNewLabel] = useState('');
-  const [syncBusy, setSyncBusy] = useState(false);
 
   const [isDrawing, setIsDrawing] = useState(false);
   const [emptyHint, setEmptyHint] = useState(false);
@@ -45,7 +45,8 @@ export function DinnerPage({ embedded }: { embedded?: boolean } = {}) {
     void lqState.pullDinnerFromCloud();
   }, [lqState.pullDinnerFromCloud]);
 
-  const optionCount = lqState.dinner.options.length;
+  const activeOptions = lqState.dinnerOptions;
+  const optionCount = activeOptions.length;
   const selectedFood = lqState.draftPick;
   const savedTodayResult =
     lqState.todayDinner?.label && !lqState.draftPick ? lqState.todayDinner.label : null;
@@ -85,7 +86,7 @@ export function DinnerPage({ embedded }: { embedded?: boolean } = {}) {
   const drawButtonLabel = isDrawing ? '抽籤中…' : canRedraw ? '🔄 再抽一次' : '🎲 隨機抽籤';
 
   const startDinnerDraw = useCallback(() => {
-    const opts = lqState.dinner.options;
+    const opts = activeOptions;
     if (opts.length === 0) {
       setEmptyHint(true);
       const tid = window.setTimeout(() => setEmptyHint(false), 3200);
@@ -126,7 +127,7 @@ export function DinnerPage({ embedded }: { embedded?: boolean } = {}) {
       setIsDrawing(false);
     }, SHUFFLE_MS);
     timeoutRefs.current.push(tDone);
-  }, [lqState.dinner.options, lqState.setDinnerDraftPick, clearDrawTimers]);
+  }, [activeOptions, lqState.setDinnerDraftPick, clearDrawTimers]);
 
   return (
     <>
@@ -137,19 +138,11 @@ export function DinnerPage({ embedded }: { embedded?: boolean } = {}) {
         </>
       ) : null}
 
-      <div className="mb-3 flex justify-end">
-        <button
-          type="button"
-          disabled={syncBusy}
-          onClick={() => {
-            setSyncBusy(true);
-            void lqState.syncDinnerFoodOptions().finally(() => setSyncBusy(false));
-          }}
-          className="rounded-xl border border-stone-200 bg-white px-3 py-1.5 text-[11px] font-semibold text-stone-600 shadow-sm active:scale-[0.98] disabled:opacity-50"
-        >
-          {syncBusy ? '同步中…' : '☁️ 同步晚餐'}
-        </button>
-      </div>
+      <ChoreSyncStatusLine
+        status={lqState.dinnerSyncStatus}
+        error={lqState.dinnerSyncError}
+        onRetry={lqState.retryDinnerSync}
+      />
 
       <section className={`mb-3 p-4 ${lq.card}`}>
         <h2 className={`mb-3 flex items-center gap-1.5 text-sm font-bold ${lq.text}`}>
@@ -196,7 +189,7 @@ export function DinnerPage({ embedded }: { embedded?: boolean } = {}) {
           }}
         />
         <ChipRow>
-          {lqState.dinner.options.map((o) => (
+          {activeOptions.map((o) => (
             <OptionChip
               key={o.id}
               emoji={foodEmojiForLabel(o.label)}
@@ -205,7 +198,7 @@ export function DinnerPage({ embedded }: { embedded?: boolean } = {}) {
             />
           ))}
         </ChipRow>
-        {lqState.dinner.options.length === 0 ? (
+        {activeOptions.length === 0 ? (
           <p className={`mt-2 text-[12px] ${lq.textSecondary}`}>🍽️ 至少新增一項才能抽籤</p>
         ) : null}
       </section>

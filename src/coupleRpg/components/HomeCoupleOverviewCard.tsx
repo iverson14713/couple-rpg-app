@@ -25,6 +25,7 @@ export function HomeCoupleOverviewCard() {
     dismissAnniversaryReminder,
     todayDinner,
     draftPick,
+    dinnerHomeStatus,
     houseworkHomeStatus,
     taskProgress,
     datePlanner,
@@ -50,12 +51,16 @@ export function HomeCoupleOverviewCard() {
 
   const todayLine = useMemo(() => {
     const parts: string[] = [];
-    if (dinnerLabel) parts.push(`晚餐 ${dinnerLabel}`);
+    if (todayDinner?.label && dinnerHomeStatus.summaryPart) {
+      parts.push(dinnerHomeStatus.summaryPart);
+    } else if (dinnerLabel) {
+      parts.push(`晚餐 ${dinnerLabel}`);
+    }
     if (houseworkHomeStatus.summaryPart) parts.push(houseworkHomeStatus.summaryPart);
     if (total > 0) parts.push(`任務 ${done}/${total}`);
     if (datePlanner.current && !datePlanner.current.completed) parts.push('約會提案中');
     return parts.length ? parts.join(' · ') : '今天一起創造小驚喜吧';
-  }, [dinnerLabel, houseworkHomeStatus.summaryPart, total, done, datePlanner.current]);
+  }, [dinnerLabel, dinnerHomeStatus.summaryPart, houseworkHomeStatus.summaryPart, todayDinner?.label, total, done, datePlanner.current]);
 
   const dateRows = useMemo(() => {
     const rows: { key: string; icon: string; title: string; suffix: string; highlight?: boolean }[] = [];

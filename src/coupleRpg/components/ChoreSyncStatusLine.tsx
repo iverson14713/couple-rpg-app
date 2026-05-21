@@ -1,9 +1,12 @@
 import { RefreshCw } from 'lucide-react';
 import type { ChoreSyncStatus } from '../services/choreSyncService';
+import type { DinnerSyncStatus } from '../services/dinnerSyncService';
 import { lq } from '../theme';
 
+export type CoupleSyncStatus = ChoreSyncStatus | DinnerSyncStatus;
+
 const STATUS_COPY: Record<
-  ChoreSyncStatus,
+  CoupleSyncStatus,
   { icon: string; label: string; showRetry?: boolean }
 > = {
   local: { icon: '📱', label: '本機保存，登入並綁定後自動同步' },
@@ -18,7 +21,7 @@ export function ChoreSyncStatusLine({
   error,
   onRetry,
 }: {
-  status: ChoreSyncStatus;
+  status: CoupleSyncStatus;
   error: string | null;
   onRetry: () => void;
 }) {

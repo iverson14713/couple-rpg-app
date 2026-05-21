@@ -78,6 +78,7 @@ export function formatActivityMessage(item: Pick<
     'complete:chore': `${who} 完成了${title}`,
     'create:dinner': `${who} 新增了晚餐選項${title}`,
     'update:dinner': `${who} 更新了晚餐選項${title}`,
+    'delete:dinner': `${who} 刪除了晚餐選項${title}`,
     'complete:dinner': `${who} 決定今晚吃${title}`,
     'create:date_idea': `${who} 收藏了約會點子${title}`,
     'complete:date_idea': `${who} 完成了約會${title}`,

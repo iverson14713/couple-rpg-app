@@ -14,6 +14,7 @@ export function TodayPage() {
   const {
     todayDinner,
     draftPick,
+    dinnerHomeStatus,
     houseworkHomeStatus,
     taskProgress,
     rpgView,
@@ -27,6 +28,14 @@ export function TodayPage() {
 
   const showBindCard = showBindReminder;
   const dinnerLabel = todayDinner?.label ?? draftPick;
+  const dinnerBadge = todayDinner?.label
+    ? dinnerHomeStatus.badge
+    : draftPick
+      ? '待儲存'
+      : dinnerHomeStatus.badge;
+  const dinnerDescription = todayDinner?.label
+    ? dinnerHomeStatus.summaryPart ?? '不知道吃什麼就交給命運決定'
+    : '不知道吃什麼就交給命運決定';
   const { done, total, pct } = taskProgress;
 
   return (
@@ -89,8 +98,8 @@ export function TodayPage() {
           <HomeCoreFeatureCard
             emoji="🍽️"
             title="今晚吃什麼？"
-            description="不知道吃什麼就交給命運決定"
-            badge={dinnerLabel ? '已決定' : undefined}
+            description={dinnerDescription}
+            badge={dinnerBadge}
             cta="🍽️ 開始抽"
             onAction={() => navigateTo('dinner')}
           />

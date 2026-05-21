@@ -48,6 +48,11 @@ export type RpgState = {
 export type DinnerOption = {
   id: string;
   label: string;
+  emoji?: string;
+  remoteId?: string | null;
+  isActive?: boolean;
+  updatedAt?: string;
+  localVersion?: number;
 };
 
 export type DinnerHistoryEntry = {
@@ -55,11 +60,23 @@ export type DinnerHistoryEntry = {
   date: string;
   label: string;
   savedAt: string;
+  selectedFoodLocalId?: string | null;
+  decidedBy?: string | null;
+  remoteId?: string | null;
+  updatedAt?: string;
+  localVersion?: number;
 };
 
 export type DinnerData = {
   options: DinnerOption[];
   history: DinnerHistoryEntry[];
+  updatedAt?: string;
+  syncRevision?: number;
+};
+
+export type DinnerHomeStatus = {
+  badge: string;
+  summaryPart?: string;
 };
 
 export type HouseworkItem = {
