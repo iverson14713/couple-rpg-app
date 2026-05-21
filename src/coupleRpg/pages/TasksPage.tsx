@@ -1,4 +1,5 @@
-import { ChevronLeft } from 'lucide-react';
+import { useMemo } from 'react';
+import { Check, ChevronLeft, Gift, RefreshCw, Sparkles } from 'lucide-react';
 import { useCoupleRpgNav } from '../context/CoupleRpgNavContext';
 import { useLoveQuest } from '../context/LoveQuestContext';
 import { EmptyState } from '../components/EmptyState';
@@ -6,6 +7,8 @@ import { FlirtGamesPanel } from '../components/FlirtGamesPanel';
 import { RpgMiniStats } from '../components/RpgMiniStats';
 import { PageHero } from '../components/ui';
 import { todayKey } from '../lib/dates';
+import { pickTaskEncouragement, taskHintForTemplate } from '../lib/taskPageCopy';
+import type { LoveTask } from '../storage/types';
 import { lq } from '../theme';
 
 export function TasksPage({
@@ -23,13 +26,20 @@ export function TasksPage({
   const today = todayKey();
   const coinClaimedToday = tasks.dailyRewardClaimedDate === today;
 
+  const encouragement = useMemo(() => pickTaskEncouragement(today), [today]);
+  const completedTasks = useMemo(
+    () => tasks.dailyTasks.filter((t) => t.done),
+    [tasks.dailyTasks]
+  );
+  const allDone = total > 0 && done === total;
+
   return (
-    <>
+    <div className={showTasks && !showGames ? 'flex min-h-0 flex-col gap-4 pb-6' : 'space-y-4'}>
       {embedded ? (
         <button
           type="button"
           onClick={() => navigateTo('home')}
-          className="mb-2 flex items-center gap-0.5 text-[11px] font-bold text-stone-600 active:opacity-70"
+          className="flex min-h-[40px] items-center gap-0.5 text-[12px] font-bold text-stone-600 active:opacity-70"
         >
           <ChevronLeft className="h-4 w-4" aria-hidden />
           返回
@@ -44,83 +54,224 @@ export function TasksPage({
       ) : null}
 
       {showTasks ? (
-        <section className={`mb-3 p-4 ${lq.card}`}>
-          <div className="mb-2 flex items-center justify-between">
-            <h2 className="flex items-center gap-1.5 text-sm font-bold text-stone-900">
-              <span aria-hidden>💌</span> 今日戀愛任務
-            </h2>
-            <span className="rounded-full bg-rose-50 px-2 py-0.5 text-[10px] font-bold text-rose-600 ring-1 ring-rose-100">
-              隨機 {total} 項
-            </span>
-          </div>
-          <div className="mb-2 flex justify-between text-[11px] font-medium text-stone-500">
-            <span>今日完成進度</span>
-            <span className={lq.accent}>
-              {done}/{total} · {pct}%
-            </span>
-          </div>
-          <div className={`mb-2 h-1.5 overflow-hidden rounded-full ${lq.progressTrack}`}>
-            <div className={`h-full rounded-full ${lq.progress} transition-all`} style={{ width: `${pct}%` }} />
-          </div>
-          <p className="mb-2 text-[10px] text-stone-400" title="每日戀愛任務獎勵含 LoveCoin，每天最多領一次">
-            🪙 每日獎勵最多領一次 · 🔄 換一個不重置領獎
-          </p>
-
-          {tasks.dailyTasks.length === 0 ? (
-            <EmptyState compact emoji="💌" title="任務載入中" hint="稍候片刻" className="border-0 bg-transparent" />
-          ) : (
-            <div className="grid grid-cols-1 gap-2">
-              {tasks.dailyTasks.map((item) => {
-                const statusLine = (() => {
-                  if (item.done) {
-                    return coinClaimedToday ? '✅ 獎勵已領' : '✅ 已完成';
-                  }
-                  return coinClaimedToday ? '🪙 今日已領' : '點擊完成';
-                })();
-                return (
-                  <div
-                    key={item.id}
-                    className={`flex gap-1.5 rounded-2xl border p-2.5 ${
-                      item.done ? 'border-emerald-200 bg-emerald-50/80' : 'border-rose-50 bg-rose-50/30'
-                    }`}
-                  >
-                    <button
-                      type="button"
-                      onClick={() => toggleDailyTask(item.id)}
-                      className="flex min-h-[48px] min-w-0 flex-1 items-center justify-between gap-2 rounded-xl px-1 text-left transition active:scale-[0.99]"
-                    >
-                      <span className="flex min-w-0 flex-col gap-0.5">
-                        <span className="flex items-center gap-2">
-                          <span className="text-xl">{item.emoji}</span>
-                          <span
-                            className={`text-sm font-bold ${item.done ? 'text-stone-400 line-through' : 'text-stone-700'}`}
-                          >
-                            {item.label}
-                          </span>
-                        </span>
-                        <span className="pl-8 text-[10px] font-semibold text-stone-500">{statusLine}</span>
-                      </span>
-                      <span className="shrink-0 text-lg">{item.done ? '✅' : '⬜'}</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => rerollLoveTask(item.id)}
-                      className="flex w-[3.25rem] shrink-0 flex-col items-center justify-center rounded-xl border border-stone-200/80 bg-white px-1 py-1 text-[10px] font-bold leading-tight text-rose-700 shadow-sm active:scale-95"
-                    >
-                      <span aria-hidden>🔄</span>
-                      換一個
-                    </button>
-                  </div>
-                );
-              })}
+        <>
+          {/* 今日任務中心 */}
+          <section
+            className={`overflow-hidden rounded-2xl border border-rose-100/90 bg-gradient-to-br from-rose-50/90 via-white to-pink-50/50 p-4 shadow-[0_10px_32px_-12px_rgba(244,63,94,0.18)]`}
+          >
+            <div className="mb-3 flex items-start justify-between gap-2">
+              <div className="min-w-0">
+                <p className="text-[11px] font-bold uppercase tracking-wide text-rose-500">LoveQuest</p>
+                <h2 className="mt-0.5 flex items-center gap-2 text-[18px] font-extrabold leading-tight text-stone-900">
+                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white/90 text-xl shadow-sm ring-1 ring-rose-100">
+                    💌
+                  </span>
+                  今日任務中心
+                </h2>
+              </div>
+              <span className="shrink-0 rounded-full bg-white/90 px-2.5 py-1 text-[11px] font-bold text-rose-600 ring-1 ring-rose-100">
+                隨機 {total} 項
+              </span>
             </div>
-          )}
 
-          <p className="mt-3 text-[11px] text-stone-500">每完成一項 ❤️+2 🤝+1 ✨+12 🪙+10</p>
-        </section>
+            <p className="mb-3 flex items-start gap-2 rounded-xl bg-white/70 px-3 py-2.5 text-[14px] font-semibold leading-snug text-rose-800 ring-1 ring-rose-100/80">
+              <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-rose-400" aria-hidden />
+              {encouragement}
+            </p>
+
+            <div className="mb-1 flex justify-between text-[13px] font-semibold text-stone-600">
+              <span>今日完成進度</span>
+              <span className={lq.accent}>
+                {done}/{total} · {pct}%
+              </span>
+            </div>
+            <div className={`mb-1 h-2 overflow-hidden rounded-full ${lq.progressTrack}`}>
+              <div
+                className={`h-full rounded-full ${lq.progress} transition-all duration-500`}
+                style={{ width: `${pct}%` }}
+              />
+            </div>
+            {allDone ? (
+              <p className="text-[12px] font-semibold text-emerald-600">🎉 今日任務全部完成，太棒了！</p>
+            ) : (
+              <p className="text-[11px] text-stone-500">完成任務可累積愛心與 LoveCoin</p>
+            )}
+          </section>
+
+          {/* 任務列表 */}
+          <section className={`p-4 ${lq.card}`}>
+            <h3 className="mb-3 flex items-center gap-1.5 text-[15px] font-bold text-stone-900">
+              <span aria-hidden>✨</span>
+              今日小任務
+            </h3>
+
+            {tasks.dailyTasks.length === 0 ? (
+              <EmptyState compact emoji="💌" title="任務載入中" hint="稍候片刻" className="border-0 bg-transparent" />
+            ) : (
+              <ul className="space-y-3">
+                {tasks.dailyTasks.map((item) => (
+                  <TaskCard
+                    key={item.id}
+                    item={item}
+                    coinClaimedToday={coinClaimedToday}
+                    onToggle={() => toggleDailyTask(item.id)}
+                    onReroll={() => rerollLoveTask(item.id)}
+                  />
+                ))}
+              </ul>
+            )}
+          </section>
+
+          {/* 今日獎勵 */}
+          <section className="rounded-2xl border border-amber-100/90 bg-gradient-to-br from-amber-50/80 via-white to-rose-50/60 p-4 shadow-sm ring-1 ring-amber-100/60">
+            <h3 className="mb-2.5 flex items-center gap-2 text-[15px] font-bold text-stone-900">
+              <Gift className="h-4 w-4 text-amber-600" aria-hidden />
+              今日獎勵
+            </h3>
+            <p className="mb-2.5 text-[13px] font-semibold text-stone-700">完成今日戀愛任務可獲得：</p>
+            <ul className="grid grid-cols-2 gap-2 text-[13px] font-bold text-stone-800">
+              <RewardPill emoji="❤️" label="愛心" value="+2" />
+              <RewardPill emoji="🤝" label="默契" value="+1" />
+              <RewardPill emoji="✨" label="EXP" value="+12" />
+              <RewardPill emoji="🪙" label="LoveCoin" value="+10" />
+            </ul>
+            {coinClaimedToday ? (
+              <p className="mt-3 rounded-xl bg-white/80 px-3 py-2 text-[12px] font-semibold leading-relaxed text-emerald-700 ring-1 ring-emerald-100">
+                ✅ 今日獎勵已領取，仍可以繼續完成任務。
+              </p>
+            ) : (
+              <p className="mt-3 text-[11px] leading-relaxed text-stone-500">
+                🪙 每日 LoveCoin 獎勵最多領一次 · 換一個任務不會重置領獎
+              </p>
+            )}
+          </section>
+
+          {/* 今日回顧 */}
+          <section className={`p-4 ${lq.cardSoft}`}>
+            <h3 className="mb-2.5 flex items-center gap-1.5 text-[15px] font-bold text-stone-900">
+              <span aria-hidden>📔</span>
+              今日回顧
+            </h3>
+            {completedTasks.length === 0 ? (
+              <div className="rounded-xl border border-dashed border-stone-200/90 bg-white/60 px-3 py-4 text-center">
+                <p className="text-[14px] font-semibold text-stone-600">今天還沒有完成任務。</p>
+                <p className="mt-1.5 text-[12px] leading-relaxed text-stone-500">
+                  完成後會幫你們留下今天的小互動。
+                </p>
+              </div>
+            ) : (
+              <ul className="space-y-2">
+                {completedTasks.map((t) => (
+                  <li
+                    key={t.id}
+                    className="flex min-h-[44px] items-center gap-2.5 rounded-xl border border-emerald-100/80 bg-emerald-50/50 px-3 py-2.5 text-[14px] font-semibold text-stone-800"
+                  >
+                    <Check className="h-4 w-4 shrink-0 text-emerald-600" strokeWidth={2.5} aria-hidden />
+                    <span className="text-lg" aria-hidden>
+                      {t.emoji}
+                    </span>
+                    <span className="min-w-0 flex-1">{t.label}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+
+          {/* 底部墊高，避免 Tab 遮擋時仍顯得空 */}
+          <div className="h-2 shrink-0" aria-hidden />
+        </>
       ) : null}
 
       {showGames ? <FlirtGamesPanel /> : null}
-    </>
+    </div>
+  );
+}
+
+function TaskCard({
+  item,
+  coinClaimedToday,
+  onToggle,
+  onReroll,
+}: {
+  item: LoveTask;
+  coinClaimedToday: boolean;
+  onToggle: () => void;
+  onReroll: () => void;
+}) {
+  const hint = taskHintForTemplate(item.templateId, item.label);
+  const statusHint = item.done
+    ? coinClaimedToday
+      ? '獎勵已計入今日'
+      : '已完成'
+    : coinClaimedToday
+      ? '今日獎勵已領，仍可勾選完成'
+      : '點擊右側完成';
+
+  return (
+    <li
+      className={`rounded-2xl border-2 p-3.5 transition-colors ${
+        item.done
+          ? 'border-emerald-200/90 bg-gradient-to-br from-emerald-50/90 to-white'
+          : 'border-rose-100/90 bg-gradient-to-br from-rose-50/40 to-white shadow-sm'
+      }`}
+    >
+      <div className="flex gap-3">
+        <span
+          className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl text-2xl shadow-inner ${
+            item.done ? 'bg-emerald-100/80 ring-1 ring-emerald-100' : 'bg-white ring-1 ring-rose-100'
+          }`}
+          aria-hidden
+        >
+          {item.emoji}
+        </span>
+
+        <div className="min-w-0 flex-1">
+          <p
+            className={`text-[16px] font-extrabold leading-snug ${
+              item.done ? 'text-stone-500 line-through decoration-stone-300' : 'text-stone-900'
+            }`}
+          >
+            {item.label}
+          </p>
+          <p className="mt-1 text-[13px] leading-relaxed text-stone-500">{hint}</p>
+          <p className="mt-1.5 text-[11px] font-semibold text-stone-400">{statusHint}</p>
+        </div>
+
+        <button
+          type="button"
+          onClick={onToggle}
+          aria-label={item.done ? `取消完成：${item.label}` : `完成：${item.label}`}
+          className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border-2 transition active:scale-95 ${
+            item.done
+              ? 'border-emerald-400 bg-emerald-500 text-white shadow-sm'
+              : 'border-stone-200 bg-white text-stone-300 hover:border-rose-200'
+          }`}
+        >
+          {item.done ? <Check className="h-6 w-6" strokeWidth={2.5} /> : <span className="h-5 w-5 rounded-md border-2 border-stone-300" />}
+        </button>
+      </div>
+
+      <button
+        type="button"
+        onClick={onReroll}
+        className="mt-3 flex min-h-[44px] w-full items-center justify-center gap-1.5 rounded-xl border border-rose-100 bg-white px-3 text-[13px] font-bold text-rose-700 shadow-sm active:scale-[0.98]"
+      >
+        <RefreshCw className="h-4 w-4" aria-hidden />
+        換一個
+      </button>
+    </li>
+  );
+}
+
+function RewardPill({ emoji, label, value }: { emoji: string; label: string; value: string }) {
+  return (
+    <li className="flex items-center gap-2 rounded-xl bg-white/90 px-3 py-2.5 ring-1 ring-stone-100">
+      <span className="text-lg" aria-hidden>
+        {emoji}
+      </span>
+      <span>
+        {label} <span className="text-rose-600">{value}</span>
+      </span>
+    </li>
   );
 }
