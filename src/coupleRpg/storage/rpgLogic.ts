@@ -54,6 +54,8 @@ export function rollDailyGuardForToday(state: RpgState, today: string = todayKey
 
 export const REWARDS = {
   houseworkComplete: { heart: 0, compatibility: 3, xp: 10, houseworkPoints: 10, loveCoins: 3 },
+  /** 今日家事分配：完成單一項目（每項僅一次） */
+  houseworkChoreComplete: { heart: 0, compatibility: 3, xp: 10, houseworkPoints: 0, loveCoins: 3 },
   loveTaskComplete: { heart: 10, compatibility: 1, xp: 20, houseworkPoints: 0, loveCoins: 5 },
   flirtGameComplete: { heart: 2, compatibility: 2, xp: 12, houseworkPoints: 0, loveCoins: 8 },
   dinnerSaved: { heart: 3, compatibility: 2, xp: 5, houseworkPoints: 0, loveCoins: 0 },

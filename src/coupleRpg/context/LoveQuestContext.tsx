@@ -21,10 +21,16 @@ import {
 import {
   completePending,
   getWeeklyStats,
+  completeAssignedChore,
+  clearTodayAssignment,
+  getHouseworkHomeStatus,
   loadHousework,
+  reassignToday,
   saveHousework,
-  spinHousework,
+  setSelectedTaskIds,
+  startTodayAssignment,
 } from '../storage/houseworkStore';
+import type { HouseworkHomeStatus } from '../storage/houseworkStore';
 import {
   dailyTaskProgress,
   loadTasks,
@@ -149,6 +155,7 @@ type LoveQuestContextValue = {
   todayDinner: ReturnType<typeof getTodayDinner>;
   dinnerHistory: ReturnType<typeof getRecentHistory>;
   housework: HouseworkData;
+  houseworkHomeStatus: HouseworkHomeStatus;
   weeklyStats: WeeklyHouseworkStats;
   tasks: TasksData;
   taskProgress: ReturnType<typeof dailyTaskProgress>;
@@ -171,9 +178,11 @@ type LoveQuestContextValue = {
   syncDinnerFoodOptions: () => Promise<void>;
   addHouseworkItem: (label: string, emoji?: string) => void;
   removeHouseworkItem: (id: string) => void;
-  rollHousework: () => void;
-  completeHouseworkSpin: () => void;
-  clearHouseworkSpin: () => void;
+  setHouseworkSelectedTaskIds: (taskIds: string[]) => void;
+  startHouseworkAssignment: () => boolean;
+  completeHouseworkChore: (taskId: string) => void;
+  clearTodayHousework: () => void;
+  reassignTodayHousework: () => boolean;
   toggleDailyTask: (id: string) => void;
   startFlirtGame: (gameId: FlirtGameId) => void;
   rerollFlirtPrompt: () => void;
@@ -274,6 +283,7 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
 
   const taskProgress = useMemo(() => dailyTaskProgress(tasks.dailyTasks), [tasks.dailyTasks]);
   const weeklyStats = useMemo(() => getWeeklyStats(housework.completions), [housework.completions]);
+  const houseworkHomeStatus = useMemo(() => getHouseworkHomeStatus(housework), [housework]);
 
   const grantReward = useCallback((reward: RpgReward, log: string, coin?: CoinEarnMeta) => {
     setRpg((prev) => {
@@ -526,60 +536,87 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
 
   const removeHouseworkItem = useCallback((id: string) => {
     setHousework((prev) => {
-      const next = {
+      let next = {
         ...prev,
         items: prev.items.filter((i) => i.id !== id),
-        pendingSpin: prev.pendingSpin?.taskId === id ? null : prev.pendingSpin,
+        pendingSpin: null,
       };
-      saveHousework(next);
-      return next;
-    });
-  }, []);
-
-  const rollHousework = useCallback(() => {
-    setSpinning(true);
-    setTimeout(() => {
-      setHousework((prev) => {
-        const pending = spinHousework(prev.items);
-        const next = { ...prev, pendingSpin: pending };
-        saveHousework(next);
-        return next;
-      });
-      setSpinning(false);
-    }, 520);
-  }, []);
-
-  const completeHouseworkSpin = useCallback(() => {
-    setHousework((prev) => {
-      if (!prev.pendingSpin) return prev;
-      const { data: next, completion } = completePending(prev, prev.pendingSpin);
-      if (completion.rpgRewardGranted === true) {
-        saveHousework(next);
-        return next;
+      const ta = next.todayAssignment;
+      if (ta) {
+        next = {
+          ...next,
+          todayAssignment: {
+            ...ta,
+            selectedTaskIds: ta.selectedTaskIds.filter((tid) => tid !== id),
+            chores: ta.chores.filter((c) => c.taskId !== id),
+          },
+        };
       }
-      const name = completion.partner === 'A' ? couple.nameA : couple.nameB;
-      grantReward(REWARDS.houseworkComplete, `${name} 完成「${completion.taskLabel}」家事`, {
-        source: 'housework',
-        title: completion.taskLabel,
-        emoji: completion.emoji,
-      });
-      const flagged = {
-        ...next,
-        completions: next.completions.map((c) =>
-          c.id === completion.id ? { ...c, rpgRewardGranted: true as const } : c
-        ),
-      };
-      saveHousework(flagged);
-      return flagged;
-    });
-  }, [couple.nameA, couple.nameB, grantReward]);
-
-  const clearHouseworkSpin = useCallback(() => {
-    setHousework((prev) => {
-      const next = { ...prev, pendingSpin: null };
       saveHousework(next);
       return next;
     });
+  }, []);
+
+  const setHouseworkSelectedTaskIdsFn = useCallback((taskIds: string[]) => {
+    setHousework((prev) => {
+      const next = setSelectedTaskIds(prev, taskIds);
+      saveHousework(next);
+      return next;
+    });
+  }, []);
+
+  const startHouseworkAssignmentFn = useCallback((): boolean => {
+    let ok = false;
+    setHousework((prev) => {
+      const next = startTodayAssignment(prev);
+      if (!next) return prev;
+      ok = true;
+      saveHousework(next);
+      return next;
+    });
+    return ok;
+  }, []);
+
+  const completeHouseworkChoreFn = useCallback(
+    (taskId: string) => {
+      setHousework((prev) => {
+        const { data: next, granted, item } = completeAssignedChore(prev, taskId);
+        if (granted && item) {
+          const assigneeName =
+            next.todayAssignment?.chores.find((c) => c.taskId === taskId)?.assignee === 'A'
+              ? coupleExtended.myNickname.trim() || '我'
+              : coupleExtended.partnerNickname.trim() || '另一半';
+          grantReward(REWARDS.houseworkChoreComplete, `${assigneeName} 完成「${item.label}」`, {
+            source: 'housework',
+            title: item.label,
+            emoji: item.emoji,
+          });
+        }
+        saveHousework(next);
+        return next;
+      });
+    },
+    [coupleExtended.myNickname, coupleExtended.partnerNickname, grantReward]
+  );
+
+  const clearTodayHouseworkFn = useCallback(() => {
+    setHousework((prev) => {
+      const next = clearTodayAssignment(prev);
+      saveHousework(next);
+      return next;
+    });
+  }, []);
+
+  const reassignTodayHouseworkFn = useCallback((): boolean => {
+    let ok = false;
+    setHousework((prev) => {
+      const next = reassignToday(prev);
+      if (!next) return prev;
+      ok = true;
+      saveHousework(next);
+      return next;
+    });
+    return ok;
   }, []);
 
   const setCoupleExtendedProfileFn = useCallback((profile: CoupleExtendedProfile) => {
@@ -970,6 +1007,7 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
       todayDinner: getTodayDinner(dinner.history),
       dinnerHistory: getRecentHistory(dinner.history),
       housework,
+      houseworkHomeStatus,
       weeklyStats,
       tasks,
       taskProgress,
@@ -991,9 +1029,11 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
       syncDinnerFoodOptions,
       addHouseworkItem,
       removeHouseworkItem,
-      rollHousework,
-      completeHouseworkSpin,
-      clearHouseworkSpin,
+      setHouseworkSelectedTaskIds: setHouseworkSelectedTaskIdsFn,
+      startHouseworkAssignment: startHouseworkAssignmentFn,
+      completeHouseworkChore: completeHouseworkChoreFn,
+      clearTodayHousework: clearTodayHouseworkFn,
+      reassignTodayHousework: reassignTodayHouseworkFn,
       toggleDailyTask: toggleDailyTaskFn,
       startFlirtGame,
       rerollFlirtPrompt,
@@ -1038,6 +1078,7 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
       rpg,
       dinner,
       housework,
+      houseworkHomeStatus,
       weeklyStats,
       tasks,
       taskProgress,
@@ -1062,9 +1103,11 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
       syncDinnerFoodOptions,
       addHouseworkItem,
       removeHouseworkItem,
-      rollHousework,
-      completeHouseworkSpin,
-      clearHouseworkSpin,
+      setHouseworkSelectedTaskIdsFn,
+      startHouseworkAssignmentFn,
+      completeHouseworkChoreFn,
+      clearTodayHouseworkFn,
+      reassignTodayHouseworkFn,
       toggleDailyTaskFn,
       startFlirtGame,
       rerollFlirtPrompt,

@@ -50,7 +50,7 @@ function CoupleRpgShell() {
         )}
         {tab === 'housework' && (
           <>
-            <TabPageHeader emoji="🏠" title="家事誰來做" subtitle="公平轉盤，甜蜜分工" />
+            <TabPageHeader emoji="🏠" title="家事誰來做" subtitle="選好家事，平均分配給兩人" />
             <HouseworkPage embedded />
           </>
         )}

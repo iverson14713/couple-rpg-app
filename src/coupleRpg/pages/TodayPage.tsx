@@ -18,7 +18,7 @@ export function TodayPage() {
   const {
     todayDinner,
     draftPick,
-    housework,
+    houseworkHomeStatus,
     taskProgress,
     rpgView,
     datePlanner,
@@ -39,17 +39,16 @@ export function TodayPage() {
   const showBindCard = showBindReminder;
 
   const dinnerLabel = todayDinner?.label ?? draftPick;
-  const pendingHw = housework.pendingSpin;
   const { done, total, pct } = taskProgress;
 
   const todayLine = useMemo(() => {
     const parts: string[] = [];
     if (dinnerLabel) parts.push(`晚餐：${dinnerLabel}`);
-    if (pendingHw) parts.push(`家事待做`);
+    if (houseworkHomeStatus.summaryPart) parts.push(houseworkHomeStatus.summaryPart);
     if (total > 0) parts.push(`任務 ${done}/${total}`);
     if (datePlanner.current && !datePlanner.current.completed) parts.push('約會提案中');
     return parts.length ? parts.join(' · ') : '今天一起創造小驚喜吧';
-  }, [dinnerLabel, pendingHw, total, done, datePlanner.current]);
+  }, [dinnerLabel, houseworkHomeStatus.summaryPart, total, done, datePlanner.current]);
 
   return (
     <>
@@ -175,7 +174,7 @@ export function TodayPage() {
             emoji="🏠"
             title="家事誰來做？"
             description="公平分配，不再吵架"
-            badge={pendingHw ? '待完成' : undefined}
+            badge={houseworkHomeStatus.badge}
             cta="分配家事"
             onAction={() => navigateTo('housework')}
           />

@@ -80,10 +80,33 @@ export type HouseworkCompletion = {
   rpgRewardGranted?: boolean;
 };
 
+/** 今日已分配的家事（localStorage） */
+export type HouseworkAssignedChore = {
+  taskId: string;
+  /** A = 我（myNickname），B = 另一半（partnerNickname） */
+  assignee: PartnerId;
+  completed: boolean;
+  rewarded: boolean;
+};
+
+export type HouseworkTodayAssignment = {
+  /** YYYY-MM-DD */
+  date: string;
+  /** Step 1：今日要做的家事 id */
+  selectedTaskIds: string[];
+  /** 已按下「開始分配」的時間；null 表示尚未分配 */
+  assignedAt: string | null;
+  chores: HouseworkAssignedChore[];
+};
+
 export type HouseworkData = {
   items: HouseworkItem[];
   completions: HouseworkCompletion[];
+  /** 舊版轉盤；新流程不再使用，載入時清除 */
   pendingSpin: PendingHouseworkSpin | null;
+  todayAssignment: HouseworkTodayAssignment | null;
+  /** 奇數分配時多一項的一方，下次輪流 */
+  lastExtraAssignee: PartnerId | null;
 };
 
 export type PendingHouseworkSpin = {
