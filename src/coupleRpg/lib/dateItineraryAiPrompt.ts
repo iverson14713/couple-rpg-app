@@ -130,47 +130,34 @@ export function buildDateItineraryAiPrompt(input: DateItineraryAiInput): string 
   const depart = departure.trim() || '（未填寫，請依台灣常見都會區假設並註明）';
   const prefs = partnerPrefs.trim() || '（未填寫，請依一般情侶互動給建議）';
 
-  return `你是專業的情侶約會行程規劃師。請根據以下資訊，為我們規劃「整天」的約會行程（含交通與預算考量）。
+  return `你是專業的情侶約會行程規劃師。請根據以下資訊規劃整天約會行程。
 
-【約會主題】
-${suggestion.emoji} ${suggestion.title}
-
-【主題標籤】
-${tags}
-
+【約會主題】${suggestion.emoji} ${suggestion.title}
+【主題標籤】${tags}
 【點子預算參考】${COST_LABEL[suggestion.cost]}（使用者選擇：${budgetLine(budget, customBudget)}）
-
 【建議時長】${DURATION_LABEL[suggestion.duration]}
+【點子描述】${suggestion.description}
+【適合情境】${suggestion.scenario}
+【出發地】${depart}
+【交通方式】${transportLine(transport)}
+【想要風格】${styleLine(style)}
+【伴侶喜好／限制】${prefs}
 
-【點子描述】
-${suggestion.description}
+【輸出格式 — 極重要】
+只回傳一個 JSON 物件，不要 Markdown、不要代碼區塊、不要任何 ### ## # --- ** 粗體或標題符號。
+欄位如下（皆繁體中文純文字）：
+{
+  "title": "行程標題（一句話，15字內）",
+  "segments": [
+    { "period": "上午|中午|下午|傍晚", "place": "地點類型或區域", "activity": "具體活動與停留時間感" }
+  ],
+  "tips": ["貼心提醒1", "貼心提醒2"],
+  "budget": "預算粗估（分項＋總計區間，純文字一句話或多句）"
+}
 
-【適合情境】
-${suggestion.scenario}
-
-【出發地】
-${depart}
-
-【交通方式】
-${transportLine(transport)}
-
-【想要風格】
-${styleLine(style)}
-
-【伴侶喜好／限制】
-${prefs}
-
-請用繁體中文、條列清楚，並依序輸出以下 9 個區塊（每區塊都要有具體建議，可含地點類型範例，不必虛構真實店名）：
-
-1. 上午行程
-2. 中午安排
-3. 下午行程
-4. 晚餐／傍晚安排
-5. 預算估算（分項粗估，總計區間）
-6. 交通建議（含往返與景點間移動）
-7. 驚喜小安排（1～2 個可執行的小驚喜）
-8. 可以對伴侶說的一句話（真誠、不肉麻）
-9. 注意事項（天氣、營業時間、交通時間、體力等）
-
-請讓行程與「${suggestion.title}」主題一致，步調符合「${styleLine(style)}」風格，並考慮「${transportLine(transport)}」的交通型態。`;
+規則：
+- segments 至少含上午、中午、下午、傍晚四個時段（可依主題調整文案）
+- tips 含交通、天氣、體力、小驚喜或對伴侶說的一句話等 2～4 則
+- 不必虛構真實店名；地點用類型描述即可
+- 與「${suggestion.title}」主題一致，風格符合「${styleLine(style)}」，交通考量「${transportLine(transport)}」`;
 }

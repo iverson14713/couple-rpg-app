@@ -30,6 +30,9 @@ export const IMPORTANT_DATE_MAX_TOKENS = 1800;
 const COUPLE_SYSTEM_ZH =
   '你是專業、貼心的情侶生活顧問。請依使用者指示，用繁體中文、條列清楚、具體可執行地回覆。';
 
+const DATE_ITINERARY_SYSTEM_ZH =
+  '你是情侶約會行程規劃師。只回傳 JSON 物件，禁止 Markdown（不得使用 #、##、###、---、** 等符號）。所有字串為繁體中文純文字。';
+
 const MODEL = (process.env.OPENAI_MODEL || 'gpt-4o-mini').trim();
 
 /** After incrementDailyUsed — attach to JSON so clients are not dependent on GET /health query parsing. */
@@ -709,6 +712,100 @@ async function handleCouplePrompt(prompt, maxTokens) {
   return { answer: content, usage };
 }
 
+function stripMarkdownPlain(text) {
+  if (typeof text !== 'string') return '';
+  return text
+    .replace(/^#{1,6}\s*/gm, '')
+    .replace(/^\s*[-*_]{3,}\s*$/gm, '')
+    .replace(/\*\*([^*]+)\*\*/g, '$1')
+    .replace(/\*([^*]+)\*/g, '$1')
+    .replace(/`([^`]+)`/g, '$1')
+    .trim();
+}
+
+function dateItineraryCoerceString(v) {
+  return stripMarkdownPlain(careBundleCoerceString(v));
+}
+
+function normalizeDateItinerarySegment(raw) {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
+  const o = /** @type {Record<string, unknown>} */ (raw);
+  const period = dateItineraryCoerceString(o.period ?? o.time ?? o.時段);
+  const place = dateItineraryCoerceString(o.place ?? o.location ?? o.地點);
+  const activity = dateItineraryCoerceString(o.activity ?? o.活動 ?? o.content);
+  if (!period && !place && !activity) return null;
+  return {
+    period: period || '行程',
+    place: place || '—',
+    activity: activity || '—',
+  };
+}
+
+function normalizeDateItineraryTips(v) {
+  if (Array.isArray(v)) {
+    return v.map(dateItineraryCoerceString).filter(Boolean);
+  }
+  const s = dateItineraryCoerceString(v);
+  if (!s) return [];
+  return s
+    .split(/\n+/)
+    .map((x) => x.replace(/^[•\d.)、]+\s*/, '').trim())
+    .filter(Boolean);
+}
+
+/**
+ * @param {unknown} parsed
+ */
+function normalizeDateItineraryFromParsed(parsed) {
+  const obj =
+    parsed && typeof parsed === 'object' && !Array.isArray(parsed)
+      ? /** @type {Record<string, unknown>} */ (parsed)
+      : {};
+  const title = dateItineraryCoerceString(obj.title ?? obj.行程標題) || '今日約會行程';
+  const budget = dateItineraryCoerceString(obj.budget ?? obj.預算) || '依實際消費調整';
+
+  const rawSeg = obj.segments ?? obj.schedule ?? obj.時段;
+  /** @type {{ period: string, place: string, activity: string }[]} */
+  const segments = Array.isArray(rawSeg)
+    ? rawSeg.map(normalizeDateItinerarySegment).filter(Boolean)
+    : [];
+
+  const tips = normalizeDateItineraryTips(obj.tips ?? obj.貼心提醒 ?? obj.注意事項);
+
+  return { title, segments, tips, budget };
+}
+
+async function handleDateItinerary(prompt) {
+  const { content, usage } = await openAiChatCompletion({
+    messages: [
+      { role: 'system', content: DATE_ITINERARY_SYSTEM_ZH },
+      { role: 'user', content: prompt },
+    ],
+    temperature: 0.4,
+    maxTokens: DATE_ITINERARY_MAX_TOKENS,
+    jsonMode: true,
+  });
+
+  let itinerary;
+  try {
+    itinerary = normalizeDateItineraryFromParsed(tryParseJsonObject(content));
+  } catch {
+    itinerary = normalizeDateItineraryFromParsed({});
+    itinerary.tips = [stripMarkdownPlain(content).slice(0, 500) || '請再試一次產生行程'];
+  }
+
+  const answer = [
+    itinerary.title,
+    ...itinerary.segments.map((s) => `${s.period}：${s.place} — ${s.activity}`),
+    itinerary.budget ? `預算：${itinerary.budget}` : '',
+    itinerary.tips.length ? `提醒：${itinerary.tips.join('；')}` : '',
+  ]
+    .filter(Boolean)
+    .join('\n');
+
+  return { itinerary, answer, usage };
+}
+
 /**
  * @param {unknown} body
  * @param {'date-itinerary' | 'important-date'} feature
@@ -764,7 +861,46 @@ async function assistCouplePromptPOST(body, feature, catId, maxTokens) {
  * @returns {Promise<{ status: number, json: object }>}
  */
 export async function assistDateItineraryPOST(body) {
-  return assistCouplePromptPOST(body, 'date-itinerary', 'couple-date-itinerary', DATE_ITINERARY_MAX_TOKENS);
+  const b = body && typeof body === 'object' ? body : {};
+  const clientId = typeof b.clientId === 'string' ? b.clientId.trim() : '';
+  const usageDate = typeof b.usageDate === 'string' ? b.usageDate.trim() : '';
+  const prompt = typeof b.prompt === 'string' ? b.prompt.trim() : '';
+
+  if (!isClientId(clientId)) {
+    return { status: 400, json: { error: 'Invalid or missing clientId', code: 'BAD_REQUEST' } };
+  }
+  if (!isYmd(usageDate)) {
+    return {
+      status: 400,
+      json: { error: 'Invalid or missing usageDate (YYYY-MM-DD)', code: 'BAD_REQUEST' },
+    };
+  }
+  if (!prompt) {
+    return { status: 400, json: { error: 'Missing prompt', code: 'BAD_REQUEST' } };
+  }
+  if (prompt.length > COUPLE_PROMPT_MAX_CHARS) {
+    return { status: 400, json: { error: 'prompt too long', code: 'BAD_REQUEST' } };
+  }
+
+  if (!process.env.OPENAI_API_KEY?.trim()) {
+    return {
+      status: 503,
+      json: { error: 'Server is not configured with OPENAI_API_KEY', code: 'NO_API_KEY' },
+    };
+  }
+
+  const planHint = planHintFromBody(b.plan);
+  const rq = assistantRateAndQuota(clientId, 'couple-date-itinerary', usageDate, 'date-itinerary', planHint);
+  if (!rq.ok) return { status: rq.status, json: rq.json };
+
+  return runAssistantOpenAiCounted({
+    clientId,
+    catId: 'couple-date-itinerary',
+    usageDate,
+    planHint,
+    feature: 'date-itinerary',
+    run: async () => handleDateItinerary(prompt),
+  });
 }
 
 /**

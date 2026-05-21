@@ -1,4 +1,5 @@
 import { getOrCreateClientId } from '../../aiClient';
+import { parseDateItineraryPlan, type DateItineraryPlan } from './dateItineraryAiModel';
 
 /** Local assistant API (see `npm run dev:server`). */
 export const COUPLE_ASSISTANT_DEV_BASE = 'http://127.0.0.1:8788';
@@ -10,6 +11,10 @@ export type CoupleAssistantSuccess = {
   dailyLimit?: number;
   dailyUsed?: number;
   dailyRemaining?: number;
+};
+
+export type DateItineraryAssistantSuccess = CoupleAssistantSuccess & {
+  plan: DateItineraryPlan;
 };
 
 type CoupleAssistantErrorBody = {
@@ -130,6 +135,66 @@ export async function postCoupleAssistant(
     ok: true,
     data: {
       answer,
+      dailyLimit: body.dailyLimit,
+      dailyUsed: body.dailyUsed,
+      dailyRemaining: body.dailyRemaining,
+    },
+  };
+}
+
+type DateItineraryApiBody = CoupleAssistantSuccess &
+  CoupleAssistantErrorBody & {
+    itinerary?: unknown;
+  };
+
+/** Date itinerary — returns structured plan for card UI. */
+export async function postDateItineraryAssistant(
+  prompt: string,
+  plan: 'free' | 'pro'
+): Promise<{ ok: true; data: DateItineraryAssistantSuccess } | { ok: false; message: string }> {
+  const url = resolveCoupleAssistantUrl('date-itinerary');
+  console.log('calling assistant api', url);
+  let res: Response;
+  try {
+    res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        clientId: getOrCreateClientId(),
+        usageDate: todayUsageDateYmd(),
+        plan,
+        prompt,
+      }),
+    });
+  } catch (e) {
+    const networkDetail = e instanceof Error ? e.message : String(e);
+    return { ok: false, message: errorMessageZh({}, 0, url, networkDetail) };
+  }
+
+  let body: DateItineraryApiBody;
+  try {
+    body = (await res.json()) as DateItineraryApiBody;
+  } catch {
+    return { ok: false, message: errorMessageZh({}, res.status, url) };
+  }
+
+  if (!res.ok) {
+    return { ok: false, message: errorMessageZh(body, res.status, url) };
+  }
+
+  const answer = typeof body.answer === 'string' ? body.answer.trim() : '';
+  const itineraryField =
+    body.itinerary && typeof body.itinerary === 'object' ? body.itinerary : undefined;
+  const parsed = parseDateItineraryPlan(answer, itineraryField);
+  if (!parsed) {
+    return { ok: false, message: 'AI 回傳格式無法解析，請再試一次。' };
+  }
+
+  return {
+    ok: true,
+    data: {
+      answer: answer || parsed.title,
+      plan: parsed,
       dailyLimit: body.dailyLimit,
       dailyUsed: body.dailyUsed,
       dailyRemaining: body.dailyRemaining,

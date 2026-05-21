@@ -17,7 +17,9 @@ import {
   type DateAiStyleChoice,
   type DateAiTransportChoice,
 } from '../lib/dateItineraryAiPrompt';
-import { postCoupleAssistant, resolveCoupleAssistantUrl } from '../lib/coupleAssistantApi';
+import { postDateItineraryAssistant } from '../lib/coupleAssistantApi';
+import type { DateItineraryPlan } from '../lib/dateItineraryAiModel';
+import { DateItineraryAiResult } from './DateItineraryAiResult';
 import type { DateSuggestion } from '../storage/dateTypes';
 import { useProFeature } from '../hooks/useProFeature';
 import { useUserPlan } from '../context/UserPlanContext';
@@ -38,7 +40,7 @@ export function DateItineraryAiSheet({ suggestion, onClose }: Props) {
   const [transport, setTransport] = useState<DateAiTransportChoice>('transit');
   const [style, setStyle] = useState<DateAiStyleChoice>('romantic');
   const [partnerPrefs, setPartnerPrefs] = useState('');
-  const [answer, setAnswer] = useState<string | null>(null);
+  const [plan, setPlan] = useState<DateItineraryPlan | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -46,13 +48,9 @@ export function DateItineraryAiSheet({ suggestion, onClose }: Props) {
   const preview = useMemo(() => getDateItineraryPreview(suggestion), [suggestion]);
 
   const handleGenerate = useCallback(async () => {
-    console.log('AI button clicked');
-    const apiUrl = resolveCoupleAssistantUrl('date-itinerary');
-    console.log('calling assistant api', apiUrl);
-
     setLoading(true);
     setError(null);
-    setAnswer(null);
+    setPlan(null);
     try {
       const prompt = buildDateItineraryAiPrompt({
         suggestion,
@@ -63,12 +61,12 @@ export function DateItineraryAiSheet({ suggestion, onClose }: Props) {
         style,
         partnerPrefs,
       });
-      const result = await postCoupleAssistant('date-itinerary', prompt, isPro ? 'pro' : 'free');
+      const result = await postDateItineraryAssistant(prompt, isPro ? 'pro' : 'free');
       if (!result.ok) {
         setError(result.message);
         return;
       }
-      setAnswer(result.data.answer);
+      setPlan(result.data.plan);
     } catch (e) {
       setError(e instanceof Error ? e.message : '產生行程時發生錯誤，請再試一次。');
     } finally {
@@ -209,13 +207,7 @@ export function DateItineraryAiSheet({ suggestion, onClose }: Props) {
             </div>
           ) : null}
 
-          {answer ? (
-            <Field label="AI 約會行程建議">
-              <div className="max-h-64 overflow-y-auto whitespace-pre-wrap rounded-xl border border-rose-100 bg-rose-50/50 p-3.5 text-[13px] leading-relaxed text-stone-800">
-                {answer}
-              </div>
-            </Field>
-          ) : null}
+          {plan ? <DateItineraryAiResult plan={plan} /> : null}
         </div>
 
         <div className="shrink-0 border-t border-stone-100 bg-white px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3">
