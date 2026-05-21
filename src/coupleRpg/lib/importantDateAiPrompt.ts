@@ -77,7 +77,7 @@ export function buildImportantDateAiPrompt(input: AiPromptInput): string {
   const { event, budget, customBudget, style, partnerPrefs } = input;
   const prefs = partnerPrefs.trim() || '（使用者尚未填寫，請依一般情侶互動給建議）';
 
-  return `你是貼心的情侶生活顧問。請根據以下資訊，為我規劃重要日子的驚喜。
+  return `你是貼心的情侶生活顧問。請根據以下資訊規劃重要日子的驚喜安排。
 
 【重要日子】
 - 類型：${event.typeLabel}
@@ -90,12 +90,23 @@ export function buildImportantDateAiPrompt(input: AiPromptInput): string {
 - 風格：${styleLine(style)}
 - 對方喜好／限制：${prefs}
 
-【請輸出以下 5 點，條列清楚、具體可執行、語氣溫暖】
-1. 約會安排（時間、地點類型、活動建議）
-2. 禮物建議（2～3 個選項，符合預算與風格）
-3. 當天流程（早到晚或下午到晚的時間軸）
-4. 可以對伴侶說的一句話（真誠、不尷尬）
-5. 注意事項（避免踩雷、預留緩衝時間等）
+【輸出格式 — 極重要】
+只回傳一個 JSON 物件，不要 Markdown、不要代碼區塊、不要任何 ### ## # --- ** 粗體或標題符號。
+欄位如下（皆繁體中文純文字）：
+{
+  "title": "安排標題（一句話，15字內）",
+  "dateIdeas": "約會安排（時間、地點類型、活動，2～4句）",
+  "gifts": ["禮物建議1", "禮物建議2", "禮物建議3"],
+  "timeline": [
+    { "period": "時段名稱", "place": "地點類型", "activity": "活動內容" }
+  ],
+  "phrase": "可以對伴侶說的一句話（真誠、不尷尬）",
+  "tips": ["注意事項或貼心提醒1", "注意事項2"],
+  "budget": "預算粗估（符合使用者預算條件）"
+}
 
-請用繁體中文回覆。`;
+規則：
+- gifts 2～3 項；timeline 3～5 個時段；tips 2～4 則
+- 不必虛構真實店名；語氣溫暖具體可執行
+- 風格符合「${styleLine(style)}」`;
 }

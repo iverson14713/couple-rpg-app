@@ -33,6 +33,9 @@ const COUPLE_SYSTEM_ZH =
 const DATE_ITINERARY_SYSTEM_ZH =
   '你是情侶約會行程規劃師。只回傳 JSON 物件，禁止 Markdown（不得使用 #、##、###、---、** 等符號）。所有字串為繁體中文純文字。';
 
+const IMPORTANT_DATE_SYSTEM_ZH =
+  '你是情侶重要日子驚喜顧問。只回傳 JSON 物件，禁止 Markdown（不得使用 #、##、###、---、** 等符號）。所有字串為繁體中文純文字。';
+
 const MODEL = (process.env.OPENAI_MODEL || 'gpt-4o-mini').trim();
 
 /** After incrementDailyUsed — attach to JSON so clients are not dependent on GET /health query parsing. */
@@ -806,6 +809,87 @@ async function handleDateItinerary(prompt) {
   return { itinerary, answer, usage };
 }
 
+function normalizeImportantDateTimelineItem(raw) {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
+  const o = /** @type {Record<string, unknown>} */ (raw);
+  const period = dateItineraryCoerceString(o.period ?? o.time ?? o.時段);
+  const place = dateItineraryCoerceString(o.place ?? o.location ?? o.地點);
+  const activity = dateItineraryCoerceString(o.activity ?? o.活動 ?? o.content);
+  if (!period && !place && !activity) return null;
+  return {
+    period: period || '時段',
+    place: place || '—',
+    activity: activity || '—',
+  };
+}
+
+/**
+ * @param {unknown} parsed
+ */
+function normalizeImportantDateFromParsed(parsed) {
+  const obj =
+    parsed && typeof parsed === 'object' && !Array.isArray(parsed)
+      ? /** @type {Record<string, unknown>} */ (parsed)
+      : {};
+  const title = dateItineraryCoerceString(obj.title ?? obj.標題) || '重要日子安排';
+  const dateIdeas = dateItineraryCoerceString(
+    obj.dateIdeas ?? obj.datePlan ?? obj.約會安排
+  );
+  const gifts = normalizeDateItineraryTips(obj.gifts ?? obj.禮物建議 ?? obj.禮物);
+  const phrase = dateItineraryCoerceString(obj.phrase ?? obj.message ?? obj.一句話);
+  const tips = normalizeDateItineraryTips(obj.tips ?? obj.注意事項 ?? obj.貼心提醒);
+  const budget = dateItineraryCoerceString(obj.budget ?? obj.預算);
+
+  const rawTimeline = obj.timeline ?? obj.schedule ?? obj.flow ?? obj.當天流程;
+  const timeline = Array.isArray(rawTimeline)
+    ? rawTimeline.map(normalizeImportantDateTimelineItem).filter(Boolean)
+    : [];
+
+  return {
+    title,
+    dateIdeas: dateIdeas || '依你們的節奏安排一場用心約會',
+    gifts,
+    timeline,
+    phrase,
+    tips,
+    budget,
+  };
+}
+
+async function handleImportantDate(prompt) {
+  const { content, usage } = await openAiChatCompletion({
+    messages: [
+      { role: 'system', content: IMPORTANT_DATE_SYSTEM_ZH },
+      { role: 'user', content: prompt },
+    ],
+    temperature: 0.4,
+    maxTokens: IMPORTANT_DATE_MAX_TOKENS,
+    jsonMode: true,
+  });
+
+  let plan;
+  try {
+    plan = normalizeImportantDateFromParsed(tryParseJsonObject(content));
+  } catch {
+    plan = normalizeImportantDateFromParsed({});
+    plan.tips = [stripMarkdownPlain(content).slice(0, 500) || '請再試一次產生建議'];
+  }
+
+  const answer = [
+    plan.title,
+    plan.dateIdeas ? `約會：${plan.dateIdeas}` : '',
+    plan.gifts.length ? `禮物：${plan.gifts.join('、')}` : '',
+    ...plan.timeline.map((t) => `${t.period}：${t.place} — ${t.activity}`),
+    plan.phrase ? `一句話：${plan.phrase}` : '',
+    plan.tips.length ? `提醒：${plan.tips.join('；')}` : '',
+    plan.budget ? `預算：${plan.budget}` : '',
+  ]
+    .filter(Boolean)
+    .join('\n');
+
+  return { plan, answer, usage };
+}
+
 /**
  * @param {unknown} body
  * @param {'date-itinerary' | 'important-date'} feature
@@ -908,5 +992,44 @@ export async function assistDateItineraryPOST(body) {
  * @returns {Promise<{ status: number, json: object }>}
  */
 export async function assistImportantDatePOST(body) {
-  return assistCouplePromptPOST(body, 'important-date', 'couple-important-date', IMPORTANT_DATE_MAX_TOKENS);
+  const b = body && typeof body === 'object' ? body : {};
+  const clientId = typeof b.clientId === 'string' ? b.clientId.trim() : '';
+  const usageDate = typeof b.usageDate === 'string' ? b.usageDate.trim() : '';
+  const prompt = typeof b.prompt === 'string' ? b.prompt.trim() : '';
+
+  if (!isClientId(clientId)) {
+    return { status: 400, json: { error: 'Invalid or missing clientId', code: 'BAD_REQUEST' } };
+  }
+  if (!isYmd(usageDate)) {
+    return {
+      status: 400,
+      json: { error: 'Invalid or missing usageDate (YYYY-MM-DD)', code: 'BAD_REQUEST' },
+    };
+  }
+  if (!prompt) {
+    return { status: 400, json: { error: 'Missing prompt', code: 'BAD_REQUEST' } };
+  }
+  if (prompt.length > COUPLE_PROMPT_MAX_CHARS) {
+    return { status: 400, json: { error: 'prompt too long', code: 'BAD_REQUEST' } };
+  }
+
+  if (!process.env.OPENAI_API_KEY?.trim()) {
+    return {
+      status: 503,
+      json: { error: 'Server is not configured with OPENAI_API_KEY', code: 'NO_API_KEY' },
+    };
+  }
+
+  const planHint = planHintFromBody(b.plan);
+  const rq = assistantRateAndQuota(clientId, 'couple-important-date', usageDate, 'important-date', planHint);
+  if (!rq.ok) return { status: rq.status, json: rq.json };
+
+  return runAssistantOpenAiCounted({
+    clientId,
+    catId: 'couple-important-date',
+    usageDate,
+    planHint,
+    feature: 'important-date',
+    run: async () => handleImportantDate(prompt),
+  });
 }

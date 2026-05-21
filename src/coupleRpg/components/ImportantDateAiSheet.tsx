@@ -1,4 +1,5 @@
 import { useCallback, useMemo, useState, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import { Loader2, X } from 'lucide-react';
 import {
   AI_BUDGET_OPTIONS,
@@ -9,7 +10,9 @@ import {
   type AiPromptInput,
   type AiStyleChoice,
 } from '../lib/importantDateAiPrompt';
-import { postCoupleAssistant } from '../lib/coupleAssistantApi';
+import { postImportantDateAssistant } from '../lib/coupleAssistantApi';
+import type { ImportantDatePlan } from '../lib/importantDateAiModel';
+import { ImportantDateAiResult } from './ImportantDateAiResult';
 import type { ImportantDateEvent } from '../lib/importantDateEvents';
 import { useProFeature } from '../hooks/useProFeature';
 import { useUserPlan } from '../context/UserPlanContext';
@@ -30,7 +33,7 @@ export function ImportantDateAiSheet({ event, initialPrefs, onClose, onSavePrefs
   const [customBudget, setCustomBudget] = useState('');
   const [style, setStyle] = useState<AiStyleChoice>('romantic');
   const [partnerPrefs, setPartnerPrefs] = useState(initialPrefs);
-  const [answer, setAnswer] = useState<string | null>(null);
+  const [plan, setPlan] = useState<ImportantDatePlan | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -40,17 +43,18 @@ export function ImportantDateAiSheet({ event, initialPrefs, onClose, onSavePrefs
   }, [event, budget, customBudget, style, partnerPrefs]);
 
   const onGenerate = useCallback(async () => {
+    console.log('important date AI button clicked');
     onSavePrefs(partnerPrefs);
     setLoading(true);
     setError(null);
-    setAnswer(null);
+    setPlan(null);
     try {
-      const result = await postCoupleAssistant('important-date', prompt, isPro ? 'pro' : 'free');
+      const result = await postImportantDateAssistant(prompt, isPro ? 'pro' : 'free');
       if (!result.ok) {
         setError(result.message);
         return;
       }
-      setAnswer(result.data.answer);
+      setPlan(result.data.plan);
     } catch (e) {
       setError(e instanceof Error ? e.message : '產生建議時發生錯誤，請再試一次。');
     } finally {
@@ -58,11 +62,20 @@ export function ImportantDateAiSheet({ event, initialPrefs, onClose, onSavePrefs
     }
   }, [prompt, partnerPrefs, onSavePrefs, isPro]);
 
-  return (
-    <div className="fixed inset-0 z-50 flex flex-col justify-end bg-black/40 p-0" role="dialog" aria-modal="true">
-      <button type="button" className="absolute inset-0" aria-label="關閉" onClick={onClose} />
-      <div className="relative z-10 max-h-[88vh] overflow-hidden rounded-t-2xl bg-white shadow-2xl">
-        <div className="flex items-center justify-between border-b border-stone-100 px-4 py-3">
+  const sheet = (
+    <div className="fixed inset-0 z-[100] flex flex-col justify-end" role="presentation">
+      <button
+        type="button"
+        className="absolute inset-0 cursor-default bg-black/40"
+        aria-label="關閉"
+        onClick={onClose}
+      />
+      <div
+        className="relative z-10 flex max-h-[88vh] w-full flex-col overflow-hidden rounded-t-2xl bg-white shadow-2xl"
+        role="dialog"
+        aria-modal="true"
+      >
+        <div className="flex shrink-0 items-center justify-between border-b border-stone-100 px-4 py-3">
           <div className="min-w-0">
             <p className="flex items-center gap-1.5 text-[11px] font-bold text-rose-500">
               ✨ AI 幫我安排
@@ -72,12 +85,17 @@ export function ImportantDateAiSheet({ event, initialPrefs, onClose, onSavePrefs
               {event.icon} {event.displayTitle}
             </p>
           </div>
-          <button type="button" onClick={onClose} className="rounded-full p-2 text-stone-500 active:bg-stone-100" aria-label="關閉面板">
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-full p-2 text-stone-500 active:bg-stone-100"
+            aria-label="關閉面板"
+          >
             <X className="h-5 w-5" />
           </button>
         </div>
 
-        <div className="overflow-y-auto px-4 pb-6 pt-3">
+        <div className="min-h-0 flex-1 overflow-y-auto px-4 pt-3">
           <p className={`mb-3 text-[12px] ${lq.textSecondary}`}>
             選擇條件後由 AI 直接產生約會與驚喜建議（需本機助理服務運行中）。
           </p>
@@ -151,19 +169,16 @@ export function ImportantDateAiSheet({ event, initialPrefs, onClose, onSavePrefs
             </div>
           ) : null}
 
-          {answer ? (
-            <Field label="AI 安排建議">
-              <div className="max-h-48 overflow-y-auto whitespace-pre-wrap rounded-xl border border-rose-100 bg-rose-50/50 p-3 text-[12px] leading-relaxed text-stone-800">
-                {answer}
-              </div>
-            </Field>
-          ) : null}
+          {plan ? <ImportantDateAiResult plan={plan} /> : null}
+        </div>
 
+        <div className="shrink-0 border-t border-stone-100 bg-white px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3">
           <button
             type="button"
-            onClick={() => void onGenerate()}
+            onClick={onGenerate}
             disabled={loading}
-            className={`mt-2 flex w-full min-h-[44px] items-center justify-center gap-2 ${lq.btnPrimary} disabled:opacity-60`}
+            aria-busy={loading}
+            className={`flex min-h-[44px] w-full items-center justify-center gap-2 ${lq.btnPrimary} disabled:pointer-events-none disabled:opacity-60`}
           >
             {loading ? (
               <>
@@ -178,6 +193,9 @@ export function ImportantDateAiSheet({ event, initialPrefs, onClose, onSavePrefs
       </div>
     </div>
   );
+
+  if (typeof document === 'undefined') return sheet;
+  return createPortal(sheet, document.body);
 }
 
 function Field({ label, children }: { label: string; children: ReactNode }) {
