@@ -89,16 +89,34 @@ import { mockGiftSuggestions } from '../data/mockGiftSuggestions';
 import { appendActivity, loadActivity } from '../storage/activityStore';
 import {
   addCoinEarn,
+  completeRewardCardLocal,
   getActiveCoupons,
+  getCouponsByStatus,
   getRecentEarns,
   getUsedCoupons,
   getWeeklyTitles,
   loadRewards,
-  markCouponUsed,
   processDailyLogin,
   redeemCoupon,
   saveRewards,
+  useRewardCardLocal,
 } from '../storage/rewardsStore';
+import {
+  canSyncRewardCards,
+  completeRewardCardRemote,
+  pullRewardCardsFromRemote,
+  pushRewardCardsToRemote,
+  redeemRewardCardRemote,
+  useRewardCardRemote,
+} from '../services/rewardCardSync';
+import {
+  displayNameForUserId,
+  formatCompleteFeedLine,
+  formatRedeemFeedLine,
+  formatUseFeedLine,
+  needsPartnerCompletion,
+} from '../lib/rewardCardHelpers';
+import { useCoupleSpace } from './CoupleSpaceContext';
 import type { CoinEarnMeta, RewardsData, ShopItemId } from '../storage/rewardTypes';
 import {
   applyReward,
@@ -244,8 +262,15 @@ type LoveQuestContextValue = {
   weeklyTitles: ReturnType<typeof getWeeklyTitles>;
   activeCoupons: ReturnType<typeof getActiveCoupons>;
   usedCoupons: ReturnType<typeof getUsedCoupons>;
+  redeemedCoupons: ReturnType<typeof getCouponsByStatus>;
+  inProgressCoupons: ReturnType<typeof getCouponsByStatus>;
+  completedCoupons: ReturnType<typeof getCouponsByStatus>;
+  rewardCardSyncError: string | null;
   redeemRewardItem: (itemId: ShopItemId) => boolean;
   useCoupon: (couponId: string) => void;
+  completeRewardCard: (couponId: string) => void;
+  pullRewardCardsFromCloud: () => Promise<void>;
+  syncRewardCards: () => Promise<void>;
   partnerName: (id: PartnerId) => string;
   partnerEmoji: (id: PartnerId) => string;
 };
@@ -274,8 +299,11 @@ function loadCouple(): CoupleProfile {
 export function LoveQuestProvider({ children }: { children: ReactNode }) {
   const auth = useSupabaseAuth();
   const isOnline = useOnlineStatus();
-  const { space, loading: coupleSpaceLoading } = useCoupleSpace();
+  const { space, loading: coupleSpaceLoading, isFullyBound } = useCoupleSpace();
   const coupleId = space?.coupleId ?? null;
+  const currentUserId = auth.user?.id ?? null;
+
+  const [rewardCardSyncError, setRewardCardSyncError] = useState<string | null>(null);
 
   const [coupleBase] = useState(loadCouple);
   const [rpg, setRpg] = useState(loadRpg);
@@ -983,31 +1011,251 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
-  const redeemRewardItemFn = useCallback((itemId: ShopItemId): boolean => {
-    const rpgPrev = loadRpg();
-    const rewPrev = loadRewards();
-    const result = redeemCoupon(rewPrev, itemId, rpgPrev.loveCoins);
-    if (result.error || !result.coupon) return false;
-    const nextRpg = normalizeRpgState({
-      ...rpgPrev,
-      loveCoins: rpgPrev.loveCoins - result.coupon.cost,
-    });
-    saveRpg(nextRpg);
-    saveRewards(result.rewards);
-    setRpg(nextRpg);
-    setRewards(result.rewards);
-    setActivity(appendActivity(`兌換卡券「${result.coupon.title}」`));
-    return true;
-  }, []);
+  const partnerUserId = useMemo(() => {
+    if (!space || !currentUserId) return null;
+    const other = space.members.find((m) => m.userId !== currentUserId);
+    return other?.userId ?? null;
+  }, [space, currentUserId]);
 
-  const useCouponFn = useCallback((couponId: string) => {
-    setRewards((prev) => {
-      const next = markCouponUsed(prev, couponId);
-      saveRewards(next);
-      return next;
-    });
-    setActivity(appendActivity('使用了一張情侶卡券'));
-  }, []);
+  const actorDisplayName = useCallback(
+    (userId: string | null) =>
+      displayNameForUserId(
+        userId,
+        currentUserId,
+        coupleExtended.myNickname,
+        coupleExtended.partnerNickname
+      ),
+    [currentUserId, coupleExtended.myNickname, coupleExtended.partnerNickname]
+  );
+
+  const pushCouponBackground = useCallback(
+    (coupon: NonNullable<ReturnType<typeof redeemCoupon>['coupon']>) => {
+      if (
+        !canSyncRewardCards({
+          configured: auth.configured,
+          userId: currentUserId,
+          coupleId,
+          online: isOnline,
+          isFullyBound,
+        }) ||
+        !auth.supabase ||
+        !coupleId
+      ) {
+        return;
+      }
+      void redeemRewardCardRemote(auth.supabase, coupleId, coupon)
+        .then((synced) => {
+          setRewards((prev) => {
+            const next = {
+              ...prev,
+              coupons: prev.coupons.map((c) => (c.id === synced.id ? synced : c)),
+            };
+            saveRewards(next);
+            return next;
+          });
+          setRewardCardSyncError(null);
+        })
+        .catch((e) => {
+          const msg = e instanceof Error ? e.message : String(e);
+          console.error('[reward-card-sync] push failed:', msg);
+          setRewardCardSyncError('卡券同步失敗，資料已保存在本機');
+        });
+    },
+    [auth.configured, auth.supabase, coupleId, currentUserId, isFullyBound, isOnline]
+  );
+
+  const redeemRewardItemFn = useCallback(
+    (itemId: ShopItemId): boolean => {
+      const rpgPrev = loadRpg();
+      const rewPrev = loadRewards();
+      const result = redeemCoupon(rewPrev, itemId, rpgPrev.loveCoins, currentUserId);
+      if (result.error || !result.coupon) return false;
+      const nextRpg = normalizeRpgState({
+        ...rpgPrev,
+        loveCoins: rpgPrev.loveCoins - result.coupon.cost,
+      });
+      saveRpg(nextRpg);
+      saveRewards(result.rewards);
+      setRpg(nextRpg);
+      setRewards(result.rewards);
+      const name = actorDisplayName(currentUserId);
+      setActivity(appendActivity(formatRedeemFeedLine(name, result.coupon.cardTitle)));
+      pushCouponBackground(result.coupon);
+      return true;
+    },
+    [actorDisplayName, currentUserId, pushCouponBackground]
+  );
+
+  const useCouponFn = useCallback(
+    (couponId: string) => {
+      const target = partnerUserId;
+      setRewards((prev) => {
+        const r = useRewardCardLocal(prev, couponId, currentUserId, target);
+        if (r.error || !r.coupon) return prev;
+        saveRewards(r.rewards);
+        const towardPartner =
+          needsPartnerCompletion(r.coupon.category, r.coupon.itemId) && Boolean(target);
+        const name = actorDisplayName(currentUserId);
+        setActivity(
+          appendActivity(formatUseFeedLine(name, r.coupon.cardTitle, towardPartner))
+        );
+        if (
+          canSyncRewardCards({
+            configured: auth.configured,
+            userId: currentUserId,
+            coupleId,
+            online: isOnline,
+            isFullyBound,
+          }) &&
+          auth.supabase &&
+          coupleId
+        ) {
+          void useRewardCardRemote(auth.supabase, coupleId, r.coupon)
+            .then((synced) => {
+              setRewards((p) => {
+                const n = {
+                  ...p,
+                  coupons: p.coupons.map((c) => (c.id === synced.id ? synced : c)),
+                };
+                saveRewards(n);
+                return n;
+              });
+              setRewardCardSyncError(null);
+            })
+            .catch((e) => {
+              const msg = e instanceof Error ? e.message : String(e);
+              console.error('[reward-card-sync] use push failed:', msg);
+              setRewardCardSyncError('卡券同步失敗，資料已保存在本機');
+            });
+        }
+        return r.rewards;
+      });
+    },
+    [
+      actorDisplayName,
+      auth.configured,
+      auth.supabase,
+      coupleId,
+      currentUserId,
+      isFullyBound,
+      isOnline,
+      partnerUserId,
+    ]
+  );
+
+  const completeRewardCardFn = useCallback(
+    (couponId: string) => {
+      setRewards((prev) => {
+        const r = completeRewardCardLocal(prev, couponId);
+        if (r.error || !r.coupon) return prev;
+        saveRewards(r.rewards);
+        const name = actorDisplayName(currentUserId);
+        setActivity(appendActivity(formatCompleteFeedLine(name, r.coupon.cardTitle)));
+        if (
+          canSyncRewardCards({
+            configured: auth.configured,
+            userId: currentUserId,
+            coupleId,
+            online: isOnline,
+            isFullyBound,
+          }) &&
+          auth.supabase &&
+          coupleId
+        ) {
+          void completeRewardCardRemote(auth.supabase, coupleId, r.coupon)
+            .then((synced) => {
+              setRewards((p) => {
+                const n = {
+                  ...p,
+                  coupons: p.coupons.map((c) => (c.id === synced.id ? synced : c)),
+                };
+                saveRewards(n);
+                return n;
+              });
+              setRewardCardSyncError(null);
+            })
+            .catch((e) => {
+              const msg = e instanceof Error ? e.message : String(e);
+              console.error('[reward-card-sync] complete push failed:', msg);
+              setRewardCardSyncError('卡券同步失敗，資料已保存在本機');
+            });
+        }
+        return r.rewards;
+      });
+    },
+    [
+      actorDisplayName,
+      auth.configured,
+      auth.supabase,
+      coupleId,
+      currentUserId,
+      isFullyBound,
+      isOnline,
+    ]
+  );
+
+  const pullRewardCardsFromCloud = useCallback(async () => {
+    if (coupleSpaceLoading) return;
+    if (
+      !canSyncRewardCards({
+        configured: auth.configured,
+        userId: currentUserId,
+        coupleId,
+        online: isOnline,
+        isFullyBound,
+      })
+    ) {
+      return;
+    }
+    if (!auth.supabase || !coupleId) return;
+    try {
+      const cur = loadRewards();
+      const merged = await pullRewardCardsFromRemote(auth.supabase, coupleId, cur);
+      saveRewards(merged);
+      setRewards(merged);
+      setRewardCardSyncError(null);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      console.error('[reward-card-sync] pull failed:', msg);
+      setRewardCardSyncError('無法從雲端載入卡券，請稍後再試');
+    }
+  }, [
+    auth.configured,
+    auth.supabase,
+    coupleId,
+    coupleSpaceLoading,
+    currentUserId,
+    isFullyBound,
+    isOnline,
+  ]);
+
+  const syncRewardCards = useCallback(async () => {
+    if (
+      !canSyncRewardCards({
+        configured: auth.configured,
+        userId: currentUserId,
+        coupleId,
+        online: isOnline,
+        isFullyBound,
+      })
+    ) {
+      setRewardCardSyncError('需要登入、完成情侶綁定並連上網路才能同步');
+      return;
+    }
+    if (!auth.supabase || !coupleId) return;
+    try {
+      const cur = loadRewards();
+      const pushed = await pushRewardCardsToRemote(auth.supabase, coupleId, cur);
+      const merged = await pullRewardCardsFromRemote(auth.supabase, coupleId, pushed);
+      saveRewards(merged);
+      setRewards(merged);
+      setRewardCardSyncError(null);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      console.error('[reward-card-sync] sync failed:', msg);
+      setRewardCardSyncError('卡券同步失敗，本機資料不受影響');
+    }
+  }, [auth.configured, auth.supabase, coupleId, currentUserId, isFullyBound, isOnline]);
 
   const weeklyTitles = useMemo(
     () => getWeeklyTitles(weeklyStats, completionHistory, couple),
@@ -1097,8 +1345,15 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
       weeklyTitles,
       activeCoupons: getActiveCoupons(rewards),
       usedCoupons: getUsedCoupons(rewards),
+      redeemedCoupons: getCouponsByStatus(rewards, 'redeemed'),
+      inProgressCoupons: getCouponsByStatus(rewards, 'used'),
+      completedCoupons: getCouponsByStatus(rewards, 'completed'),
+      rewardCardSyncError,
       redeemRewardItem: redeemRewardItemFn,
       useCoupon: useCouponFn,
+      completeRewardCard: completeRewardCardFn,
+      pullRewardCardsFromCloud,
+      syncRewardCards,
       partnerName,
       partnerEmoji,
     }),
@@ -1163,6 +1418,10 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
       dismissAnniversaryReminderFn,
       redeemRewardItemFn,
       useCouponFn,
+      completeRewardCardFn,
+      pullRewardCardsFromCloud,
+      syncRewardCards,
+      rewardCardSyncError,
       partnerName,
       partnerEmoji,
     ]

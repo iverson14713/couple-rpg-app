@@ -1,11 +1,21 @@
-import { useMemo, useState, type ReactNode } from 'react';
-import { Coins, Gift, Ticket, Wallet } from 'lucide-react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { Cloud, Coins, Gift, RefreshCw, Ticket, Wallet } from 'lucide-react';
 import { REWARD_CATEGORY_LABEL, REWARD_SHOP_ITEMS } from '../data/rewardShopCatalog';
 import { EmptyState } from '../components/EmptyState';
 import { NicknameSetupBanner } from '../components/NicknameSetupBanner';
 import { PageHero } from '../components/ui';
 import { useLoveQuest } from '../context/LoveQuestContext';
-import type { RewardShopCategory } from '../storage/rewardTypes';
+import { useSupabaseAuth } from '../../useSupabaseAuth';
+import {
+  canMarkRewardCardComplete,
+  displayNameForUserId,
+  formatCompleteFeedLine,
+  formatRedeemFeedLine,
+  formatUseFeedLine,
+  needsPartnerCompletion,
+  REWARD_CARD_STATUS_LABEL,
+} from '../lib/rewardCardHelpers';
+import type { OwnedCoupon, RewardShopCategory } from '../storage/rewardTypes';
 import { lq } from '../theme';
 
 type Tab = 'wallet' | 'shop' | 'coupons';
@@ -35,20 +45,36 @@ const TAB_META: Record<
 };
 
 export function RewardsPage({ embedded }: { embedded?: boolean } = {}) {
+  const auth = useSupabaseAuth();
+  const currentUserId = auth.user?.id ?? null;
+
   const {
     rpg,
     rpgView,
     todayCoinEarned,
     recentCoinEarns,
     weeklyTitles,
+    coupleExtended,
     redeemRewardItem,
     useCoupon,
-    activeCoupons,
-    usedCoupons,
+    completeRewardCard,
+    redeemedCoupons,
+    inProgressCoupons,
+    completedCoupons,
+    rewardCardSyncError,
+    pullRewardCardsFromCloud,
+    syncRewardCards,
   } = useLoveQuest();
 
   const [tab, setTab] = useState<Tab>('wallet');
   const [redeemMsg, setRedeemMsg] = useState<string | null>(null);
+  const [syncing, setSyncing] = useState(false);
+
+  useEffect(() => {
+    if (tab === 'coupons') {
+      void pullRewardCardsFromCloud();
+    }
+  }, [tab, pullRewardCardsFromCloud]);
 
   const shopByCategory = useMemo(() => {
     const map = new Map<RewardShopCategory, typeof REWARD_SHOP_ITEMS>();
@@ -67,6 +93,18 @@ export function RewardsPage({ embedded }: { embedded?: boolean } = {}) {
     setTimeout(() => setRedeemMsg(null), 2500);
   };
 
+  const handleSync = async () => {
+    setSyncing(true);
+    await syncRewardCards();
+    setSyncing(false);
+  };
+
+  const pendingCount = redeemedCoupons.length;
+  const hasAnyCoupons =
+    redeemedCoupons.length > 0 ||
+    inProgressCoupons.length > 0 ||
+    completedCoupons.length > 0;
+
   return (
     <>
       {!embedded ? (
@@ -83,10 +121,8 @@ export function RewardsPage({ embedded }: { embedded?: boolean } = {}) {
           const badge =
             id === 'wallet'
               ? String(rpg.loveCoins)
-              : id === 'coupons'
-                ? activeCoupons.length > 0
-                  ? String(activeCoupons.length)
-                  : undefined
+              : id === 'coupons' && pendingCount > 0
+                ? String(pendingCount)
                 : undefined;
 
           return (
@@ -238,29 +274,73 @@ export function RewardsPage({ embedded }: { embedded?: boolean } = {}) {
 
       {tab === 'coupons' && (
         <section className={`space-y-3 p-3.5 ${lq.card}`}>
-          <h2 className="flex items-center gap-1.5 text-[15px] font-bold text-stone-900">
-            <Ticket className="h-4 w-4 text-emerald-600" aria-hidden />
-            我的卡券
-            {activeCoupons.length > 0 ? (
-              <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-bold text-emerald-700">
-                {activeCoupons.length} 張可用
-              </span>
-            ) : null}
-          </h2>
-          {activeCoupons.length === 0 && usedCoupons.length === 0 ? (
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h2 className="flex items-center gap-1.5 text-[15px] font-bold text-stone-900">
+              <Ticket className="h-4 w-4 text-emerald-600" aria-hidden />
+              情侶卡券
+            </h2>
+            <button
+              type="button"
+              disabled={syncing}
+              onClick={() => void handleSync()}
+              className={`inline-flex min-h-[40px] items-center gap-1.5 rounded-xl px-3 py-2 text-[12px] font-bold ${lq.btnSecondary}`}
+            >
+              {syncing ? (
+                <RefreshCw className="h-3.5 w-3.5 animate-spin" aria-hidden />
+              ) : (
+                <Cloud className="h-3.5 w-3.5" aria-hidden />
+              )}
+              同步卡券
+            </button>
+          </div>
+
+          {rewardCardSyncError ? (
+            <p className="rounded-xl bg-amber-50 px-3 py-2 text-[12px] font-semibold text-amber-900 ring-1 ring-amber-100">
+              {rewardCardSyncError}
+            </p>
+          ) : (
+            <p className="text-[11px] leading-relaxed text-stone-400">
+              兌換與使用會先存本機；登入並完成情侶綁定後，另一半重新整理或按同步即可看到最新狀態。
+            </p>
+          )}
+
+          {!hasAnyCoupons ? (
             <EmptyState compact emoji="🎫" title="還沒有卡券" hint="到商城用 LoveCoin 兌換吧" className="border-0 bg-transparent" />
           ) : null}
-          {activeCoupons.length > 0 ? (
-            <>
-              <p className="text-[12px] font-bold text-emerald-600">可使用</p>
-              <CouponList coupons={activeCoupons} onUse={useCoupon} />
-            </>
+
+          {redeemedCoupons.length > 0 ? (
+            <CouponSection title="待使用" count={redeemedCoupons.length} accent="emerald">
+              <CouponList
+                coupons={redeemedCoupons}
+                currentUserId={currentUserId}
+                myNickname={coupleExtended.myNickname}
+                partnerNickname={coupleExtended.partnerNickname}
+                onUse={useCoupon}
+              />
+            </CouponSection>
           ) : null}
-          {usedCoupons.length > 0 ? (
-            <>
-              <p className="text-[12px] font-bold text-stone-400">已使用</p>
-              <CouponList coupons={usedCoupons} />
-            </>
+
+          {inProgressCoupons.length > 0 ? (
+            <CouponSection title="使用中 / 待完成" count={inProgressCoupons.length} accent="amber">
+              <CouponList
+                coupons={inProgressCoupons}
+                currentUserId={currentUserId}
+                myNickname={coupleExtended.myNickname}
+                partnerNickname={coupleExtended.partnerNickname}
+                onComplete={completeRewardCard}
+              />
+            </CouponSection>
+          ) : null}
+
+          {completedCoupons.length > 0 ? (
+            <CouponSection title="已完成" count={completedCoupons.length} accent="stone">
+              <CouponList
+                coupons={completedCoupons}
+                currentUserId={currentUserId}
+                myNickname={coupleExtended.myNickname}
+                partnerNickname={coupleExtended.partnerNickname}
+              />
+            </CouponSection>
           ) : null}
         </section>
       )}
@@ -284,43 +364,181 @@ export function RewardsPage({ embedded }: { embedded?: boolean } = {}) {
   );
 }
 
+function CouponSection({
+  title,
+  count,
+  accent,
+  children,
+}: {
+  title: string;
+  count: number;
+  accent: 'emerald' | 'amber' | 'stone';
+  children: ReactNode;
+}) {
+  const titleClass =
+    accent === 'emerald'
+      ? 'text-emerald-600'
+      : accent === 'amber'
+        ? 'text-amber-700'
+        : 'text-stone-500';
+  return (
+    <div className="space-y-2">
+      <p className={`text-[12px] font-bold ${titleClass}`}>
+        {title}
+        <span className="ml-1.5 font-extrabold">({count})</span>
+      </p>
+      {children}
+    </div>
+  );
+}
+
 function CouponList({
   coupons,
+  currentUserId,
+  myNickname,
+  partnerNickname,
   onUse,
+  onComplete,
 }: {
-  coupons: ReturnType<typeof useLoveQuest>['activeCoupons'];
+  coupons: OwnedCoupon[];
+  currentUserId: string | null;
+  myNickname: string;
+  partnerNickname: string;
   onUse?: (id: string) => void;
+  onComplete?: (id: string) => void;
 }) {
   return (
     <ul className="space-y-2.5">
       {coupons.map((c) => (
-        <li key={c.id} className="rounded-2xl border border-rose-100 bg-white p-3.5 text-[13px] shadow-sm">
-          <div className="flex items-start justify-between gap-2">
-            <span className="text-[15px] font-bold text-stone-900">
-              {c.emoji} {c.title}
-            </span>
-            <span
-              className={`shrink-0 rounded-full px-2.5 py-0.5 text-[11px] font-bold ${
-                c.status === 'active' ? 'bg-emerald-100 text-emerald-700' : 'bg-stone-100 text-stone-500'
-              }`}
-            >
-              {c.status === 'active' ? '未使用' : '已使用'}
-            </span>
-          </div>
-          <p className="mt-1 text-stone-500">取得：{formatIso(c.acquiredAt)}</p>
-          {c.usedAt ? <p className="text-stone-500">使用：{formatIso(c.usedAt)}</p> : null}
-          {c.status === 'active' && onUse ? (
-            <button
-              type="button"
-              onClick={() => onUse(c.id)}
-              className={`mt-3 min-h-[44px] w-full rounded-xl py-2.5 text-[13px] font-bold ${lq.btnSecondary}`}
-            >
-              ✓ 標記已使用
-            </button>
-          ) : null}
-        </li>
+        <CouponCard
+          key={c.id}
+          coupon={c}
+          currentUserId={currentUserId}
+          myNickname={myNickname}
+          partnerNickname={partnerNickname}
+          onUse={onUse}
+          onComplete={onComplete}
+        />
       ))}
     </ul>
+  );
+}
+
+function CouponCard({
+  coupon: c,
+  currentUserId,
+  myNickname,
+  partnerNickname,
+  onUse,
+  onComplete,
+}: {
+  coupon: OwnedCoupon;
+  currentUserId: string | null;
+  myNickname: string;
+  partnerNickname: string;
+  onUse?: (id: string) => void;
+  onComplete?: (id: string) => void;
+}) {
+  const redeemer = displayNameForUserId(c.redeemedBy, currentUserId, myNickname, partnerNickname);
+  const user = c.usedBy
+    ? displayNameForUserId(c.usedBy, currentUserId, myNickname, partnerNickname)
+    : null;
+
+  const feedLine = useMemo(() => {
+    if (c.status === 'redeemed' && c.redeemedBy) {
+      return formatRedeemFeedLine(redeemer, c.cardTitle);
+    }
+    if (c.status === 'used' && c.usedBy) {
+      const towardPartner =
+        needsPartnerCompletion(c.category, c.itemId) &&
+        Boolean(currentUserId && c.targetUser === currentUserId);
+      return formatUseFeedLine(user ?? redeemer, c.cardTitle, towardPartner);
+    }
+    if (c.status === 'completed' && c.usedBy) {
+      return formatCompleteFeedLine(user ?? redeemer, c.cardTitle);
+    }
+    return null;
+  }, [c, redeemer, user]);
+
+  const badgeClass =
+    c.status === 'redeemed'
+      ? 'bg-emerald-100 text-emerald-700'
+      : c.status === 'used'
+        ? 'bg-amber-100 text-amber-800'
+        : c.status === 'completed'
+          ? 'bg-stone-100 text-stone-600'
+          : 'bg-stone-100 text-stone-500';
+
+  const showUse = c.status === 'redeemed' && onUse;
+  const showComplete =
+    c.status === 'used' &&
+    onComplete &&
+    canMarkRewardCardComplete(c, currentUserId, c.category, c.itemId);
+
+  return (
+    <li className="rounded-2xl border border-rose-100 bg-white p-3.5 text-[13px] shadow-sm">
+      <div className="flex items-start justify-between gap-2">
+        <span className="text-[15px] font-bold text-stone-900">
+          {c.emoji} {c.title}
+        </span>
+        <span className={`shrink-0 rounded-full px-2.5 py-0.5 text-[11px] font-bold ${badgeClass}`}>
+          {REWARD_CARD_STATUS_LABEL[c.status]}
+        </span>
+      </div>
+
+      {feedLine ? (
+        <p className="mt-2 rounded-lg bg-rose-50/80 px-2.5 py-1.5 text-[12px] font-semibold text-rose-800">
+          {feedLine}
+        </p>
+      ) : null}
+
+      <dl className="mt-2 space-y-0.5 text-[12px] text-stone-500">
+        <div>
+          <dt className="inline font-semibold text-stone-600">兌換：</dt>
+          <dd className="inline">
+            {redeemer} · {formatIso(c.redeemedAt)}
+          </dd>
+        </div>
+        {c.usedAt ? (
+          <div>
+            <dt className="inline font-semibold text-stone-600">使用：</dt>
+            <dd className="inline">
+              {user ?? '—'} · {formatIso(c.usedAt)}
+            </dd>
+          </div>
+        ) : null}
+        {c.completedAt ? (
+          <div>
+            <dt className="inline font-semibold text-stone-600">完成：</dt>
+            <dd className="inline">{formatIso(c.completedAt)}</dd>
+          </div>
+        ) : null}
+      </dl>
+
+      {c.syncPending ? (
+        <p className="mt-1.5 text-[10px] font-semibold text-amber-600">待同步至雲端</p>
+      ) : null}
+
+      {showUse ? (
+        <button
+          type="button"
+          onClick={() => onUse(c.id)}
+          className={`mt-3 min-h-[44px] w-full rounded-xl py-2.5 text-[13px] font-bold ${lq.btnPrimary}`}
+        >
+          ✨ 使用卡券
+        </button>
+      ) : null}
+
+      {showComplete ? (
+        <button
+          type="button"
+          onClick={() => onComplete(c.id)}
+          className={`mt-3 min-h-[44px] w-full rounded-xl py-2.5 text-[13px] font-bold ${lq.btnSecondary}`}
+        >
+          ✓ 標記完成
+        </button>
+      ) : null}
+    </li>
   );
 }
 

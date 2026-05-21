@@ -43,16 +43,32 @@ export type LoveCoinEarnRecord = {
   coins: number;
 };
 
+export type RewardCardStatus = 'redeemed' | 'used' | 'completed' | 'cancelled';
+
 export type OwnedCoupon = {
+  /** 本地 client id（與 Supabase client_id 對應） */
   id: string;
+  remoteId?: string | null;
   itemId: ShopItemId;
+  cardId: ShopItemId;
+  cardTitle: string;
+  cardType: string;
   title: string;
   emoji: string;
   category: RewardShopCategory;
   cost: number;
-  acquiredAt: string;
+  redeemedBy: string | null;
+  usedBy: string | null;
+  targetUser: string | null;
+  redeemedAt: string;
   usedAt: string | null;
-  status: 'active' | 'used';
+  completedAt: string | null;
+  note: string | null;
+  status: RewardCardStatus;
+  /** 待同步到 Supabase */
+  syncPending?: boolean;
+  /** @deprecated 舊版欄位，載入時遷移 */
+  acquiredAt?: string;
 };
 
 export type RewardsData = {
