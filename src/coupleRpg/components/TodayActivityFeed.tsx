@@ -225,94 +225,72 @@ function ActivityLogModal({
   }, [onClose]);
 
   return (
-    <div className="fixed inset-0 z-[80] flex flex-col justify-end" role="presentation">
+    <div
+      className="fixed inset-0 z-[100] flex items-center justify-center p-5"
+      role="presentation"
+    >
       <button
         type="button"
-        className="absolute inset-0 bg-[rgba(255,245,248,0.65)] backdrop-blur-[6px] transition-opacity"
+        className="absolute inset-0 bg-[rgba(255,245,248,0.65)] backdrop-blur-[6px]"
         aria-label="關閉最近動態"
         onClick={onClose}
       />
 
       <div
-        className="relative mx-auto w-full max-w-md animate-[slideUp_0.28s_ease-out]"
+        className="relative flex max-h-[70vh] w-[calc(100%-32px)] max-w-[420px] flex-col overflow-hidden rounded-[24px] border border-[rgba(255,120,160,0.12)] bg-[rgba(255,255,255,0.96)] shadow-[0_12px_40px_rgba(255,120,160,0.14),0_4px_20px_rgba(0,0,0,0.06)]"
         role="dialog"
         aria-modal="true"
         aria-labelledby="activity-log-title"
         onClick={(e) => e.stopPropagation()}
       >
-        <div
-          className="flex max-h-[78vh] flex-col overflow-hidden rounded-t-[24px] border border-b-0 border-[rgba(255,120,160,0.12)] bg-[rgba(255,255,255,0.96)] shadow-[0_-10px_40px_rgba(255,120,160,0.14),0_-2px_12px_rgba(0,0,0,0.04)]"
-          style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}
-        >
-          <div className="flex shrink-0 flex-col items-center pt-2.5 pb-1">
-            <span
-              className="h-1 w-10 rounded-full bg-stone-300/60"
-              aria-hidden
-            />
-          </div>
+        <div className="flex shrink-0 items-center justify-between gap-3 border-b border-stone-100/90 px-4 py-3">
+          <h2 id="activity-log-title" className={`text-[15px] font-bold ${lq.text}`}>
+            最近動態
+          </h2>
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-rose-50/90 text-stone-400 ring-1 ring-rose-100/70 transition active:scale-95 active:bg-rose-100/80"
+            aria-label="關閉"
+          >
+            <X className="h-4 w-4" strokeWidth={2.25} aria-hidden />
+          </button>
+        </div>
 
-          <div className="flex shrink-0 items-center justify-between gap-3 border-b border-stone-100/90 px-4 pb-2.5 pt-0.5">
-            <h2 id="activity-log-title" className={`text-[15px] font-bold ${lq.text}`}>
-              最近動態
-            </h2>
-            <button
-              type="button"
-              onClick={onClose}
-              className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-rose-50/90 text-stone-400 ring-1 ring-rose-100/70 transition active:scale-95 active:bg-rose-100/80"
-              aria-label="關閉"
-            >
-              <X className="h-3.5 w-3.5" strokeWidth={2.25} aria-hidden />
-            </button>
-          </div>
-
-          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-3">
-            {days.length === 0 ? (
-              <p className="py-10 text-center text-[13px] text-stone-500">最近 7 天沒有動態紀錄</p>
-            ) : (
-              <div className="space-y-5 pb-1">
-                {days.map((group) => (
-                  <section key={group.dateKey}>
-                    <p className="mb-2 text-[12px] font-semibold text-stone-500">
-                      {formatDateLabel(group.dateKey)}
-                    </p>
-                    <ul className="space-y-2">
-                      {group.items.map((item) => (
-                        <li
-                          key={item.id}
-                          className="flex gap-2.5 rounded-2xl border border-stone-100/90 bg-white px-3 py-2.5 shadow-[0_1px_3px_rgba(0,0,0,0.04)]"
+        <div className="min-h-0 max-h-[calc(70vh-3.25rem)] overflow-y-auto overscroll-contain px-4 py-3">
+          {days.length === 0 ? (
+            <p className="py-10 text-center text-[13px] text-stone-500">最近 7 天沒有動態紀錄</p>
+          ) : (
+            <div className="space-y-5 pb-1">
+              {days.map((group) => (
+                <section key={group.dateKey}>
+                  <p className="mb-2 text-[12px] font-semibold text-stone-500">
+                    {formatDateLabel(group.dateKey)}
+                  </p>
+                  <ul className="space-y-2">
+                    {group.items.map((item) => (
+                      <li
+                        key={item.id}
+                        className="flex gap-2.5 rounded-2xl border border-stone-100/90 bg-white px-3 py-2.5 shadow-[0_1px_3px_rgba(0,0,0,0.04)]"
+                      >
+                        <span
+                          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-stone-50 text-[15px] leading-none"
+                          aria-hidden
                         >
-                          <span
-                            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-stone-50 text-[15px] leading-none"
-                            aria-hidden
-                          >
-                            {activityLogIcon(item)}
-                          </span>
-                          <p className="min-w-0 flex-1 pt-0.5 text-[13px] leading-snug text-stone-700">
-                            {item.message}
-                          </p>
-                        </li>
-                      ))}
-                    </ul>
-                  </section>
-                ))}
-              </div>
-            )}
-          </div>
+                          {activityLogIcon(item)}
+                        </span>
+                        <p className="min-w-0 flex-1 pt-0.5 text-[13px] leading-snug text-stone-700">
+                          {item.message}
+                        </p>
+                      </li>
+                    ))}
+                  </ul>
+                </section>
+              ))}
+            </div>
+          )}
         </div>
       </div>
-
-      <style>{`
-        @keyframes slideUp {
-          from {
-            transform: translateY(100%);
-            opacity: 0.6;
-          }
-          to {
-            transform: translateY(0);
-            opacity: 1;
-          }
-        }
-      `}</style>
     </div>
   );
 }

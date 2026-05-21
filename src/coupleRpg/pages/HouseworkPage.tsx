@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Check, Users } from 'lucide-react';
-import { ChoreSyncStatusLine } from '../components/ChoreSyncStatusLine';
+import { Check, ChevronDown, ChevronUp, Users } from 'lucide-react';
 import { useLoveQuest } from '../context/LoveQuestContext';
 import {
+  FREE_DAILY_CHORE_REWARD_LIMIT,
   HOUSEWORK_CHORE_REWARD_GRANTED_HINT,
   PRO_DAILY_CHORE_REWARD_LIMIT,
 } from '../constants/choreRewardLimits';
@@ -27,8 +27,7 @@ const DEFAULT_HW_IDS = new Set(DEFAULT_HOUSEWORK_ITEMS.map((i) => i.id));
 export function HouseworkPage({ embedded }: { embedded?: boolean } = {}) {
   const game = useLoveQuest();
   const { isPro } = useUserPlan();
-  const { pullHouseworkFromCloud, choreSyncStatus, choreSyncError, choreCanSyncItems, retryChoreSync } =
-    game;
+  const { pullHouseworkFromCloud } = game;
   const [newLabel, setNewLabel] = useState('');
   const [confirmReassign, setConfirmReassign] = useState(false);
   const [completingIds, setCompletingIds] = useState<Set<string>>(() => new Set());
@@ -41,6 +40,7 @@ export function HouseworkPage({ embedded }: { embedded?: boolean } = {}) {
     return getDailyChoreRewardCount(today);
   }, [today, claimsTick]);
   const dailyRewardLimit = getDailyChoreRewardLimit(isPro);
+  const dailyRewardDisplayCount = Math.min(dailyRewardCount, dailyRewardLimit);
   const dailyLimitReached = useMemo(() => {
     void claimsTick;
     return isDailyChoreRewardLimitReached(today, isPro);
@@ -133,29 +133,15 @@ export function HouseworkPage({ embedded }: { embedded?: boolean } = {}) {
     <>
       {!embedded ? (
         <>
-          <PageHero emoji="🧹" title="家事分配" subtitle="多選家事 · 平均分配 · 完成領獎勵" />
+          <PageHero emoji="🧹" title="家事誰來做" subtitle="多選家事・平均分配" />
           <RpgMiniStats compact />
         </>
       ) : null}
 
-      <p className={`mb-0.5 px-0.5 text-[12px] leading-snug ${lq.textSecondary}`}>
-        🧹 選好家事後平均分配 · 完成每項 🤝+3 ✨+10 🪙+3
-      </p>
-      <p className={`mb-1.5 px-0.5 text-[11px] font-semibold leading-snug ${lq.textMuted}`}>
-        今日家事獎勵 {dailyRewardCount}/{dailyRewardLimit}
-        {isPro ? '' : `（Pro ${PRO_DAILY_CHORE_REWARD_LIMIT} 項）`}
-      </p>
-      {dailyLimitReached ? (
-        <p className={`mb-1.5 px-0.5 text-[11px] leading-snug ${lq.textMuted}`}>
-          今日家事獎勵已達上限，仍可繼續完成家事。
-        </p>
-      ) : null}
-
-      <ChoreSyncStatusLine
-        status={choreSyncStatus}
-        error={choreSyncError}
-        canSyncItems={choreCanSyncItems}
-        onRetry={retryChoreSync}
+      <HouseworkPageIntro
+        rewardDisplayCount={dailyRewardDisplayCount}
+        rewardLimit={dailyRewardLimit}
+        limitReached={dailyLimitReached}
       />
 
       {!isAssigned ? (
@@ -337,6 +323,73 @@ export function HouseworkPage({ embedded }: { embedded?: boolean } = {}) {
 
       <WeeklyStatsSection />
     </>
+  );
+}
+
+function HouseworkPageIntro({
+  rewardDisplayCount,
+  rewardLimit,
+  limitReached,
+}: {
+  rewardDisplayCount: number;
+  rewardLimit: number;
+  limitReached: boolean;
+}) {
+  const [rulesOpen, setRulesOpen] = useState(false);
+
+  return (
+    <div className="mb-3 space-y-1 px-0.5">
+      <p className={`text-[12px] leading-snug ${lq.textSecondary}`}>
+        完成家事可獲得 <span className="whitespace-nowrap">🤝+3 ✨+10 🪙+3</span>
+      </p>
+
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+        <p
+          className={`text-[12px] font-bold leading-snug ${
+            limitReached ? 'text-amber-900' : 'text-stone-800'
+          }`}
+        >
+          <span aria-hidden>🧹 </span>
+          今日獎勵 {rewardDisplayCount}/{rewardLimit}
+          {limitReached ? <span className="font-semibold text-amber-800"> · 已達上限</span> : null}
+        </p>
+        {limitReached ? (
+          <span className="inline-flex rounded-full bg-amber-50 px-1.5 py-0.5 text-[10px] font-semibold text-amber-800 ring-1 ring-amber-200/70">
+            仍可繼續記錄
+          </span>
+        ) : null}
+      </div>
+
+      <p className={`text-[11px] font-medium leading-snug ${lq.textMuted}`}>
+        <span aria-hidden>📱 </span>
+        本機家事 · 動態共享
+      </p>
+
+      <div>
+        <button
+          type="button"
+          onClick={() => setRulesOpen((v) => !v)}
+          className="inline-flex items-center gap-0.5 text-[11px] font-semibold text-stone-500 active:opacity-70"
+          aria-expanded={rulesOpen}
+        >
+          規則說明
+          {rulesOpen ? (
+            <ChevronUp className="h-3.5 w-3.5 text-rose-400" aria-hidden />
+          ) : (
+            <ChevronDown className="h-3.5 w-3.5 text-rose-400" aria-hidden />
+          )}
+        </button>
+        {rulesOpen ? (
+          <ul className={`mt-1.5 space-y-1 pl-0.5 text-[11px] leading-relaxed ${lq.textMuted}`}>
+            <li>· 家事分配儲存在本機</li>
+            <li>· 完成動態會顯示在今日動態</li>
+            <li>· Free 每日最多 {FREE_DAILY_CHORE_REWARD_LIMIT} 項家事獎勵</li>
+            <li>· Pro 每日最多 {PRO_DAILY_CHORE_REWARD_LIMIT} 項家事獎勵</li>
+            <li>· 超過上限仍可完成，但不再給獎</li>
+          </ul>
+        ) : null}
+      </div>
+    </div>
   );
 }
 
