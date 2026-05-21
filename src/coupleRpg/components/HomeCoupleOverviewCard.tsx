@@ -1,5 +1,5 @@
-import { useCallback, useMemo, useState, type ReactNode } from 'react';
-import { Copy, PenLine, RefreshCw } from 'lucide-react';
+import { useMemo } from 'react';
+import { TodayActivityFeed } from './TodayActivityFeed';
 import { useCoupleRpgNav } from '../context/CoupleRpgNavContext';
 import { useUserPlan } from '../context/UserPlanContext';
 import { useLoveQuest } from '../context/LoveQuestContext';
@@ -8,12 +8,6 @@ import { getPrimaryHomeDateNudge } from '../lib/importantDateHomeReminder';
 import { getUpcomingImportantDates } from '../lib/importantDates';
 import { getTogetherDaysInfo } from '../lib/relationshipDays';
 import { todayKey } from '../lib/dates';
-import {
-  getTodayPartnerMessage,
-  saveCustomTodayMessage,
-  shuffleTodayMessage,
-  type DailyMessageRecord,
-} from '../storage/dailyMessageStore';
 import { lq } from '../theme';
 
 const MAX_DATE_ROWS = 2;
@@ -230,8 +224,7 @@ export function HomeCoupleOverviewCard() {
         </div>
       )}
 
-      {/* 今日一句話：淡灰 quote */}
-      <HomeDailyQuote />
+      <TodayActivityFeed />
     </section>
   );
 }
@@ -245,127 +238,5 @@ function StatCell({ emoji, value, label }: { emoji: string; value: string; label
       <span className={`mt-0.5 text-[15px] font-extrabold tabular-nums leading-none ${lq.text}`}>{value}</span>
       <span className="mt-0.5 text-[9px] font-medium text-stone-500">{label}</span>
     </div>
-  );
-}
-
-function HomeDailyQuote() {
-  const [record, setRecord] = useState<DailyMessageRecord>(() => getTodayPartnerMessage());
-  const [showActions, setShowActions] = useState(false);
-  const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState('');
-  const [copyOk, setCopyOk] = useState(false);
-
-  const onShuffle = useCallback(() => {
-    setRecord(shuffleTodayMessage());
-    setEditing(false);
-  }, []);
-
-  const onSaveCustom = useCallback(() => {
-    const saved = saveCustomTodayMessage(draft);
-    if (saved) {
-      setRecord(saved);
-      setEditing(false);
-    }
-  }, [draft]);
-
-  const onCopy = useCallback(async () => {
-    try {
-      await navigator.clipboard.writeText(record.text);
-    } catch {
-      const ta = document.createElement('textarea');
-      ta.value = record.text;
-      ta.style.position = 'fixed';
-      ta.style.left = '-9999px';
-      document.body.appendChild(ta);
-      ta.select();
-      document.execCommand('copy');
-      document.body.removeChild(ta);
-    }
-    setCopyOk(true);
-    window.setTimeout(() => setCopyOk(false), 2000);
-  }, [record.text]);
-
-  return (
-    <div className="border-t border-stone-200/40 px-4 py-3.5">
-      <button
-        type="button"
-        onClick={() => setShowActions((v) => !v)}
-        className="w-full text-left active:opacity-90"
-        aria-expanded={showActions}
-      >
-        <blockquote className="border-l-2 border-stone-300/80 pl-3">
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-stone-400">今日一句話</p>
-          <p className="mt-1 text-[15px] font-medium italic leading-relaxed text-stone-500">
-            「{record.text}」
-          </p>
-        </blockquote>
-      </button>
-
-      {showActions ? (
-        <div className="mt-2.5 pl-3">
-          {editing ? (
-            <div className="space-y-2">
-              <textarea
-                value={draft}
-                onChange={(e) => setDraft(e.target.value)}
-                rows={2}
-                maxLength={200}
-                className="w-full resize-none rounded-xl bg-stone-100/80 px-3 py-2 text-[14px] italic text-stone-700 outline-none focus:ring-1 focus:ring-stone-300"
-              />
-              <div className="flex gap-2">
-                <button type="button" onClick={onSaveCustom} className={`flex-1 text-[12px] ${lq.btnPrimary}`}>
-                  儲存
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setEditing(false)}
-                  className={`flex-1 text-[12px] ${lq.btnSecondary}`}
-                >
-                  取消
-                </button>
-              </div>
-            </div>
-          ) : (
-            <div className="flex flex-wrap gap-2">
-              <QuoteAction label="換一句" icon={<RefreshCw className="h-3 w-3" />} onClick={onShuffle} />
-              <QuoteAction
-                label="自己寫"
-                icon={<PenLine className="h-3 w-3" />}
-                onClick={() => {
-                  setDraft(record.text);
-                  setEditing(true);
-                }}
-              />
-              <QuoteAction
-                label={copyOk ? '已複製' : '複製'}
-                icon={<Copy className="h-3 w-3" />}
-                onClick={() => void onCopy()}
-              />
-            </div>
-          )}
-        </div>
-      ) : null}
-    </div>
-  );
-}
-
-function QuoteAction({
-  label,
-  icon,
-  onClick,
-}: {
-  label: string;
-  icon: ReactNode;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-[11px] font-semibold text-stone-600 active:bg-stone-100"
-    >
-      {icon}
-      {label}
-    </button>
   );
 }

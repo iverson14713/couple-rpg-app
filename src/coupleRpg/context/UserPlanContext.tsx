@@ -15,6 +15,8 @@ import {
   PRO_TOAST_LOCAL,
   PRO_TOAST_SYNC_FAILED,
 } from '../lib/proPlanContent';
+import { addActivityLog } from '../services/activityLogService';
+import { loadCoupleExtendedProfile } from '../storage/coupleExtendedStore';
 import {
   activateCoupleProTrial,
   getCouplePlan,
@@ -103,6 +105,11 @@ export function UserPlanProvider({ children }: { children: ReactNode }) {
       try {
         await activateCoupleProTrial(auth.supabase, coupleId, userId);
         await refreshPlan();
+        addActivityLog(
+          { actionType: 'upgrade', targetType: 'pro_plan', targetTitle: 'Pro 體驗', coupleId },
+          { currentUserId: userId, coupleExtended: loadCoupleExtendedProfile() },
+          { isPro: true }
+        );
         setPlanToast(PRO_TOAST_COUPLE);
         setUpgradeModalOpen(false);
       } catch (e) {
@@ -122,6 +129,11 @@ export function UserPlanProvider({ children }: { children: ReactNode }) {
     }));
     setPlanToast(PRO_TOAST_LOCAL);
     setUpgradeModalOpen(false);
+    addActivityLog(
+      { actionType: 'upgrade', targetType: 'pro_plan', targetTitle: 'Pro 體驗', coupleId },
+      { currentUserId: userId, coupleExtended: loadCoupleExtendedProfile() },
+      { isPro: true }
+    );
   }, [syncInput, auth.supabase, coupleId, userId, refreshPlan]);
 
   const resetToFree = useCallback(async () => {

@@ -113,6 +113,8 @@ import {
   useRewardCard as pushUseRewardCardRemote,
   type RewardCardSyncStatus,
 } from '../services/rewardCardSync';
+import { addActivityLog } from '../services/activityLogService';
+import type { ActivityLogInput } from '../storage/activityLogTypes';
 import {
   canSyncChores,
   pullChoresFromRemote,
@@ -380,6 +382,17 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
     [currentUserId, partnerUserId, coupleExtended.myNickname, coupleExtended.partnerNickname]
   );
 
+  const logTodayActivity = useCallback(
+    (input: Omit<ActivityLogInput, 'actorUserId' | 'coupleId' | 'source'>) => {
+      addActivityLog(
+        { ...input, actorUserId: currentUserId, coupleId, source: 'local' },
+        { currentUserId, coupleExtended },
+        { isPro }
+      );
+    },
+    [coupleExtended, coupleId, currentUserId, isPro]
+  );
+
   const pushHouseworkToCloud = useCallback(
     (data: HouseworkData) => {
       if (
@@ -501,11 +514,12 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
         }
         setActivity(appendActivity('完成情侶小遊戲'));
         addCompletion('game', '情侶小遊戲', '🎲', detail ? { detail } : undefined);
+        logTodayActivity({ actionType: 'complete', targetType: 'mini_game' });
       }
 
       return granted;
     },
-    [addCompletion, isPro]
+    [addCompletion, isPro, logTodayActivity]
   );
 
   const rpgView = useMemo(
@@ -593,8 +607,13 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
         }
         return next;
       });
+      logTodayActivity({
+        actionType: 'create',
+        targetType: 'dinner',
+        targetTitle: trimmed,
+      });
     },
-    [auth.configured, auth.supabase, auth.user?.id, coupleId, isOnline]
+    [auth.configured, auth.supabase, auth.user?.id, coupleId, isOnline, logTodayActivity]
   );
 
   const removeDinnerOption = useCallback(
@@ -666,8 +685,13 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
         return out;
       });
       setActivity(appendActivity(`今晚晚餐：${choice}`));
+      logTodayActivity({
+        actionType: 'complete',
+        targetType: 'dinner',
+        targetTitle: choice,
+      });
     },
-    [draftPick]
+    [draftPick, logTodayActivity]
   );
 
   const addHouseworkItem = useCallback((label: string, emoji = '🏠') => {
@@ -680,9 +704,14 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
       };
       saveHousework(next);
       pushHouseworkToCloud(next);
+      logTodayActivity({
+        actionType: 'create',
+        targetType: 'chore',
+        targetTitle: trimmed,
+      });
       return next;
     });
-  }, [pushHouseworkToCloud]);
+  }, [logTodayActivity, pushHouseworkToCloud]);
 
   const removeHouseworkItem = useCallback(
     (id: string) => {
@@ -753,8 +782,11 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
       pushHouseworkToCloud(next);
       return next;
     });
+    if (ok) {
+      logTodayActivity({ actionType: 'sync', targetType: 'chore' });
+    }
     return ok;
-  }, [pushHouseworkToCloud]);
+  }, [logTodayActivity, pushHouseworkToCloud]);
 
   const completeHouseworkChoreFn = useCallback(
     (taskId: string) => {
@@ -773,6 +805,13 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
         }
         saveHousework(next);
         pushHouseworkToCloud(next);
+        if (item) {
+          logTodayActivity({
+            actionType: 'complete',
+            targetType: 'chore',
+            targetTitle: item.label,
+          });
+        }
         return next;
       });
     },
@@ -781,6 +820,7 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
       coupleExtended.partnerNickname,
       currentUserId,
       grantReward,
+      logTodayActivity,
       pushHouseworkToCloud,
     ]
   );
@@ -958,9 +998,10 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
         });
         return stamped;
       });
+      logTodayActivity({ actionType: 'update', targetType: 'couple_profile' });
       void pushCoupleProfileBackground(stamped);
     },
-    [pushCoupleProfileBackground]
+    [logTodayActivity, pushCoupleProfileBackground]
   );
 
   const rerollLoveTaskFn = useCallback((taskId: string) => {
@@ -990,6 +1031,7 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
             addCompletion('task', task.label, task.emoji);
             next = { ...nextBase, dailyRewardClaimedDate: day };
           }
+          logTodayActivity({ actionType: 'complete', targetType: 'love_task', targetTitle: task.label });
           saveTasks(next);
         } else {
           saveTasks(nextBase);
@@ -997,7 +1039,7 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
         return next;
       });
     },
-    [grantReward, addCompletion]
+    [grantReward, addCompletion, logTodayActivity]
   );
 
   const startFlirtGame = useCallback((gameId: FlirtGameId) => {
@@ -1138,11 +1180,16 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
         if (grantRpg) {
           setActivity(appendActivity(`完成約會「${captured.title}」`));
           addCompletion('date', captured.title, captured.emoji);
+          logTodayActivity({
+            actionType: 'complete',
+            targetType: 'date_idea',
+            targetTitle: captured.title,
+          });
         }
       });
       return next;
     });
-  }, [addCompletion]);
+  }, [addCompletion, logTodayActivity]);
 
   const addAnniversaryFn = useCallback(
     (input: {
@@ -1157,8 +1204,13 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
         saveAnniversaries(next);
         return next;
       });
+      logTodayActivity({
+        actionType: 'create',
+        targetType: 'important_date',
+        targetTitle: input.name.trim(),
+      });
     },
-    []
+    [logTodayActivity]
   );
 
   const updateAnniversaryFn = useCallback(
@@ -1172,13 +1224,22 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
         repeatYearly: boolean;
       }>
     ) => {
+      let eventTitle = input.name?.trim() || '';
       setAnniversaries((prev) => {
+        if (!eventTitle) {
+          eventTitle = prev.events.find((e) => e.id === id)?.name ?? '重要日子';
+        }
         const next = updateAnniversaryEvent(prev, id, input);
         saveAnniversaries(next);
         return next;
       });
+      logTodayActivity({
+        actionType: 'update',
+        targetType: 'important_date',
+        targetTitle: eventTitle,
+      });
     },
-    []
+    [logTodayActivity]
   );
 
   const removeAnniversaryFn = useCallback((id: string) => {
@@ -1337,10 +1398,15 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
       setRewards(result.rewards);
       const name = actorDisplayName(currentUserId);
       setActivity(appendActivity(formatRedeemFeedLine(name, result.coupon.cardTitle)));
+      logTodayActivity({
+        actionType: 'redeem',
+        targetType: 'reward_card',
+        targetTitle: result.coupon.cardTitle,
+      });
       pushCouponBackground(result.coupon);
       return true;
     },
-    [actorDisplayName, currentUserId, pushCouponBackground]
+    [actorDisplayName, currentUserId, logTodayActivity, pushCouponBackground]
   );
 
   const redeemCustomRewardItemFn = useCallback(
@@ -1359,10 +1425,15 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
       setRewards(result.rewards);
       const name = actorDisplayName(currentUserId);
       setActivity(appendActivity(formatRedeemFeedLine(name, result.coupon.cardTitle)));
+      logTodayActivity({
+        actionType: 'redeem',
+        targetType: 'reward_card',
+        targetTitle: result.coupon.cardTitle,
+      });
       pushCouponBackground(result.coupon);
       return true;
     },
-    [actorDisplayName, currentUserId, pushCouponBackground]
+    [actorDisplayName, currentUserId, logTodayActivity, pushCouponBackground]
   );
 
   const useCouponFn = useCallback(
@@ -1377,6 +1448,11 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
         setActivity(
           appendActivity(formatUseFeedLine(name, r.coupon.cardTitle, towardPartner))
         );
+        logTodayActivity({
+          actionType: 'use',
+          targetType: 'reward_card',
+          targetTitle: r.coupon.cardTitle,
+        });
         if (
           canSyncRewardCards({
             configured: auth.configured,
@@ -1420,6 +1496,7 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
       currentUserId,
       isFullyBound,
       isOnline,
+      logTodayActivity,
       partnerUserId,
     ]
   );
@@ -1432,6 +1509,11 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
         saveRewards(r.rewards);
         const name = actorDisplayName(currentUserId);
         setActivity(appendActivity(formatCompleteFeedLine(name, r.coupon.cardTitle)));
+        logTodayActivity({
+          actionType: 'complete',
+          targetType: 'reward_card',
+          targetTitle: r.coupon.cardTitle,
+        });
         if (
           canSyncRewardCards({
             configured: auth.configured,

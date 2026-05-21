@@ -9,6 +9,8 @@ export const LQ_KEYS = {
   flirtGames: 'lovequest-flirt-games',
   completionHistory: 'lovequest-completion-history',
   activity: 'lovequest-activity',
+  /** 首頁「今日動態」操作紀錄（local；預留 remote 同步） */
+  activityLog: 'lovequest-activity-log',
   datePlanner: 'lovequest-date-planner',
   anniversaries: 'lovequest-anniversaries',
   rewards: 'lovequest-rewards',
