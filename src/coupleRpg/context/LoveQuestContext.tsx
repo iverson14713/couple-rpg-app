@@ -118,7 +118,13 @@ import {
   useRewardCard as pushUseRewardCardRemote,
   type RewardCardSyncStatus,
 } from '../services/rewardCardSync';
-import { addActivityLog } from '../services/activityLogService';
+import { addActivityLog, registerActivityLogSyncScheduler } from '../services/activityLogService';
+import { ENABLE_ACTIVITY_LOG_CLOUD_SYNC } from '../constants/activityLogSyncFlags';
+import { canSyncActivityLogs } from '../services/activityLogSyncService';
+import {
+  createActivityLogSyncScheduler,
+  type ActivityLogSyncScheduler,
+} from '../services/activityLogSyncScheduler';
 import type { ActivityLogInput } from '../storage/activityLogTypes';
 import { ENABLE_CHORE_ITEMS_CLOUD_SYNC } from '../constants/choreSyncFlags';
 import {
@@ -259,6 +265,7 @@ type LoveQuestContextValue = {
   pullHouseworkFromCloud: () => Promise<void>;
   syncHousework: () => Promise<void>;
   retryChoreSync: () => void;
+  pullActivityLogsFromCloud: () => Promise<void>;
   toggleDailyTask: (id: string) => void;
   startFlirtGame: (gameId: FlirtGameId) => void;
   rerollFlirtPrompt: () => void;
@@ -406,6 +413,7 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
 
   const choreSchedulerRef = useRef<ChoreSyncScheduler | null>(null);
   const dinnerSchedulerRef = useRef<DinnerSyncScheduler | null>(null);
+  const activityLogSchedulerRef = useRef<ActivityLogSyncScheduler | null>(null);
 
   useEffect(() => {
     choreSchedulerRef.current?.dispose();
@@ -531,6 +539,77 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
   const scheduleDinnerSync = useCallback((reason?: string) => {
     dinnerSchedulerRef.current?.scheduleDinnerSync(reason);
   }, []);
+
+  useEffect(() => {
+    activityLogSchedulerRef.current?.dispose();
+    const scheduler = createActivityLogSyncScheduler({
+      debounceMs: 800,
+      canSync: () =>
+        canSyncActivityLogs({
+          configured: auth.configured,
+          userId: currentUserId,
+          coupleId,
+          online: isOnline,
+          isFullyBound,
+        }),
+      getSupabase: () => auth.supabase,
+      getCoupleId: () => coupleId,
+      getIsPro: () => isPro,
+      onStatusChange: () => {},
+    });
+    activityLogSchedulerRef.current = scheduler;
+    registerActivityLogSyncScheduler(scheduler.scheduleActivityLogSync);
+
+    if (
+      ENABLE_ACTIVITY_LOG_CLOUD_SYNC &&
+      canSyncActivityLogs({
+        configured: auth.configured,
+        userId: currentUserId,
+        coupleId,
+        online: isOnline,
+        isFullyBound,
+      })
+    ) {
+      void scheduler.pullFromRemoteIfIdle();
+    }
+
+    return () => {
+      registerActivityLogSyncScheduler(null);
+      scheduler.dispose();
+      activityLogSchedulerRef.current = null;
+    };
+  }, [
+    auth.configured,
+    auth.supabase,
+    coupleId,
+    currentUserId,
+    isFullyBound,
+    isOnline,
+    isPro,
+  ]);
+
+  const pullActivityLogsFromCloud = useCallback(async () => {
+    await (activityLogSchedulerRef.current?.pullFromRemoteIfIdle() ?? Promise.resolve());
+  }, []);
+
+  const wasActivityOnlineRef = useRef(isOnline);
+  useEffect(() => {
+    if (!ENABLE_ACTIVITY_LOG_CLOUD_SYNC) return;
+    const cameOnline = !wasActivityOnlineRef.current && isOnline;
+    wasActivityOnlineRef.current = isOnline;
+    if (
+      cameOnline &&
+      canSyncActivityLogs({
+        configured: auth.configured,
+        userId: currentUserId,
+        coupleId,
+        online: isOnline,
+        isFullyBound,
+      })
+    ) {
+      void activityLogSchedulerRef.current?.pullFromRemoteIfIdle();
+    }
+  }, [auth.configured, coupleId, currentUserId, isFullyBound, isOnline]);
 
   const [flirtGames, setFlirtGames] = useState(loadFlirtGames);
   const [completionHistory, setCompletionHistory] = useState(loadCompletionHistory);
@@ -1918,6 +1997,7 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
       pullHouseworkFromCloud,
       syncHousework,
       retryChoreSync,
+      pullActivityLogsFromCloud,
       toggleDailyTask: toggleDailyTaskFn,
       startFlirtGame,
       rerollFlirtPrompt,
@@ -2023,6 +2103,7 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
       pullHouseworkFromCloud,
       syncHousework,
       retryChoreSync,
+      pullActivityLogsFromCloud,
       toggleDailyTaskFn,
       startFlirtGame,
       rerollFlirtPrompt,

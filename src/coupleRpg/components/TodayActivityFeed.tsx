@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ChevronDown, ChevronUp, X } from 'lucide-react';
+import { useLoveQuest } from '../context/LoveQuestContext';
 import { useUserPlan } from '../context/UserPlanContext';
 import {
   getRecentActivityLogsByDay,
@@ -17,6 +18,7 @@ const HOME_PREVIEW_MAX = 6;
 const ALL_MODAL_DAYS = 7;
 
 export function TodayActivityFeed() {
+  const { pullActivityLogsFromCloud } = useLoveQuest();
   const { isPro } = useUserPlan();
   const [expanded, setExpanded] = useState(false);
   const [showAll, setShowAll] = useState(false);
@@ -27,6 +29,10 @@ export function TodayActivityFeed() {
   useEffect(() => {
     return subscribeActivityLogUpdated(() => setTick((t) => t + 1));
   }, []);
+
+  useEffect(() => {
+    void pullActivityLogsFromCloud();
+  }, [pullActivityLogsFromCloud]);
 
   useEffect(() => {
     void isPro;

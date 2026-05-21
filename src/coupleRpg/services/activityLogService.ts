@@ -16,6 +16,15 @@ const LOG_KEY = LQ_KEYS.activityLog;
 const MAX_STORED = 400;
 const EVENT = 'lq-activity-log-updated';
 
+let activityLogSyncScheduler: ((reason?: string) => void) | null = null;
+
+/** LoveQuestContext 註冊；新增動態後 debounce 推送到 Supabase */
+export function registerActivityLogSyncScheduler(
+  fn: ((reason?: string) => void) | null
+): void {
+  activityLogSyncScheduler = fn;
+}
+
 export type ActivityLogActorContext = {
   currentUserId: string | null;
   coupleExtended: CoupleExtendedProfile;
@@ -158,6 +167,9 @@ export function addActivityLog(
   const next = [draft, ...loadActivityLogs()];
   saveActivityLogs(next);
   notifyActivityLogUpdated();
+  if (draft.source === 'local') {
+    activityLogSyncScheduler?.('add');
+  }
   return draft;
 }
 
