@@ -4,9 +4,11 @@ import {
   DATE_FILTER_OPTIONS,
   DURATION_LABEL,
 } from '../data/dateIdeasPool';
+import { DateItineraryAiSheet } from '../components/DateItineraryAiSheet';
 import { RpgMiniStats } from '../components/RpgMiniStats';
 import { PageHero, PrimaryButton } from '../components/ui';
 import { useLoveQuest } from '../context/LoveQuestContext';
+import type { DateSuggestion } from '../storage/dateTypes';
 import { lq } from '../theme';
 
 export function DatesPage({ embedded }: { embedded?: boolean } = {}) {
@@ -30,10 +32,12 @@ export function DatesPage({ embedded }: { embedded?: boolean } = {}) {
 
   const favSet = useMemo(() => new Set(datePlanner.favoriteIds), [datePlanner.favoriteIds]);
   const [noMatch, setNoMatch] = useState(false);
+  const [aiSheetOpen, setAiSheetOpen] = useState(false);
 
   const handleGenerate = () => {
     const ok = generateDateIdea();
     setNoMatch(!ok);
+    setAiSheetOpen(false);
   };
 
   return (
@@ -97,11 +101,16 @@ export function DatesPage({ embedded }: { embedded?: boolean } = {}) {
             isFavorite={favSet.has(current.id)}
             onToggleFavorite={() => toggleDateFavorite(current.id)}
             onComplete={completeCurrentDate}
+            onOpenAiPlan={() => setAiSheetOpen(true)}
           />
         ) : (
           <p className="mt-3 text-center text-[13px] text-stone-500">點上方按鈕，一起決定今天去哪～</p>
         )}
       </section>
+
+      {aiSheetOpen && current ? (
+        <DateItineraryAiSheet suggestion={current} onClose={() => setAiSheetOpen(false)} />
+      ) : null}
 
       {favoriteIdeas.length > 0 ? (
         <section className={`mb-3 p-3 ${lq.card}`}>
@@ -187,62 +196,80 @@ function SuggestionCard({
   isFavorite,
   onToggleFavorite,
   onComplete,
+  onOpenAiPlan,
 }: {
-  suggestion: NonNullable<ReturnType<typeof useLoveQuest>['datePlanner']['current']>;
+  suggestion: DateSuggestion;
   isFavorite: boolean;
   onToggleFavorite: () => void;
   onComplete: () => void;
+  onOpenAiPlan: () => void;
 }) {
   const tagLabels = suggestion.tags
     .map((k) => DATE_FILTER_OPTIONS.find((o) => o.key === k)?.label)
     .filter(Boolean) as string[];
 
   return (
-    <article className="mt-3 rounded-2xl border border-rose-100 bg-gradient-to-br from-rose-50/90 to-pink-50/50 p-3.5">
-      <div className="mb-2 flex items-start justify-between gap-2">
-        <div className="min-w-0">
-          <p className="text-2xl">{suggestion.emoji}</p>
-          <h3 className="text-base font-bold text-stone-900">{suggestion.title}</h3>
+    <article className="mt-4 rounded-2xl border-2 border-rose-100/90 bg-gradient-to-br from-rose-50/95 via-white to-pink-50/60 p-4 shadow-[0_12px_36px_-14px_rgba(244,63,94,0.22)]">
+      <div className="mb-3 flex items-start gap-3">
+        <span
+          className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-white text-[2.5rem] leading-none shadow-inner ring-1 ring-rose-100"
+          aria-hidden
+        >
+          {suggestion.emoji}
+        </span>
+        <div className="min-w-0 flex-1 pt-0.5">
+          <div className="flex flex-wrap items-start justify-between gap-2">
+            <h3 className="text-[26px] font-extrabold leading-tight tracking-tight text-stone-900">
+              {suggestion.title}
+            </h3>
+            {suggestion.completed ? (
+              <span className="shrink-0 rounded-full bg-emerald-100 px-2.5 py-1 text-[12px] font-bold text-emerald-700">
+                已完成
+              </span>
+            ) : null}
+          </div>
+
+          {tagLabels.length > 0 ? (
+            <div className="mt-2.5 flex flex-wrap gap-2">
+              {tagLabels.map((t) => (
+                <span
+                  key={t}
+                  className="rounded-full bg-white px-2.5 py-1 text-[13px] font-bold text-rose-700 ring-1 ring-rose-100"
+                >
+                  {t}
+                </span>
+              ))}
+            </div>
+          ) : null}
         </div>
-        {suggestion.completed ? (
-          <span className="shrink-0 rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-700">
-            已完成
-          </span>
-        ) : null}
       </div>
 
-      {tagLabels.length > 0 ? (
-        <div className="mb-2 flex flex-wrap gap-1">
-          {tagLabels.map((t) => (
-            <span
-              key={t}
-              className="rounded-full bg-white/80 px-2 py-0.5 text-[10px] font-semibold text-rose-700 ring-1 ring-rose-100"
-            >
-              {t}
-            </span>
-          ))}
-        </div>
-      ) : null}
-
-      <div className="mb-2 flex flex-wrap gap-2 text-[11px] font-semibold text-stone-600">
-        <span className="rounded-lg bg-white/70 px-2 py-0.5">💰 {COST_LABEL[suggestion.cost]}</span>
-        <span className="rounded-lg bg-white/70 px-2 py-0.5">⏱ {DURATION_LABEL[suggestion.duration]}</span>
+      <div className="mb-3 flex flex-wrap gap-2">
+        <span className="rounded-xl bg-white/90 px-3 py-1.5 text-[13px] font-bold text-stone-700 ring-1 ring-stone-100">
+          💰 預算 {COST_LABEL[suggestion.cost]}
+        </span>
+        <span className="rounded-xl bg-white/90 px-3 py-1.5 text-[13px] font-bold text-stone-700 ring-1 ring-stone-100">
+          ⏱ {DURATION_LABEL[suggestion.duration]}
+        </span>
       </div>
 
-      <p className="text-[13px] leading-snug text-stone-700">{suggestion.description}</p>
-      <p className="mt-1.5 text-[11px] text-stone-500">
-        <span className="font-bold text-rose-500">適合：</span>
-        {suggestion.scenario}
-      </p>
+      <p className="text-[15px] leading-relaxed text-stone-700">{suggestion.description}</p>
 
-      <div className="mt-3 flex gap-2">
+      <div className="mt-3 rounded-xl bg-rose-50/90 px-3 py-2.5 ring-1 ring-rose-100/80">
+        <p className="text-[14px] font-extrabold leading-snug text-rose-800">
+          <span className="text-rose-500">適合：</span>
+          {suggestion.scenario}
+        </p>
+      </div>
+
+      <div className="mt-4 flex gap-2.5">
         <button
           type="button"
           onClick={onToggleFavorite}
-          className={`flex-1 rounded-xl py-2 text-[12px] font-bold ring-1 transition active:scale-[0.98] ${
+          className={`flex min-h-[48px] flex-1 items-center justify-center rounded-xl text-[14px] font-bold ring-1 transition active:scale-[0.98] ${
             isFavorite
               ? 'bg-amber-50 text-amber-800 ring-amber-200'
-              : 'bg-white text-stone-600 ring-rose-100'
+              : 'bg-white text-stone-700 ring-rose-100'
           }`}
         >
           {isFavorite ? '★ 已收藏' : '☆ 收藏'}
@@ -251,13 +278,22 @@ function SuggestionCard({
           type="button"
           onClick={onComplete}
           disabled={suggestion.completed}
-          className={`flex-1 rounded-xl py-2 text-[12px] font-bold transition active:scale-[0.98] disabled:opacity-50 ${
+          className={`flex min-h-[48px] flex-1 items-center justify-center rounded-xl text-[14px] font-bold transition active:scale-[0.98] disabled:opacity-50 ${
             suggestion.completed ? 'bg-stone-100 text-stone-400' : lq.btnPrimary
           }`}
         >
           {suggestion.completed ? '已打卡' : '✓ 完成約會'}
         </button>
       </div>
+
+      <button
+        type="button"
+        onClick={onOpenAiPlan}
+        className={`mt-2.5 flex min-h-[48px] w-full items-center justify-center gap-1.5 rounded-xl border-2 border-violet-100 bg-gradient-to-r from-violet-50/90 to-rose-50/80 text-[14px] font-bold text-violet-900 shadow-sm active:scale-[0.98]`}
+      >
+        <span aria-hidden>✨</span>
+        AI 規劃整天行程
+      </button>
     </article>
   );
 }
