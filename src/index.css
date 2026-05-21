@@ -140,8 +140,7 @@ select {
 
 /* Dinner fate card — shuffle + flip (no extra JS libs) */
 .dinner-fate-scene {
-  perspective: 1200px;
-  min-height: 152px;
+  min-height: 168px;
 }
 
 .dinner-fate-scene--glow {
@@ -156,41 +155,20 @@ select {
   animation: dinner-fate-sway 1.5s ease-in-out;
 }
 
-.dinner-fate-inner {
+.dinner-fate-panel {
   position: relative;
-  width: 100%;
-  min-height: 152px;
-  transform-style: preserve-3d;
-  transition: transform 0.55s cubic-bezier(0.34, 1.1, 0.48, 1);
-}
-
-.dinner-fate-inner--flipped {
-  transform: rotateY(180deg);
-}
-
-.dinner-fate-face {
-  position: absolute;
-  inset: 0;
   display: flex;
+  min-height: 168px;
+  width: 100%;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   border-radius: 1.25rem;
   padding: 1.25rem 1rem;
-  backface-visibility: hidden;
-  -webkit-backface-visibility: hidden;
   border: 1px solid rgba(251, 207, 232, 0.85);
   box-shadow:
     0 10px 32px -12px rgba(244, 114, 182, 0.28),
     inset 0 1px 0 0 rgba(255, 255, 255, 0.9);
-}
-
-.dinner-fate-face--back {
-  background: linear-gradient(145deg, #fff5f7 0%, #ffe4ec 45%, #fff1f5 100%);
-}
-
-.dinner-fate-face--front {
-  transform: rotateY(180deg);
   background: linear-gradient(160deg, #ffffff 0%, #fff5f8 55%, #ffecf2 100%);
 }
 

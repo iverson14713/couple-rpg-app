@@ -1,15 +1,15 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Dices } from 'lucide-react';
 import { useLoveQuest } from '../context/LoveQuestContext';
 import { formatDateShort } from '../lib/dates';
 import { pickRandomOption } from '../storage/dinnerStore';
-import { DinnerFateCard, type DinnerFateCardPhase } from '../components/DinnerFateCard';
+import { DinnerFateCard } from '../components/DinnerFateCard';
 import { RpgMiniStats } from '../components/RpgMiniStats';
 import { ChipRow, InlineInput, OptionChip, PageHero, PrimaryButton } from '../components/ui';
 import { lq } from '../theme';
 
 const SHUFFLE_MS = 1500;
-const FLIP_MS = 550;
+const ROLL_TICK_MS = 80;
 
 export function DinnerPage({ embedded }: { embedded?: boolean } = {}) {
   const lqState = useLoveQuest();
@@ -18,15 +18,17 @@ export function DinnerPage({ embedded }: { embedded?: boolean } = {}) {
 
   const [isDrawing, setIsDrawing] = useState(false);
   const [emptyHint, setEmptyHint] = useState(false);
-  const [showFateCard, setShowFateCard] = useState(false);
-  const [fatePhase, setFatePhase] = useState<DinnerFateCardPhase>('flipped');
-  const [revealLabel, setRevealLabel] = useState('');
-  const [savedOnly, setSavedOnly] = useState(false);
+  const [rollingFoodName, setRollingFoodName] = useState('');
 
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const timeoutRefs = useRef<ReturnType<typeof setTimeout>[]>([]);
   const drawRunIdRef = useRef(0);
 
   const clearDrawTimers = useCallback(() => {
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
+    }
     timeoutRefs.current.forEach((id) => clearTimeout(id));
     timeoutRefs.current = [];
   }, []);
@@ -42,23 +44,44 @@ export function DinnerPage({ embedded }: { embedded?: boolean } = {}) {
     void lqState.pullDinnerFromCloud();
   }, [lqState.pullDinnerFromCloud]);
 
-  useEffect(() => {
-    if (isDrawing) return;
-    const label = lqState.draftPick ?? lqState.todayDinner?.label ?? null;
-    if (label) {
-      setShowFateCard(true);
-      setRevealLabel(label);
-      setFatePhase('flipped');
-      setSavedOnly(!lqState.draftPick && Boolean(lqState.todayDinner));
-    } else {
-      setShowFateCard(false);
-      setRevealLabel('');
-      setSavedOnly(false);
-    }
-  }, [lqState.draftPick, lqState.todayDinner, isDrawing]);
-
   const optionCount = lqState.dinner.options.length;
-  const canRedraw = optionCount > 0 && (showFateCard || Boolean(lqState.draftPick || lqState.todayDinner));
+  const selectedFood = lqState.draftPick;
+  const savedTodayResult =
+    lqState.todayDinner?.label && !lqState.draftPick ? lqState.todayDinner.label : null;
+
+  const isRolling = isDrawing;
+
+  const { displayName, displaySubtitle, cardMode } = useMemo(() => {
+    if (isRolling) {
+      return {
+        displayName: rollingFoodName || '…',
+        displaySubtitle: '正在替你們挑選今晚的答案...',
+        cardMode: 'rolling' as const,
+      };
+    }
+    if (selectedFood) {
+      return {
+        displayName: selectedFood,
+        displaySubtitle: '今晚就決定吃這個！',
+        cardMode: 'picked' as const,
+      };
+    }
+    if (savedTodayResult) {
+      return {
+        displayName: savedTodayResult,
+        displaySubtitle: '已儲存今日結果',
+        cardMode: 'saved' as const,
+      };
+    }
+    return {
+      displayName: '準備抽籤',
+      displaySubtitle: '讓命運幫你們決定今晚吃什麼',
+      cardMode: 'idle' as const,
+    };
+  }, [isRolling, rollingFoodName, selectedFood, savedTodayResult]);
+
+  const canRedraw = optionCount > 0 && Boolean(selectedFood || savedTodayResult);
+  const drawButtonLabel = isDrawing ? '抽籤中...' : canRedraw ? '再抽一次' : '隨機抽籤';
 
   const startDinnerDraw = useCallback(() => {
     const opts = lqState.dinner.options;
@@ -76,29 +99,33 @@ export function DinnerPage({ embedded }: { embedded?: boolean } = {}) {
     drawRunIdRef.current += 1;
     const runId = drawRunIdRef.current;
     const finalLabel = picked.label;
+    const labels = opts.map((o) => o.label);
 
     setEmptyHint(false);
     setIsDrawing(true);
-    setShowFateCard(true);
-    setFatePhase('shuffling');
-    setRevealLabel(finalLabel);
-    setSavedOnly(false);
+    setRollingFoodName(labels[Math.floor(Math.random() * labels.length)] ?? finalLabel);
 
-    const tFlip = window.setTimeout(() => {
+    intervalRef.current = setInterval(() => {
       if (drawRunIdRef.current !== runId) return;
-      setFatePhase('flipped');
+      if (labels.length === 1) {
+        setRollingFoodName(labels[0]!);
+        return;
+      }
+      setRollingFoodName(labels[Math.floor(Math.random() * labels.length)]!);
+    }, ROLL_TICK_MS);
+
+    const tDone = window.setTimeout(() => {
+      if (drawRunIdRef.current !== runId) return;
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
+      setRollingFoodName(finalLabel);
       lqState.setDinnerDraftPick(finalLabel);
-
-      const tDone = window.setTimeout(() => {
-        if (drawRunIdRef.current !== runId) return;
-        setIsDrawing(false);
-      }, FLIP_MS);
-      timeoutRefs.current.push(tDone);
+      setIsDrawing(false);
     }, SHUFFLE_MS);
-    timeoutRefs.current.push(tFlip);
+    timeoutRefs.current.push(tDone);
   }, [lqState.dinner.options, lqState.setDinnerDraftPick, clearDrawTimers]);
-
-  const drawButtonLabel = isDrawing ? '抽籤中...' : canRedraw ? '再抽一次' : '隨機抽籤';
 
   return (
     <>
@@ -126,16 +153,16 @@ export function DinnerPage({ embedded }: { embedded?: boolean } = {}) {
       <section className={`mb-3 p-4 ${lq.card}`}>
         <h2 className={`mb-3 text-sm font-bold ${lq.text}`}>今晚吃什麼？</h2>
 
-        <div className="mb-3 flex min-h-[168px] items-center justify-center py-1">
+        <div className="mb-3 flex min-h-[180px] items-center justify-center py-1">
           {emptyHint ? (
-            <div className="w-full rounded-2xl border border-dashed border-stone-200 bg-stone-50/80 px-4 py-8 text-center">
+            <div className="flex min-h-[168px] w-full items-center justify-center rounded-2xl border border-dashed border-stone-200 bg-stone-50/80 px-4 text-center">
               <p className="text-[14px] font-semibold text-stone-700">請先新增晚餐選項</p>
             </div>
-          ) : showFateCard && revealLabel ? (
-            <DinnerFateCard phase={fatePhase} label={revealLabel} savedOnly={savedOnly && fatePhase === 'flipped'} />
+          ) : optionCount > 0 ? (
+            <DinnerFateCard mode={cardMode} displayName={displayName} displaySubtitle={displaySubtitle} />
           ) : (
-            <div className="w-full rounded-2xl border border-dashed border-stone-200/90 bg-gradient-to-br from-rose-50/40 to-white px-4 py-10 text-center">
-              <p className={`text-[14px] ${lq.textSecondary}`}>按下隨機抽籤，翻開今晚的命運卡</p>
+            <div className="flex min-h-[168px] w-full items-center justify-center rounded-2xl border border-dashed border-stone-200/90 bg-gradient-to-br from-rose-50/40 to-white px-4 text-center">
+              <p className={`text-[14px] ${lq.textSecondary}`}>請先新增晚餐選項</p>
             </div>
           )}
         </div>
