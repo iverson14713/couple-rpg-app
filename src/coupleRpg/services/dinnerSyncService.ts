@@ -1,6 +1,10 @@
 /**
  * Sync dinner options & today's dinner decision with public.food_options / public.food_decisions.
  */
+import {
+  ENABLE_DINNER_DECISION_CLOUD_SYNC,
+  ENABLE_DINNER_OPTIONS_CLOUD_SYNC,
+} from '../constants/dinnerSyncFlags';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { todayKey } from '../lib/dates';
 import { foodEmojiForLabel } from '../lib/dinnerFoodEmoji';
@@ -59,6 +63,30 @@ export function canSyncDinner(input: {
   online: boolean;
   isFullyBound: boolean;
 }): boolean {
+  return canSyncDinnerOptions(input);
+}
+
+export function canSyncDinnerOptions(input: {
+  configured: boolean;
+  userId: string | null;
+  coupleId: string | null;
+  online: boolean;
+  isFullyBound: boolean;
+}): boolean {
+  if (!ENABLE_DINNER_OPTIONS_CLOUD_SYNC) return false;
+  return Boolean(
+    input.configured && input.userId && input.coupleId && input.online && input.isFullyBound
+  );
+}
+
+export function canSyncDinnerDecision(input: {
+  configured: boolean;
+  userId: string | null;
+  coupleId: string | null;
+  online: boolean;
+  isFullyBound: boolean;
+}): boolean {
+  if (!ENABLE_DINNER_DECISION_CLOUD_SYNC) return false;
   return Boolean(
     input.configured && input.userId && input.coupleId && input.online && input.isFullyBound
   );
@@ -262,6 +290,7 @@ export async function pullTodayFoodDecisionFromRemote(
   data: DinnerData,
   dateKey: string = todayKey()
 ): Promise<DinnerData> {
+  if (!ENABLE_DINNER_DECISION_CLOUD_SYNC) return data;
   const row = await getRemoteTodayFoodDecision(supabase, coupleId, dateKey);
   const remoteEntry = row ? rowToDinnerHistoryEntry(row) : null;
   const localEntry = data.history.find((h) => h.date === dateKey) ?? null;
@@ -326,6 +355,7 @@ export async function pushTodayFoodDecisionToRemote(
   data: DinnerData,
   dateKey: string = todayKey()
 ): Promise<void> {
+  if (!ENABLE_DINNER_DECISION_CLOUD_SYNC) return;
   const entry = data.history.find((h) => h.date === dateKey);
   if (!entry?.label?.trim()) return;
 
@@ -358,10 +388,27 @@ export async function syncTodayFoodDecision(
   data: DinnerData,
   dateKey: string = todayKey()
 ): Promise<DinnerData> {
+  if (!ENABLE_DINNER_DECISION_CLOUD_SYNC) return data;
   let cur = ensureDinnerStableIds(data);
   await pushTodayFoodDecisionToRemote(supabase, coupleId, cur, dateKey);
   cur = await pullTodayFoodDecisionFromRemote(supabase, coupleId, cur, dateKey);
   return cur;
+}
+
+/** Push + pull food_options only; preserves local history when decision sync is off. */
+export async function syncFoodOptionsOnly(
+  supabase: SupabaseClient,
+  coupleId: string,
+  userId: string | null
+): Promise<DinnerData> {
+  let data = ensureDinnerStableIds(loadDinner());
+  const localHistory = data.history;
+  data = await syncFoodOptions(supabase, coupleId, data, userId);
+  if (!ENABLE_DINNER_DECISION_CLOUD_SYNC) {
+    data = { ...data, history: localHistory };
+  }
+  saveDinner(data);
+  return data;
 }
 
 export async function syncDinner(
@@ -369,10 +416,11 @@ export async function syncDinner(
   coupleId: string,
   userId: string | null
 ): Promise<DinnerData> {
-  let data = ensureDinnerStableIds(loadDinner());
-  data = await syncFoodOptions(supabase, coupleId, data, userId);
-  data = await syncTodayFoodDecision(supabase, coupleId, data);
-  saveDinner(data);
+  let data = await syncFoodOptionsOnly(supabase, coupleId, userId);
+  if (ENABLE_DINNER_DECISION_CLOUD_SYNC) {
+    data = await syncTodayFoodDecision(supabase, coupleId, data);
+    saveDinner(data);
+  }
   return data;
 }
 

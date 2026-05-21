@@ -1,32 +1,32 @@
 import { RefreshCw } from 'lucide-react';
-import type { ChoreSyncStatus } from '../services/choreSyncService';
+import type { DinnerSyncStatus } from '../services/dinnerSyncService';
 import { lq } from '../theme';
 
-const ITEMS_STATUS_COPY: Record<
-  Exclude<ChoreSyncStatus, 'local'>,
+const OPTIONS_STATUS_COPY: Record<
+  Exclude<DinnerSyncStatus, 'local'>,
   { icon: string; label: string; showRetry?: boolean }
 > = {
-  editing: { icon: '✏️', label: '正在編輯項目，稍後同步' },
-  syncing: { icon: '☁️', label: '家事項目同步中...' },
-  synced: { icon: '☁️', label: '家事項目已同步' },
+  editing: { icon: '✏️', label: '正在編輯選項，稍後同步' },
+  syncing: { icon: '☁️', label: '晚餐選項同步中...' },
+  synced: { icon: '☁️', label: '晚餐選項已同步' },
   error: { icon: '⚠️', label: '同步失敗', showRetry: true },
 };
 
-export function ChoreSyncStatusLine({
+export function DinnerSyncStatusLine({
   status,
   error,
-  canSyncItems,
+  canSyncOptions,
   onRetry,
 }: {
-  status: ChoreSyncStatus;
+  status: DinnerSyncStatus;
   error: string | null;
-  canSyncItems: boolean;
+  canSyncOptions: boolean;
   onRetry: () => void;
 }) {
-  if (!canSyncItems) {
+  if (!canSyncOptions) {
     return (
       <p className={`mb-2.5 px-0.5 text-[11px] font-semibold leading-snug ${lq.textMuted}`}>
-        <span aria-hidden>📱</span> 本機家事 · 動態共享
+        <span aria-hidden>📱</span> 今日結果本機保存 · 動態共享
       </p>
     );
   }
@@ -35,14 +35,14 @@ export function ChoreSyncStatusLine({
     return (
       <div className={`mb-2.5 space-y-0.5 px-0.5 text-[11px] font-semibold leading-snug ${lq.textMuted}`}>
         <p>
-          <span aria-hidden>📱</span> 本機家事 · 動態共享
+          <span aria-hidden>📱</span> 今日結果本機保存 · 動態共享
         </p>
-        <p className="font-medium text-stone-400">今日分配儲存在本機</p>
+        <p className="font-medium text-stone-400">操作紀錄會顯示在今日動態</p>
       </div>
     );
   }
 
-  const meta = ITEMS_STATUS_COPY[status];
+  const meta = OPTIONS_STATUS_COPY[status];
   const spinning = status === 'syncing';
 
   return (
@@ -66,7 +66,7 @@ export function ChoreSyncStatusLine({
           </button>
         ) : null}
       </div>
-      <p className={`font-medium ${lq.textMuted}`}>今日分配本機保存 · 動態共享</p>
+      <p className={`font-medium ${lq.textMuted}`}>今日結果本機保存 · 動態共享</p>
     </div>
   );
 }

@@ -1,32 +1,26 @@
 /**
- * Debounced, queued chore sync — local-first, background push, conservative pull.
+ * Debounced chore items sync — local-first; today's assignment stays on device.
  */
-import { ENABLE_CHORE_CLOUD_SYNC } from '../constants/choreSyncFlags';
+import {
+  ENABLE_CHORE_ASSIGNMENT_CLOUD_SYNC,
+  ENABLE_CHORE_ITEMS_CLOUD_SYNC,
+} from '../constants/choreSyncFlags';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import {
-  canSyncChores,
-  mergeHouseworkDataSafe,
-  mergeHouseworkRemoteIdsOnly,
+  canSyncChoreItems,
+  preserveLocalHouseworkAssignment,
   pullChoresFromRemote,
   pullTodayChoreRecordsFromRemote,
   pushChoresToRemote,
   pushTodayChoreRecordsToRemote,
   type ChoreSyncStatus,
 } from './choreSyncService';
-import {
-  clearHouseworkLocalDirty,
-  getHouseworkLastLocalChangeAt,
-  hasHouseworkLocalDirty,
-  isHouseworkUserEditing,
-  markHouseworkLocalDirty,
-} from '../storage/houseworkSyncGuard';
 import { ensureHouseworkStableIds } from '../storage/houseworkSyncMeta';
 import type { HouseworkData } from '../storage/types';
 import { loadHousework, saveHousework } from '../storage/houseworkStore';
 
 const LOG = '[chore-sync-scheduler]';
 const DEFAULT_DEBOUNCE_MS = 1500;
-const USER_EDITING_WINDOW_MS = 2500;
 
 export type ChoreSyncUpdateMeta = {
   mode: 'full' | 'ids-only' | 'skip';
@@ -53,7 +47,7 @@ export type ChoreSyncScheduler = {
   scheduleChoreSync: (reason?: string) => void;
   flushChoreSync: (options?: { allowPull?: boolean }) => Promise<void>;
   retryChoreSync: () => void;
-  pullFromRemoteIfIdle: (options?: { force?: boolean }) => Promise<void>;
+  pullFromRemoteIfIdle: () => Promise<void>;
   hasPendingChanges: () => boolean;
   dispose: () => void;
 };
@@ -68,7 +62,7 @@ const noopChoreScheduler: ChoreSyncScheduler = {
 };
 
 export function createChoreSyncScheduler(options: ChoreSyncSchedulerOptions): ChoreSyncScheduler {
-  if (!ENABLE_CHORE_CLOUD_SYNC) {
+  if (!ENABLE_CHORE_ITEMS_CLOUD_SYNC) {
     options.onStatusChange('local', null);
     return noopChoreScheduler;
   }
@@ -80,16 +74,9 @@ export function createChoreSyncScheduler(options: ChoreSyncSchedulerOptions): Ch
   let hasPendingChanges = false;
   let pendingSyncAfterCurrent = false;
   let choreSyncScheduled = false;
-  let postEditPullTimer: ReturnType<typeof setTimeout> | null = null;
 
   const setStatus = (status: ChoreSyncStatus, error: string | null = null) => {
     options.onStatusChange(status, error);
-  };
-
-  const displayStatus = (): ChoreSyncStatus => {
-    if (isHouseworkUserEditing() || hasHouseworkLocalDirty()) return 'editing';
-    if (syncInProgress) return 'syncing';
-    return 'synced';
   };
 
   const clearDebounce = () => {
@@ -100,106 +87,35 @@ export function createChoreSyncScheduler(options: ChoreSyncSchedulerOptions): Ch
     choreSyncScheduled = false;
   };
 
-  const schedulePostEditPull = () => {
-    if (postEditPullTimer != null) clearTimeout(postEditPullTimer);
-    const elapsed = Date.now() - getHouseworkLastLocalChangeAt();
-    const delay = Math.max(80, USER_EDITING_WINDOW_MS - elapsed + 80);
-    postEditPullTimer = setTimeout(() => {
-      postEditPullTimer = null;
-      if (syncInProgress || choreSyncScheduled) return;
-      if (isHouseworkUserEditing()) {
-        schedulePostEditPull();
-        return;
-      }
-      if (!hasHouseworkLocalDirty() && !hasPendingChanges) return;
-      void runBackgroundSync(true);
-    }, delay);
-  };
-
-  const shouldSkipUiUpdate = (startRevision: number): boolean => {
-    const fresh = loadHousework();
-    const editedDuringSync = (fresh.syncRevision ?? 0) > startRevision;
-    return editedDuringSync || isHouseworkUserEditing() || hasHouseworkLocalDirty();
-  };
-
-  const runPushOnly = async (): Promise<void> => {
+  const runItemsSync = async (): Promise<void> => {
     const supabase = options.getSupabase();
     const coupleId = options.getCoupleId();
-    if (!supabase || !coupleId) return;
-
-    const uiSnapshot = loadHousework();
-    const startRevision = uiSnapshot.syncRevision ?? 0;
     const ctx = options.getCtx();
-
-    let data = ensureHouseworkStableIds(loadHousework());
-    data = await pushChoresToRemote(supabase, coupleId, data, ctx.currentUserId);
-    data = await pushTodayChoreRecordsToRemote(supabase, coupleId, data, ctx);
-    saveHousework(data);
-
-    if (shouldSkipUiUpdate(startRevision)) {
-      hasPendingChanges = true;
-      setStatus('editing', null);
-      return;
-    }
-
-    options.onHouseworkUpdated(mergeHouseworkRemoteIdsOnly(uiSnapshot, data), { mode: 'ids-only' });
-  };
-
-  const runPullMerge = async (preferLocal: boolean): Promise<HouseworkData> => {
-    const supabase = options.getSupabase()!;
-    const coupleId = options.getCoupleId()!;
-    const uiSnapshot = loadHousework();
-
-    let pulled = uiSnapshot;
-    pulled = await pullChoresFromRemote(supabase, coupleId, pulled);
-    pulled = await pullTodayChoreRecordsFromRemote(supabase, coupleId, pulled, undefined, {
-      preferLocal,
-    });
-
-    const merged = mergeHouseworkDataSafe(uiSnapshot, pulled, { preferLocal });
-    saveHousework(merged);
-    return merged;
-  };
-
-  const runBackgroundSync = async (allowPull: boolean): Promise<void> => {
-    const supabase = options.getSupabase();
-    const coupleId = options.getCoupleId();
     if (!options.canSync() || !supabase || !coupleId) {
       setStatus('local', null);
       return;
     }
 
     syncInProgress = true;
-    setStatus(displayStatus(), null);
+    setStatus('syncing', null);
 
     try {
-      await runPushOnly();
+      const uiSnapshot = loadHousework();
+      let data = ensureHouseworkStableIds(loadHousework());
 
-      const canPull =
-        allowPull && !hasHouseworkLocalDirty() && !isHouseworkUserEditing() && !hasPendingChanges;
+      await pushChoresToRemote(supabase, coupleId, data, ctx.currentUserId);
+      data = await pullChoresFromRemote(supabase, coupleId, data);
 
-      if (canPull) {
-        const uiSnapshot = loadHousework();
-        const startRevision = uiSnapshot.syncRevision ?? 0;
-        if (!shouldSkipUiUpdate(startRevision)) {
-          const merged = await runPullMerge(false);
-          options.onHouseworkUpdated(merged, { mode: 'full' });
-          clearHouseworkLocalDirty();
-          hasPendingChanges = false;
-          setStatus('synced', null);
-          return;
-        }
+      if (ENABLE_CHORE_ASSIGNMENT_CLOUD_SYNC) {
+        data = await pushTodayChoreRecordsToRemote(supabase, coupleId, data, ctx);
+        data = await pullTodayChoreRecordsFromRemote(supabase, coupleId, data);
       }
 
-      if (hasHouseworkLocalDirty() || isHouseworkUserEditing()) {
-        hasPendingChanges = true;
-        setStatus('editing', null);
-        schedulePostEditPull();
-      } else {
-        clearHouseworkLocalDirty();
-        hasPendingChanges = false;
-        setStatus('synced', null);
-      }
+      data = preserveLocalHouseworkAssignment(data, uiSnapshot);
+      saveHousework(data);
+      options.onHouseworkUpdated(data);
+      hasPendingChanges = false;
+      setStatus('synced', null);
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       console.warn(`${LOG} sync failed:`, msg);
@@ -216,8 +132,6 @@ export function createChoreSyncScheduler(options: ChoreSyncSchedulerOptions): Ch
 
   const scheduleChoreSync = (reason?: string) => {
     void reason;
-    markHouseworkLocalDirty();
-
     if (!options.canSync()) {
       clearDebounce();
       setStatus('local', null);
@@ -241,29 +155,26 @@ export function createChoreSyncScheduler(options: ChoreSyncSchedulerOptions): Ch
         pendingSyncAfterCurrent = true;
         return;
       }
-      void runBackgroundSync(false);
+      void runItemsSync();
     }, debounceMs);
   };
 
-  const flushChoreSync = async (opts?: { allowPull?: boolean }) => {
+  const flushChoreSync = async (_opts?: { allowPull?: boolean }) => {
     clearDebounce();
     if (syncInProgress) {
       pendingSyncAfterCurrent = true;
       return;
     }
-    await runBackgroundSync(opts?.allowPull ?? true);
+    await runItemsSync();
   };
 
   const retryChoreSync = () => {
     hasPendingChanges = true;
-    void flushChoreSync({ allowPull: true });
+    void flushChoreSync();
   };
 
   const pullFromRemoteIfIdle = async (opts?: { force?: boolean }) => {
     if (!opts?.force && (hasPendingChanges || syncInProgress || choreSyncScheduled)) {
-      return;
-    }
-    if (isHouseworkUserEditing() || hasHouseworkLocalDirty()) {
       return;
     }
 
@@ -274,23 +185,21 @@ export function createChoreSyncScheduler(options: ChoreSyncSchedulerOptions): Ch
       return;
     }
 
-    syncInProgress = true;
     setStatus('syncing', null);
-
     try {
       const uiSnapshot = loadHousework();
-      const merged = await runPullMerge(hasHouseworkLocalDirty());
-      options.onHouseworkUpdated(mergeHouseworkDataSafe(uiSnapshot, merged, { preferLocal: false }), {
-        mode: 'full',
-      });
-      clearHouseworkLocalDirty();
-      hasPendingChanges = false;
+      let cur = await pullChoresFromRemote(supabase, coupleId, uiSnapshot);
+      if (ENABLE_CHORE_ASSIGNMENT_CLOUD_SYNC) {
+        cur = await pullTodayChoreRecordsFromRemote(supabase, coupleId, cur);
+      } else {
+        cur = preserveLocalHouseworkAssignment(cur, uiSnapshot);
+      }
+      saveHousework(cur);
+      options.onHouseworkUpdated(cur);
       setStatus('synced', null);
     } catch (e) {
       console.warn(`${LOG} pull failed:`, e);
       setStatus('error', '同步失敗，稍後再試');
-    } finally {
-      syncInProgress = false;
     }
   };
 
@@ -302,9 +211,9 @@ export function createChoreSyncScheduler(options: ChoreSyncSchedulerOptions): Ch
     hasPendingChanges: () => hasPendingChanges,
     dispose: () => {
       clearDebounce();
-      if (postEditPullTimer != null) clearTimeout(postEditPullTimer);
-      postEditPullTimer = null;
       pendingSyncAfterCurrent = false;
     },
   };
 }
+
+export { canSyncChoreItems };

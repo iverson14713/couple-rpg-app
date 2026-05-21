@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useLoveQuest } from '../context/LoveQuestContext';
-import { ChoreSyncStatusLine } from '../components/ChoreSyncStatusLine';
+import { DinnerSyncStatusLine } from '../components/DinnerSyncStatusLine';
 import { formatDateShort } from '../lib/dates';
 import { foodEmojiForLabel } from '../lib/dinnerFoodEmoji';
 import { pickRandomOption } from '../storage/dinnerStore';
@@ -138,9 +138,10 @@ export function DinnerPage({ embedded }: { embedded?: boolean } = {}) {
         </>
       ) : null}
 
-      <ChoreSyncStatusLine
+      <DinnerSyncStatusLine
         status={lqState.dinnerSyncStatus}
         error={lqState.dinnerSyncError}
+        canSyncOptions={lqState.dinnerCanSyncOptions}
         onRetry={lqState.retryDinnerSync}
       />
 
@@ -173,6 +174,15 @@ export function DinnerPage({ embedded }: { embedded?: boolean } = {}) {
         >
           💾 儲存今日結果
         </PrimaryButton>
+        {savedTodayResult ? (
+          <button
+            type="button"
+            onClick={() => lqState.clearTodayDinnerResult()}
+            className={`mt-2 w-full text-center text-[12px] font-semibold ${lq.accent}`}
+          >
+            清除今日結果
+          </button>
+        ) : null}
       </section>
 
       <section className={`mb-3 p-4 ${lq.card}`}>

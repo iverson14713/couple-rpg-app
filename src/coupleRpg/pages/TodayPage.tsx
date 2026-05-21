@@ -13,7 +13,6 @@ export function TodayPage() {
   const { showBindReminder, hasMembership } = useCoupleSpace();
   const {
     todayDinner,
-    draftPick,
     dinnerHomeStatus,
     houseworkHomeStatus,
     taskProgress,
@@ -27,14 +26,9 @@ export function TodayPage() {
   }, [syncCoupleProfile]);
 
   const showBindCard = showBindReminder;
-  const dinnerLabel = todayDinner?.label ?? draftPick;
-  const dinnerBadge = todayDinner?.label
-    ? dinnerHomeStatus.badge
-    : draftPick
-      ? '待儲存'
-      : dinnerHomeStatus.badge;
+  const dinnerBadge = todayDinner?.label ? '已決定' : '待決定';
   const dinnerDescription = todayDinner?.label
-    ? dinnerHomeStatus.summaryPart ?? '不知道吃什麼就交給命運決定'
+    ? `晚餐：${todayDinner.label}`
     : '不知道吃什麼就交給命運決定';
   const { done, total, pct } = taskProgress;
 

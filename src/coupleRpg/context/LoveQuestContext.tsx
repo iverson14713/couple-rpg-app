@@ -12,6 +12,7 @@ import { FLIRT_GAMES, type FlirtGameId } from '../data/flirtGames';
 import { loadJson, saveJson } from '../storage/persist';
 import { LQ_KEYS } from '../storage/keys';
 import {
+  clearTodayDinnerResult,
   getActiveDinnerOptions,
   getDinnerHomeStatus,
   getRecentHistory,
@@ -119,8 +120,12 @@ import {
 } from '../services/rewardCardSync';
 import { addActivityLog } from '../services/activityLogService';
 import type { ActivityLogInput } from '../storage/activityLogTypes';
-import { ENABLE_CHORE_CLOUD_SYNC } from '../constants/choreSyncFlags';
-import { canSyncChores, type ChoreSyncStatus } from '../services/choreSyncService';
+import { ENABLE_CHORE_ITEMS_CLOUD_SYNC } from '../constants/choreSyncFlags';
+import {
+  canSyncChoreItems,
+  preserveLocalHouseworkAssignment,
+  type ChoreSyncStatus,
+} from '../services/choreSyncService';
 import { createChoreSyncScheduler, type ChoreSyncScheduler } from '../services/choreSyncScheduler';
 import {
   displayNameForUserId,
@@ -163,7 +168,8 @@ import { makeId } from '../lib/id';
 import { todayKey } from '../lib/dates';
 import { useOnlineStatus } from '../../hooks/useOnlineStatus';
 import { useSupabaseAuth } from '../../useSupabaseAuth';
-import { canSyncDinner, type DinnerSyncStatus } from '../services/dinnerSyncService';
+import { ENABLE_DINNER_DECISION_CLOUD_SYNC } from '../constants/dinnerSyncFlags';
+import { canSyncDinnerOptions, type DinnerSyncStatus } from '../services/dinnerSyncService';
 import { createDinnerSyncScheduler, type DinnerSyncScheduler } from '../services/dinnerSyncScheduler';
 import { touchDinnerOption } from '../storage/dinnerSyncMeta';
 import { useCoupleSpace } from './CoupleSpaceContext';
@@ -208,6 +214,7 @@ type LoveQuestContextValue = {
   dinnerHomeStatus: ReturnType<typeof getDinnerHomeStatus>;
   dinnerSyncStatus: DinnerSyncStatus;
   dinnerSyncError: string | null;
+  dinnerCanSyncOptions: boolean;
   housework: HouseworkData;
   houseworkHomeStatus: HouseworkHomeStatus;
   weeklyStats: WeeklyHouseworkStats;
@@ -235,6 +242,7 @@ type LoveQuestContextValue = {
   /** 設定晚餐抽籤預覽結果（動畫結束後寫入，與 `rollDinner` 邏輯分離） */
   setDinnerDraftPick: (label: string | null) => void;
   saveDinnerResult: (label?: string) => void;
+  clearTodayDinnerResult: () => void;
   pullDinnerFromCloud: () => Promise<void>;
   syncDinnerFoodOptions: () => Promise<void>;
   retryDinnerSync: () => void;
@@ -247,6 +255,7 @@ type LoveQuestContextValue = {
   reassignTodayHousework: () => boolean;
   choreSyncStatus: ChoreSyncStatus;
   choreSyncError: string | null;
+  choreCanSyncItems: boolean;
   pullHouseworkFromCloud: () => Promise<void>;
   syncHousework: () => Promise<void>;
   retryChoreSync: () => void;
@@ -403,7 +412,7 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
     choreSchedulerRef.current = createChoreSyncScheduler({
       debounceMs: 1500,
       canSync: () =>
-        canSyncChores({
+        canSyncChoreItems({
           configured: auth.configured,
           userId: currentUserId,
           coupleId,
@@ -417,20 +426,21 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
         setChoreSyncStatus(status);
         setChoreSyncError(error);
       },
-      onHouseworkUpdated: (data) => setHousework(data),
+      onHouseworkUpdated: (incoming) => {
+        setHousework((prev) => preserveLocalHouseworkAssignment(incoming, prev));
+      },
     });
-    if (ENABLE_CHORE_CLOUD_SYNC) {
-      if (
-        canSyncChores({
-          configured: auth.configured,
-          userId: currentUserId,
-          coupleId,
-          online: isOnline,
-          isFullyBound,
-        })
-      ) {
-        void choreSchedulerRef.current.pullFromRemoteIfIdle();
-      }
+    if (
+      ENABLE_CHORE_ITEMS_CLOUD_SYNC &&
+      canSyncChoreItems({
+        configured: auth.configured,
+        userId: currentUserId,
+        coupleId,
+        online: isOnline,
+        isFullyBound,
+      })
+    ) {
+      void choreSchedulerRef.current.pullFromRemoteIfIdle();
     } else {
       setChoreSyncStatus('local');
       setChoreSyncError(null);
@@ -451,18 +461,17 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
   ]);
 
   const scheduleChoreSync = useCallback((reason?: string) => {
-    if (!ENABLE_CHORE_CLOUD_SYNC) return;
     choreSchedulerRef.current?.scheduleChoreSync(reason);
   }, []);
 
   const wasOnlineRef = useRef(isOnline);
   useEffect(() => {
-    if (!ENABLE_CHORE_CLOUD_SYNC) return;
+    if (!ENABLE_CHORE_ITEMS_CLOUD_SYNC) return;
     const cameOnline = !wasOnlineRef.current && isOnline;
     wasOnlineRef.current = isOnline;
     if (
       cameOnline &&
-      canSyncChores({
+      canSyncChoreItems({
         configured: auth.configured,
         userId: currentUserId,
         coupleId,
@@ -479,7 +488,7 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
     dinnerSchedulerRef.current = createDinnerSyncScheduler({
       debounceMs: 1500,
       canSync: () =>
-        canSyncDinner({
+        canSyncDinnerOptions({
           configured: auth.configured,
           userId: currentUserId,
           coupleId,
@@ -493,10 +502,15 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
         setDinnerSyncStatus(status);
         setDinnerSyncError(error);
       },
-      onDinnerUpdated: (data) => setDinner(data),
+      onDinnerUpdated: (incoming) => {
+        setDinner((prev) => ({
+          ...incoming,
+          history: ENABLE_DINNER_DECISION_CLOUD_SYNC ? incoming.history : prev.history,
+        }));
+      },
     });
     if (
-      canSyncDinner({
+      canSyncDinnerOptions({
         configured: auth.configured,
         userId: currentUserId,
         coupleId,
@@ -530,8 +544,30 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
   const taskProgress = useMemo(() => dailyTaskProgress(tasks.dailyTasks), [tasks.dailyTasks]);
   const weeklyStats = useMemo(() => getWeeklyStats(housework.completions), [housework.completions]);
   const houseworkHomeStatus = useMemo(() => getHouseworkHomeStatus(housework), [housework]);
+  const choreCanSyncItems = useMemo(
+    () =>
+      canSyncChoreItems({
+        configured: auth.configured,
+        userId: currentUserId,
+        coupleId,
+        online: isOnline,
+        isFullyBound,
+      }),
+    [auth.configured, coupleId, currentUserId, isFullyBound, isOnline]
+  );
   const dinnerOptions = useMemo(() => getActiveDinnerOptions(dinner.options), [dinner.options]);
   const dinnerHomeStatus = useMemo(() => getDinnerHomeStatus(dinner.history), [dinner.history]);
+  const dinnerCanSyncOptions = useMemo(
+    () =>
+      canSyncDinnerOptions({
+        configured: auth.configured,
+        userId: currentUserId,
+        coupleId,
+        online: isOnline,
+        isFullyBound,
+      }),
+    [auth.configured, coupleId, currentUserId, isFullyBound, isOnline]
+  );
 
   const grantReward = useCallback((reward: RpgReward, log: string, coin?: CoinEarnMeta) => {
     setRpg((prev) => {
@@ -713,7 +749,6 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
         return next;
       });
       setDraftPick(null);
-      void dinnerSchedulerRef.current?.flushDinnerSync();
       setRpg((prev) => {
         const rolled = rollDailyGuardForToday(normalizeRpgState(prev));
         const g = rolled.dailyGuard ?? defaultDailyGuard();
@@ -742,6 +777,22 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
     },
     [currentUserId, dinner.history, draftPick, logTodayActivity]
   );
+
+  const clearTodayDinnerResultFn = useCallback(() => {
+    const hadToday = Boolean(getTodayDinner(dinner.history));
+    if (!hadToday) return;
+    setDinner((prev) => {
+      const next = clearTodayDinnerResult(prev);
+      saveDinner(next);
+      return next;
+    });
+    setDraftPick(null);
+    logTodayActivity({
+      actionType: 'delete',
+      targetType: 'dinner',
+      message: '清除了今日晚餐結果',
+    });
+  }, [dinner.history, logTodayActivity]);
 
   const addHouseworkItem = useCallback((label: string, emoji = '🏠') => {
     const trimmed = label.trim();
@@ -816,7 +867,6 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
       count =
         next.todayAssignment?.chores.length ?? next.todayAssignment?.selectedTaskIds.length ?? 0;
       saveHousework(next);
-      scheduleChoreSync('start-assignment');
       return next;
     });
     if (ok) {
@@ -827,7 +877,7 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
       });
     }
     return ok;
-  }, [logTodayActivity, scheduleChoreSync]);
+  }, [logTodayActivity]);
 
   const completeHouseworkChoreFn = useCallback(
     (taskId: string) => {
@@ -845,7 +895,6 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
           });
         }
         saveHousework(next);
-        scheduleChoreSync('complete-chore');
         if (item) {
           logTodayActivity({
             actionType: 'complete',
@@ -862,7 +911,6 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
       currentUserId,
       grantReward,
       logTodayActivity,
-      scheduleChoreSync,
     ]
   );
 
@@ -870,7 +918,6 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
     setHousework((prev) => {
       const next = clearTodayAssignment(prev);
       saveHousework(next);
-      scheduleChoreSync('clear-today');
       return next;
     });
     logTodayActivity({
@@ -878,7 +925,7 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
       targetType: 'chore',
       message: '清除了今日家事分配',
     });
-  }, [logTodayActivity, scheduleChoreSync]);
+  }, [logTodayActivity]);
 
   const reassignTodayHouseworkFn = useCallback((): boolean => {
     let ok = false;
@@ -887,7 +934,6 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
       if (!next) return prev;
       ok = true;
       saveHousework(next);
-      scheduleChoreSync('reassign');
       return next;
     });
     if (ok) {
@@ -898,7 +944,7 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
       });
     }
     return ok;
-  }, [logTodayActivity, scheduleChoreSync]);
+  }, [logTodayActivity]);
 
   const patchImportantDateReminderFn = useCallback(
     (updater: (prev: ImportantDateRemindersData) => ImportantDateRemindersData) => {
@@ -1777,14 +1823,13 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
   );
 
   const pullHouseworkFromCloud = useCallback(async () => {
-    if (!ENABLE_CHORE_CLOUD_SYNC || coupleSpaceLoading) return;
+    if (coupleSpaceLoading) return;
     await choreSchedulerRef.current?.pullFromRemoteIfIdle();
   }, [coupleSpaceLoading]);
 
   const syncHousework = useCallback(async () => {
-    if (!ENABLE_CHORE_CLOUD_SYNC) return;
     if (
-      !canSyncChores({
+      !canSyncChoreItems({
         configured: auth.configured,
         userId: currentUserId,
         coupleId,
@@ -1800,7 +1845,6 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
   }, [auth.configured, coupleId, currentUserId, isFullyBound, isOnline]);
 
   const retryChoreSync = useCallback(() => {
-    if (!ENABLE_CHORE_CLOUD_SYNC) return;
     choreSchedulerRef.current?.retryChoreSync();
   }, []);
 
@@ -1832,6 +1876,7 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
       dinnerHomeStatus,
       dinnerSyncStatus,
       dinnerSyncError,
+      dinnerCanSyncOptions,
       housework,
       houseworkHomeStatus,
       weeklyStats,
@@ -1856,6 +1901,7 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
       rollDinner,
       setDinnerDraftPick,
       saveDinnerResult,
+      clearTodayDinnerResult: clearTodayDinnerResultFn,
       pullDinnerFromCloud,
       syncDinnerFoodOptions,
       retryDinnerSync,
@@ -1868,6 +1914,7 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
       reassignTodayHousework: reassignTodayHouseworkFn,
       choreSyncStatus,
       choreSyncError,
+      choreCanSyncItems,
       pullHouseworkFromCloud,
       syncHousework,
       retryChoreSync,
@@ -1931,6 +1978,7 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
       dinnerHomeStatus,
       dinnerSyncStatus,
       dinnerSyncError,
+      dinnerCanSyncOptions,
       housework,
       houseworkHomeStatus,
       weeklyStats,
@@ -1958,6 +2006,7 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
       rollDinner,
       setDinnerDraftPick,
       saveDinnerResult,
+      clearTodayDinnerResultFn,
       pullDinnerFromCloud,
       syncDinnerFoodOptions,
       retryDinnerSync,
@@ -1970,6 +2019,7 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
       reassignTodayHouseworkFn,
       choreSyncStatus,
       choreSyncError,
+      choreCanSyncItems,
       pullHouseworkFromCloud,
       syncHousework,
       retryChoreSync,

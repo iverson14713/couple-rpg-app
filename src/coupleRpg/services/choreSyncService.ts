@@ -1,7 +1,10 @@
 /**
  * Sync housework items & today's assignments with public.chores / public.chore_records.
  */
-import { ENABLE_CHORE_CLOUD_SYNC } from '../constants/choreSyncFlags';
+import {
+  ENABLE_CHORE_ASSIGNMENT_CLOUD_SYNC,
+  ENABLE_CHORE_ITEMS_CLOUD_SYNC,
+} from '../constants/choreSyncFlags';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { todayKey } from '../lib/dates';
 import { DEFAULT_HOUSEWORK_ITEMS } from '../storage/houseworkStore';
@@ -83,10 +86,48 @@ export function canSyncChores(input: {
   online: boolean;
   isFullyBound: boolean;
 }): boolean {
-  if (!ENABLE_CHORE_CLOUD_SYNC) return false;
+  return canSyncChoreItems(input);
+}
+
+export function canSyncChoreItems(input: {
+  configured: boolean;
+  userId: string | null;
+  coupleId: string | null;
+  online: boolean;
+  isFullyBound: boolean;
+}): boolean {
+  if (!ENABLE_CHORE_ITEMS_CLOUD_SYNC) return false;
   return Boolean(
     input.configured && input.userId && input.coupleId && input.online && input.isFullyBound
   );
+}
+
+export function canSyncChoreAssignment(input: {
+  configured: boolean;
+  userId: string | null;
+  coupleId: string | null;
+  online: boolean;
+  isFullyBound: boolean;
+}): boolean {
+  if (!ENABLE_CHORE_ASSIGNMENT_CLOUD_SYNC) return false;
+  return Boolean(
+    input.configured && input.userId && input.coupleId && input.online && input.isFullyBound
+  );
+}
+
+/** 合併遠端資料時保留本機今日分配（分配同步關閉時） */
+export function preserveLocalHouseworkAssignment(
+  incoming: HouseworkData,
+  local: HouseworkData
+): HouseworkData {
+  if (ENABLE_CHORE_ASSIGNMENT_CLOUD_SYNC) return incoming;
+  return {
+    ...incoming,
+    todayAssignment: local.todayAssignment,
+    completions: local.completions,
+    lastExtraAssignee: local.lastExtraAssignee,
+    pendingSpin: local.pendingSpin,
+  };
 }
 
 function rowLocalId(row: { local_id?: string | null; client_id?: string | null }): string {
@@ -424,6 +465,7 @@ export async function pullTodayChoreRecordsFromRemote(
   dateKey: string = todayKey(),
   options?: { preferLocal?: boolean }
 ): Promise<HouseworkData> {
+  if (!ENABLE_CHORE_ASSIGNMENT_CLOUD_SYNC) return current;
   const rows = await getRemoteChoreRecords(supabase, coupleId, dateKey);
   const { assignment, meta } = mergeChoreRecords(current.todayAssignment, rows, dateKey, options);
   return {
@@ -759,6 +801,7 @@ export async function pushTodayChoreRecordsToRemote(
   },
   dateKey: string = todayKey()
 ): Promise<HouseworkData> {
+  if (!ENABLE_CHORE_ASSIGNMENT_CLOUD_SYNC) return data;
   const a = data.todayAssignment;
   if (!a || a.date !== dateKey) return data;
 

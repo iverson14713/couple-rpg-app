@@ -1,9 +1,10 @@
 /**
- * Debounced, queued dinner sync — local-first, single-flight, no stale overwrites.
+ * Debounced dinner options sync — local-first; today's result stays on device.
  */
+import { ENABLE_DINNER_DECISION_CLOUD_SYNC } from '../constants/dinnerSyncFlags';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import {
-  canSyncDinner,
+  canSyncDinnerOptions,
   pullFoodOptionsFromRemote,
   pullTodayFoodDecisionFromRemote,
   pushFoodOptionsToRemote,
@@ -36,6 +37,11 @@ export type DinnerSyncScheduler = {
   dispose: () => void;
 };
 
+function preserveLocalHistory(incoming: DinnerData, localHistory: DinnerData['history']): DinnerData {
+  if (ENABLE_DINNER_DECISION_CLOUD_SYNC) return incoming;
+  return { ...incoming, history: localHistory };
+}
+
 export function createDinnerSyncScheduler(options: DinnerSyncSchedulerOptions): DinnerSyncScheduler {
   const debounceMs = options.debounceMs ?? DEFAULT_DEBOUNCE_MS;
 
@@ -57,7 +63,7 @@ export function createDinnerSyncScheduler(options: DinnerSyncSchedulerOptions): 
     dinnerSyncScheduled = false;
   };
 
-  const runFullSync = async (): Promise<void> => {
+  const runOptionsSync = async (): Promise<void> => {
     const supabase = options.getSupabase();
     const coupleId = options.getCoupleId();
     const userId = options.getUserId();
@@ -71,11 +77,17 @@ export function createDinnerSyncScheduler(options: DinnerSyncSchedulerOptions): 
 
     try {
       let data = ensureDinnerStableIds(loadDinner());
-      data = await pushFoodOptionsToRemote(supabase, coupleId, data, userId);
-      data = await pushTodayFoodDecisionToRemote(supabase, coupleId, data);
-      data = await pullFoodOptionsFromRemote(supabase, coupleId, data);
-      data = await pullTodayFoodDecisionFromRemote(supabase, coupleId, data);
+      const localHistory = data.history;
 
+      await pushFoodOptionsToRemote(supabase, coupleId, data, userId);
+      data = await pullFoodOptionsFromRemote(supabase, coupleId, data);
+
+      if (ENABLE_DINNER_DECISION_CLOUD_SYNC) {
+        await pushTodayFoodDecisionToRemote(supabase, coupleId, data);
+        data = await pullTodayFoodDecisionFromRemote(supabase, coupleId, data);
+      }
+
+      data = preserveLocalHistory(data, localHistory);
       saveDinner(data);
       options.onDinnerUpdated(data);
       hasPendingChanges = false;
@@ -89,7 +101,6 @@ export function createDinnerSyncScheduler(options: DinnerSyncSchedulerOptions): 
       syncInProgress = false;
       if (pendingSyncAfterCurrent || hasPendingChanges) {
         pendingSyncAfterCurrent = false;
-        hasPendingChanges = true;
         scheduleDinnerSync('after-current');
       }
     }
@@ -121,7 +132,7 @@ export function createDinnerSyncScheduler(options: DinnerSyncSchedulerOptions): 
         pendingSyncAfterCurrent = true;
         return;
       }
-      void runFullSync();
+      void runOptionsSync();
     }, debounceMs);
   };
 
@@ -131,7 +142,7 @@ export function createDinnerSyncScheduler(options: DinnerSyncSchedulerOptions): 
       pendingSyncAfterCurrent = true;
       return;
     }
-    await runFullSync();
+    await runOptionsSync();
   };
 
   const retryDinnerSync = () => {
@@ -153,8 +164,13 @@ export function createDinnerSyncScheduler(options: DinnerSyncSchedulerOptions): 
     setStatus('syncing', null);
     try {
       let cur = loadDinner();
+      const localHistory = cur.history;
       cur = await pullFoodOptionsFromRemote(supabase, coupleId, cur);
-      cur = await pullTodayFoodDecisionFromRemote(supabase, coupleId, cur);
+      if (ENABLE_DINNER_DECISION_CLOUD_SYNC) {
+        cur = await pullTodayFoodDecisionFromRemote(supabase, coupleId, cur);
+      } else {
+        cur = preserveLocalHistory(cur, localHistory);
+      }
       saveDinner(cur);
       options.onDinnerUpdated(cur);
       setStatus('synced', null);
@@ -177,4 +193,4 @@ export function createDinnerSyncScheduler(options: DinnerSyncSchedulerOptions): 
   };
 }
 
-export { canSyncDinner };
+export { canSyncDinnerOptions };

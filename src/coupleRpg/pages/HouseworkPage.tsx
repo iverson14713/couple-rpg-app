@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Check, Users } from 'lucide-react';
-import { HouseworkLocalHint } from '../components/HouseworkLocalHint';
+import { ChoreSyncStatusLine } from '../components/ChoreSyncStatusLine';
 import { useLoveQuest } from '../context/LoveQuestContext';
 import { DEFAULT_HOUSEWORK_ITEMS, getTodayAssignment } from '../storage/houseworkStore';
 import { EmptyState } from '../components/EmptyState';
@@ -14,8 +14,14 @@ const DEFAULT_HW_IDS = new Set(DEFAULT_HOUSEWORK_ITEMS.map((i) => i.id));
 
 export function HouseworkPage({ embedded }: { embedded?: boolean } = {}) {
   const game = useLoveQuest();
+  const { pullHouseworkFromCloud, choreSyncStatus, choreSyncError, choreCanSyncItems, retryChoreSync } =
+    game;
   const [newLabel, setNewLabel] = useState('');
   const [confirmReassign, setConfirmReassign] = useState(false);
+
+  useEffect(() => {
+    void pullHouseworkFromCloud();
+  }, [pullHouseworkFromCloud]);
 
   const todayAssignment = useMemo(
     () => getTodayAssignment(game.housework),
@@ -83,7 +89,12 @@ export function HouseworkPage({ embedded }: { embedded?: boolean } = {}) {
         🧹 選好家事後平均分配 · 完成每項 🤝+3 ✨+10 🪙+3
       </p>
 
-      <HouseworkLocalHint />
+      <ChoreSyncStatusLine
+        status={choreSyncStatus}
+        error={choreSyncError}
+        canSyncItems={choreCanSyncItems}
+        onRetry={retryChoreSync}
+      />
 
       {!isAssigned ? (
         <section className={`mb-3 p-3 ${lq.card}`}>

@@ -71,6 +71,12 @@ export function saveTodayResult(
   return stampDinnerData({ ...data, history });
 }
 
+export function clearTodayDinnerResult(data: DinnerData): DinnerData {
+  const date = todayKey();
+  const history = data.history.filter((h) => h.date !== date);
+  return stampDinnerData({ ...data, history });
+}
+
 export function getDinnerHomeStatus(
   history: DinnerHistoryEntry[],
   today: string = todayKey()
