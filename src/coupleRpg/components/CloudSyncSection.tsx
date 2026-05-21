@@ -3,12 +3,16 @@ import { useOnlineStatus } from '../../hooks/useOnlineStatus';
 import { useSupabaseAuth } from '../../useSupabaseAuth';
 import { useCoupleSpace } from '../context/CoupleSpaceContext';
 import { getSyncStatus } from '../services/coupleSyncService';
+import { useProFeature } from '../hooks/useProFeature';
+import { ProBadgeIfNeeded } from './ProBadge';
 import { lq } from '../theme';
 
 export function CloudSyncSection() {
   const auth = useSupabaseAuth();
   const isOnline = useOnlineStatus();
   const { space, loading, isFullyBound } = useCoupleSpace();
+
+  const syncPro = useProFeature('full_sync');
 
   const status = getSyncStatus({
     isOnline,
@@ -28,9 +32,10 @@ export function CloudSyncSection() {
 
   return (
     <section className={`mb-4 p-4 ${lq.card}`}>
-      <div className="mb-2 flex items-center gap-2">
+      <div className="mb-2 flex flex-wrap items-center gap-2">
         <Cloud className="h-5 w-5 text-rose-500" aria-hidden />
-        <h2 className="text-base font-bold text-stone-900">☁️ 雲端同步</h2>
+        <h2 className={lq.sectionTitleSm}>☁️ 雲端同步</h2>
+        <ProBadgeIfNeeded show={syncPro.showProBadge} feature="full_sync" />
       </div>
 
       <div className={`rounded-xl px-3 py-2.5 ring-1 ${accentClass}`}>

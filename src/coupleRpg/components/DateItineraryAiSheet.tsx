@@ -17,6 +17,8 @@ import {
   type DateAiTransportChoice,
 } from '../lib/dateItineraryAiPrompt';
 import type { DateSuggestion } from '../storage/dateTypes';
+import { useProFeature } from '../hooks/useProFeature';
+import { ProBadgeIfNeeded } from './ProBadge';
 import { lq } from '../theme';
 
 type Props = {
@@ -25,6 +27,7 @@ type Props = {
 };
 
 export function DateItineraryAiSheet({ suggestion, onClose }: Props) {
+  const aiPro = useProFeature('ai_in_app');
   const [departure, setDeparture] = useState('');
   const [budget, setBudget] = useState<DateAiBudgetChoice>(() => costToDefaultBudget(suggestion.cost));
   const [customBudget, setCustomBudget] = useState('');
@@ -83,9 +86,10 @@ export function DateItineraryAiSheet({ suggestion, onClose }: Props) {
       <div className="relative max-h-[92vh] overflow-hidden rounded-t-3xl bg-white shadow-2xl">
         <div className="flex items-center justify-between border-b border-rose-50 px-4 py-3.5">
           <div className="min-w-0">
-            <p className="flex items-center gap-1.5 text-[13px] font-bold text-rose-500">
+            <p className="flex flex-wrap items-center gap-1.5 text-[13px] font-bold text-rose-500">
               <Sparkles className="h-4 w-4" aria-hidden />
               AI 約會行程規劃
+              <ProBadgeIfNeeded show={aiPro.showProBadge} feature="ai_in_app" />
             </p>
             <p className={`mt-0.5 truncate text-[17px] font-extrabold ${lq.text}`}>
               {suggestion.emoji} {suggestion.title}

@@ -17,6 +17,7 @@ import { todayKey } from '../lib/dates';
 import { useCoupleSpace } from '../context/CoupleSpaceContext';
 import { DailyPartnerMessageCard } from '../components/DailyPartnerMessageCard';
 import { NicknameSetupBanner } from '../components/NicknameSetupBanner';
+import { HomeProBanner } from '../components/HomeProBanner';
 import type { TogetherDaysInfo } from '../lib/relationshipDays';
 import { lq } from '../theme';
 
@@ -92,6 +93,8 @@ export function TodayPage() {
       <HomeConsoleCard summary={consoleSummary} todayLine={todayLine} rpgView={rpgView} todayCoinEarned={todayCoinEarned} />
 
       <NicknameSetupBanner compact />
+
+      <HomeProBanner />
 
       {showBindCard ? (
         <section className={`mb-2.5 flex items-center gap-2.5 rounded-2xl border border-amber-200/70 bg-amber-50/90 px-3 py-2 ${lq.cardSoft}`}>

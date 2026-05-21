@@ -7,6 +7,7 @@ import { TabPageHeader } from './components/TabPageHeader';
 import { CoupleRpgNavProvider, useCoupleRpgNav, type CoupleNavTabId } from './context/CoupleRpgNavContext';
 import { CoupleSpaceProvider } from './context/CoupleSpaceContext';
 import { LoveQuestProvider } from './context/LoveQuestContext';
+import { UserPlanProvider } from './context/UserPlanContext';
 import { DinnerPage } from './pages/DinnerPage';
 import { HouseworkPage } from './pages/HouseworkPage';
 import { ProfileHubPage } from './pages/ProfileHubPage';
@@ -15,17 +16,22 @@ import { TasksPage } from './pages/TasksPage';
 import { DatesPage } from './pages/DatesPage';
 import { MiniGamesPage } from './pages/MiniGamesPage';
 import { ImportantDatesRemindersPage } from './pages/ImportantDatesRemindersPage';
+import { UpgradeProPage } from './pages/UpgradeProPage';
+import { UpgradeModal } from './components/UpgradeModal';
+import { PlanToast } from './components/PlanToast';
 import { TodayPage } from './pages/TodayPage';
 import { lq } from './theme';
 
 export default function CoupleRpgApp() {
   return (
     <CoupleSpaceProvider>
-      <LoveQuestProvider>
-        <CoupleRpgNavProvider>
-          <CoupleRpgShell />
-        </CoupleRpgNavProvider>
-      </LoveQuestProvider>
+      <UserPlanProvider>
+        <LoveQuestProvider>
+          <CoupleRpgNavProvider>
+            <CoupleRpgShell />
+          </CoupleRpgNavProvider>
+        </LoveQuestProvider>
+      </UserPlanProvider>
     </CoupleSpaceProvider>
   );
 }
@@ -86,8 +92,11 @@ function CoupleRpgShell() {
             <ImportantDatesRemindersPage />
           </>
         )}
+        {tab === 'upgrade' && <UpgradeProPage />}
       </main>
       <BottomNav activeTab={tab} onChange={onNavChange} />
+      <UpgradeModal />
+      <PlanToast />
     </AppRoot>
   );
 }
@@ -95,7 +104,7 @@ function CoupleRpgShell() {
 function AppRoot({ children }: { children: ReactNode }) {
   return (
     <div
-      className={`min-h-screen px-4 py-6 pb-[calc(8.25rem+env(safe-area-inset-bottom,0px))] text-stone-800 ${lq.bg}`}
+      className={`min-h-screen px-4 py-6 ${lq.mainPadBottom} text-stone-800 ${lq.bg}`}
     >
       <div className="mx-auto max-w-md">{children}</div>
     </div>

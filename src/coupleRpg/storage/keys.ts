@@ -24,4 +24,6 @@ export const LQ_KEYS = {
   homeDatesExpanded: 'lovequest-home-dates-expanded',
   /** 重要日子提醒設定（local only） */
   importantDateReminders: 'lovequest-important-date-reminders',
+  /** 使用者方案：free | pro（local 模擬，尚未接金流） */
+  userPlan: 'lovequest-user-plan',
 } as const;

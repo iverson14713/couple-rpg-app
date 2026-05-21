@@ -4,11 +4,16 @@ import { CloudSyncSection } from '../components/CloudSyncSection';
 import { CoupleBindSection } from '../components/CoupleBindSection';
 import { CoupleDetailsSection } from '../components/CoupleDetailsSection';
 import { ImportantDateRemindersSection } from '../components/ImportantDateRemindersSection';
+import { UpgradeCard } from '../components/UpgradeCard';
+import { PlanSettingsSection } from '../components/PlanSettingsSection';
 import { lq } from '../theme';
 
 export function SettingsPage({ embedded }: { embedded?: boolean } = {}) {
   return (
     <>
+      <PlanSettingsSection />
+      <UpgradeCard className="mb-4" />
+
       {!embedded ? (
         <section className={`mb-4 p-4 ${lq.card}`}>
           <span className="text-3xl" aria-hidden>

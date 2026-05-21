@@ -26,8 +26,8 @@ export function HubShell({ emoji, title, subtitle, tabs, active, onTabChange, ch
               key={tab.id}
               type="button"
               onClick={() => onTabChange(tab.id)}
-              className={`flex min-w-0 flex-1 items-center justify-center gap-0.5 rounded-xl py-2 text-[10px] font-bold transition active:scale-[0.98] ${
-                on ? 'bg-white text-rose-700 shadow-sm' : 'text-stone-500'
+              className={`flex min-h-[44px] min-w-0 flex-1 items-center justify-center gap-1 rounded-xl py-2.5 text-[12px] font-bold transition active:scale-[0.98] ${
+                on ? lq.hubTabActive : lq.hubTabIdle
               }`}
             >
               {tab.emoji ? <span className="text-sm">{tab.emoji}</span> : null}

@@ -1,9 +1,12 @@
 import type { ReactNode } from 'react';
 import { useLoveQuest } from '../context/LoveQuestContext';
 import { PrimaryButton } from './ui';
+import { ProBadgeIfNeeded } from './ProBadge';
+import { useProFeature } from '../hooks/useProFeature';
 import { lq } from '../theme';
 
 export function FlirtGamesPanel() {
+  const gamesPro = useProFeature('flirt_games_premium');
   const {
     flirtGameDefs,
     flirtGames,
@@ -18,8 +21,9 @@ export function FlirtGamesPanel() {
 
   return (
     <section className={`mb-3 p-4 ${lq.card}`}>
-      <h2 className="mb-1 flex items-center gap-1.5 text-sm font-bold text-stone-900">
+      <h2 className={`mb-1 flex flex-wrap items-center gap-1.5 ${lq.sectionTitleSm}`}>
         <span aria-hidden>💕</span> 曖昧小遊戲
+        <ProBadgeIfNeeded show={gamesPro.showProBadge} feature="flirt_games_premium" />
       </h2>
       <p className="mb-3 text-[11px] text-stone-500">每日每款可領一次獎勵</p>
 

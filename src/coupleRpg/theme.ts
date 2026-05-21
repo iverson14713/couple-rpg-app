@@ -6,9 +6,20 @@ export const lq = {
   text: 'text-[#2B2B2B]',
   textSecondary: 'text-stone-500',
   textMuted: 'text-stone-400',
-  sectionTitle: 'text-xl font-bold tracking-tight text-[#2B2B2B]',
+  /** 頁面標題（Tab / Hero 統一） */
+  pageTitle: 'text-[20px] font-extrabold leading-tight tracking-tight text-[#2B2B2B]',
+  pageSubtitle: 'text-[13px] leading-snug text-stone-500',
+  pageEmoji: 'text-[1.75rem] leading-none',
+  sectionTitle: 'text-[17px] font-bold tracking-tight text-[#2B2B2B]',
+  sectionTitleSm: 'text-[15px] font-bold text-stone-900',
+  /** 主內容底部留白（避開固定 Tab + safe area） */
+  mainPadBottom: 'pb-[calc(8.5rem+env(safe-area-inset-bottom,0px))]',
   card: 'rounded-2xl border border-stone-200/70 bg-white shadow-[0_8px_28px_-10px_rgba(15,23,42,0.08)]',
   cardSoft: 'rounded-xl border border-stone-200/55 bg-stone-50/90',
+  hubTabActive: 'bg-white text-rose-700 shadow-sm ring-1 ring-rose-100',
+  hubTabIdle: 'text-stone-500',
+  badge: 'rounded-full bg-stone-100 px-2.5 py-1 text-[11px] font-bold text-stone-600 ring-1 ring-stone-200/80',
+  badgeAccent: 'rounded-full bg-rose-50 px-2.5 py-1 text-[11px] font-bold text-rose-700 ring-1 ring-rose-100',
   nav: 'border-t border-stone-200/80 bg-white/95 backdrop-blur-md shadow-[0_-1px_0_0_rgba(0,0,0,0.04)]',
   /** 底部 Tab：active / inactive 文字與 icon 色 */
   navActive: 'text-rose-500',

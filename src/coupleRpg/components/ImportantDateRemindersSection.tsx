@@ -16,6 +16,8 @@ import {
   updateEventSettings,
 } from '../storage/importantDateRemindersStore';
 import { REMINDER_OFFSET_OPTIONS, type ReminderOffsetDays } from '../storage/importantDateReminderTypes';
+import { useProFeature } from '../hooks/useProFeature';
+import { ProBadgeIfNeeded } from './ProBadge';
 import { lq } from '../theme';
 
 export const IMPORTANT_DATE_REMINDERS_ANCHOR_ID = 'lq-important-date-reminders';
@@ -28,6 +30,8 @@ type Props = {
 export function ImportantDateRemindersSection({ showBack, compactHero }: Props) {
   const { navigateTo } = useCoupleRpgNav();
   const { coupleExtended, importantDateReminders, patchImportantDateReminder } = useLoveQuest();
+  const datesPro = useProFeature('important_dates_unlimited');
+  const aiPro = useProFeature('ai_in_app');
 
   const events = useMemo(() => buildImportantDateEvents(coupleExtended), [coupleExtended]);
   const [reminderEditId, setReminderEditId] = useState<string | null>(null);
@@ -73,14 +77,20 @@ export function ImportantDateRemindersSection({ showBack, compactHero }: Props) 
           <span className="text-3xl" aria-hidden>
             🔔
           </span>
-          <h1 className={`mt-1 text-xl font-bold ${lq.text}`}>重要日子提醒</h1>
+          <h1 className={`mt-1 flex flex-wrap items-center gap-2 ${lq.pageTitle}`}>
+            重要日子提醒
+            <ProBadgeIfNeeded show={datesPro.showProBadge} feature="important_dates_unlimited" />
+          </h1>
           <p className={`mt-0.5 text-[13px] ${lq.textSecondary}`}>記住生日與紀念日，提前準備驚喜。</p>
         </header>
       ) : (
         <div className={`mb-3 flex items-center gap-2 px-0.5`}>
           <Bell className="h-5 w-5 text-rose-500" aria-hidden />
           <div>
-            <h2 className={`text-[15px] font-bold ${lq.text}`}>重要日子提醒</h2>
+            <h2 className={`flex flex-wrap items-center gap-1.5 ${lq.sectionTitleSm}`}>
+              重要日子提醒
+              <ProBadgeIfNeeded show={datesPro.showProBadge} feature="important_dates_unlimited" size="sm" />
+            </h2>
             <p className={`text-[12px] ${lq.textSecondary}`}>記住生日與紀念日，提前準備驚喜</p>
           </div>
         </div>
@@ -161,9 +171,10 @@ export function ImportantDateRemindersSection({ showBack, compactHero }: Props) 
                   <button
                     type="button"
                     onClick={() => setAiEvent(ev)}
-                    className={`flex-1 rounded-xl px-3 py-2 text-[12px] font-bold text-white active:scale-[0.98] ${lq.btnPrimary}`}
+                    className={`flex min-h-[44px] flex-1 items-center justify-center gap-1 rounded-xl px-3 py-2 text-[12px] font-bold text-white active:scale-[0.98] ${lq.btnPrimary}`}
                   >
                     ✨ AI 安排
+                    <ProBadgeIfNeeded show={aiPro.showProBadge} feature="ai_in_app" size="sm" />
                   </button>
                 </div>
 

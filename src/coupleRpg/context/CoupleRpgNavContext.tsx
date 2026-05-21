@@ -4,7 +4,7 @@ import { createContext, useCallback, useContext, useMemo, useState, type ReactNo
 export type CoupleNavTabId = 'home' | 'dinner' | 'housework' | 'rewards' | 'profile';
 
 /** Home cards can open these without a bottom tab */
-export type CoupleDeepTabId = 'tasks' | 'dates' | 'miniGames' | 'importantDates';
+export type CoupleDeepTabId = 'tasks' | 'dates' | 'miniGames' | 'importantDates' | 'upgrade';
 
 export type CoupleTabId = CoupleNavTabId | CoupleDeepTabId;
 
@@ -73,6 +73,14 @@ export function useCoupleRpgNav() {
 
 /** Active icon on bottom bar when on a deep-linked screen */
 export function bottomNavHighlight(tab: CoupleTabId): CoupleNavTabId {
-  if (tab === 'tasks' || tab === 'dates' || tab === 'miniGames' || tab === 'importantDates') return 'home';
+  if (
+    tab === 'tasks' ||
+    tab === 'dates' ||
+    tab === 'miniGames' ||
+    tab === 'importantDates' ||
+    tab === 'upgrade'
+  ) {
+    return tab === 'upgrade' ? 'profile' : 'home';
+  }
   return tab;
 }

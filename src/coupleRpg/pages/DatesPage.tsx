@@ -5,6 +5,8 @@ import {
   DURATION_LABEL,
 } from '../data/dateIdeasPool';
 import { DateItineraryAiSheet } from '../components/DateItineraryAiSheet';
+import { ProBadgeIfNeeded } from '../components/ProBadge';
+import { useProFeature } from '../hooks/useProFeature';
 import { RpgMiniStats } from '../components/RpgMiniStats';
 import { PageHero, PrimaryButton } from '../components/ui';
 import { useLoveQuest } from '../context/LoveQuestContext';
@@ -204,6 +206,7 @@ function SuggestionCard({
   onComplete: () => void;
   onOpenAiPlan: () => void;
 }) {
+  const aiPro = useProFeature('ai_in_app');
   const tagLabels = suggestion.tags
     .map((k) => DATE_FILTER_OPTIONS.find((o) => o.key === k)?.label)
     .filter(Boolean) as string[];
@@ -293,6 +296,7 @@ function SuggestionCard({
       >
         <span aria-hidden>✨</span>
         AI 規劃整天行程
+        <ProBadgeIfNeeded show={aiPro.showProBadge} feature="ai_in_app" size="sm" />
       </button>
     </article>
   );

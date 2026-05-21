@@ -2,6 +2,8 @@ import { useMemo, useState, type ReactNode } from 'react';
 import { ANNIVERSARY_TYPE_OPTIONS, typeMeta } from '../data/anniversaryMeta';
 import { RpgMiniStats } from '../components/RpgMiniStats';
 import { PageHero, PrimaryButton } from '../components/ui';
+import { ProBadgeIfNeeded } from '../components/ProBadge';
+import { useProFeature } from '../hooks/useProFeature';
 import { useLoveQuest } from '../context/LoveQuestContext';
 import type { AnniversaryEventType } from '../storage/anniversaryTypes';
 import { lq } from '../theme';
@@ -349,9 +351,13 @@ function GiftSection({
   onUpdatePrefs: (p: typeof prefs) => void;
   onGenerate: () => void;
 }) {
+  const aiPro = useProFeature('ai_in_app');
   return (
     <section className={`p-3 ${lq.card}`}>
-      <h2 className="mb-2 text-sm font-bold text-stone-900">🎁 AI 禮物建議</h2>
+      <h2 className={`mb-2 flex flex-wrap items-center gap-2 ${lq.sectionTitleSm}`}>
+        🎁 AI 禮物建議
+        <ProBadgeIfNeeded show={aiPro.showProBadge} feature="ai_in_app" />
+      </h2>
       <div className="space-y-2">
         <Field label="喜歡的顏色">
           <input

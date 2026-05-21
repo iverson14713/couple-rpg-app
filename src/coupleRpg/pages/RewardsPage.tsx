@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Cloud, Coins, Gift, RefreshCw, Ticket, Wallet } from 'lucide-react';
 import { REWARD_CATEGORY_LABEL, REWARD_SHOP_ITEMS } from '../data/rewardShopCatalog';
 import { EmptyState } from '../components/EmptyState';
+import { ProBadgeIfNeeded } from '../components/ProBadge';
+import { useProFeature } from '../hooks/useProFeature';
 import { NicknameSetupBanner } from '../components/NicknameSetupBanner';
 import { PageHero } from '../components/ui';
 import { useLoveQuest } from '../context/LoveQuestContext';
@@ -69,6 +71,8 @@ export function RewardsPage({ embedded }: { embedded?: boolean } = {}) {
   const [tab, setTab] = useState<Tab>('wallet');
   const [redeemMsg, setRedeemMsg] = useState<string | null>(null);
   const [syncing, setSyncing] = useState(false);
+  const syncPro = useProFeature('full_sync');
+  const customCardPro = useProFeature('custom_reward_cards');
 
   useEffect(() => {
     if (tab === 'coupons') {
@@ -227,6 +231,10 @@ export function RewardsPage({ embedded }: { embedded?: boolean } = {}) {
 
       {tab === 'shop' && (
         <div className="space-y-3">
+          <p className={`flex flex-wrap items-center gap-2 px-1 text-[13px] font-semibold text-stone-600`}>
+            兌換情侶卡券
+            <ProBadgeIfNeeded show={customCardPro.showProBadge} feature="custom_reward_cards" />
+          </p>
           <section className={`flex items-center justify-between gap-2 px-1 ${lq.cardSoft} !p-3`}>
             <p className="text-[13px] font-semibold text-stone-700">目前餘額</p>
             <p className="text-xl font-extrabold text-rose-700">🪙 {rpg.loveCoins}</p>
@@ -275,9 +283,10 @@ export function RewardsPage({ embedded }: { embedded?: boolean } = {}) {
       {tab === 'coupons' && (
         <section className={`space-y-3 p-3.5 ${lq.card}`}>
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <h2 className="flex items-center gap-1.5 text-[15px] font-bold text-stone-900">
+            <h2 className={`flex flex-wrap items-center gap-1.5 ${lq.sectionTitleSm}`}>
               <Ticket className="h-4 w-4 text-emerald-600" aria-hidden />
               情侶卡券
+              <ProBadgeIfNeeded show={syncPro.showProBadge} feature="full_sync" />
             </h2>
             <button
               type="button"

@@ -5,9 +5,11 @@ import { DEFAULT_HOUSEWORK_ITEMS, getTodayAssignment } from '../storage/housewor
 import { EmptyState } from '../components/EmptyState';
 import { RpgMiniStats } from '../components/RpgMiniStats';
 import { InlineInput, PageHero, PrimaryButton } from '../components/ui';
+import { ProBadgeIfNeeded } from '../components/ProBadge';
+import { useProFeature } from '../hooks/useProFeature';
+import { lq } from '../theme';
 
 const DEFAULT_HW_IDS = new Set(DEFAULT_HOUSEWORK_ITEMS.map((i) => i.id));
-import { lq } from '../theme';
 
 export function HouseworkPage({ embedded }: { embedded?: boolean } = {}) {
   const game = useLoveQuest();
@@ -291,10 +293,14 @@ function AssigneeColumn({
 
 function WeeklyStatsSection() {
   const { weeklyStats, couple } = useLoveQuest();
+  const statsPro = useProFeature('housework_advanced');
 
   return (
     <section className={`p-3 ${lq.card}`}>
-      <h2 className={`mb-1 text-sm font-bold ${lq.text}`}>本週家事統計</h2>
+      <h2 className={`mb-1 flex flex-wrap items-center gap-2 ${lq.sectionTitleSm}`}>
+        本週家事統計
+        <ProBadgeIfNeeded show={statsPro.showProBadge} feature="housework_advanced" />
+      </h2>
       <p className={`mb-2 text-[11px] ${lq.textMuted}`}>{weeklyStats.weekKey}</p>
       <div className="grid grid-cols-3 gap-2 text-center">
         <div className={`rounded-lg py-2 ${lq.cardSoft}`}>

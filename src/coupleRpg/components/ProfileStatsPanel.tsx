@@ -2,13 +2,18 @@ import { useLoveQuest } from '../context/LoveQuestContext';
 import { CoupleBindSection } from './CoupleBindSection';
 import { NicknameSetupBanner } from './NicknameSetupBanner';
 import { RpgMiniStats } from './RpgMiniStats';
+import { UpgradeCard } from './UpgradeCard';
+import { PlanStatusPill } from './ProBadge';
+import { useUserPlan } from '../context/UserPlanContext';
 import { lq } from '../theme';
 
 export function ProfileStatsPanel() {
   const { couple, rpg, rpgView, weeklyTitles, todayCoinEarned, activity } = useLoveQuest();
+  const { isPro } = useUserPlan();
 
   return (
     <>
+      <UpgradeCard compact className="mb-3" />
       <NicknameSetupBanner />
       <section className={`mb-3 overflow-hidden p-4 ${lq.card}`}>
         <div className="flex items-center gap-3">
@@ -27,6 +32,7 @@ export function ProfileStatsPanel() {
             <p className="text-[12px] text-rose-600">
               Lv.{rpgView.level} {rpgView.title}
             </p>
+            <PlanStatusPill isPro={isPro} />
           </div>
           <div className="text-right">
             <p className="text-[10px] font-bold text-stone-400">愛心幣</p>

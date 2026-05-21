@@ -10,6 +10,8 @@ import {
   type AiStyleChoice,
 } from '../lib/importantDateAiPrompt';
 import type { ImportantDateEvent } from '../lib/importantDateEvents';
+import { useProFeature } from '../hooks/useProFeature';
+import { ProBadgeIfNeeded } from './ProBadge';
 import { lq } from '../theme';
 
 type Props = {
@@ -55,7 +57,10 @@ export function ImportantDateAiSheet({ event, initialPrefs, onClose, onSavePrefs
       <div className="relative max-h-[88vh] overflow-hidden rounded-t-2xl bg-white shadow-2xl">
         <div className="flex items-center justify-between border-b border-stone-100 px-4 py-3">
           <div className="min-w-0">
-            <p className="text-[11px] font-bold text-rose-500">✨ AI 幫我安排</p>
+            <p className="flex items-center gap-1.5 text-[11px] font-bold text-rose-500">
+              ✨ AI 幫我安排
+              <ProBadgeIfNeeded show={aiPro.showProBadge} feature="ai_in_app" />
+            </p>
             <p className={`truncate text-[15px] font-bold ${lq.text}`}>
               {event.icon} {event.displayTitle}
             </p>

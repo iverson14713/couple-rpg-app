@@ -3,6 +3,8 @@ import { ChevronLeft } from 'lucide-react';
 import { useCoupleRpgNav } from '../context/CoupleRpgNavContext';
 import { useLoveQuest } from '../context/LoveQuestContext';
 import { EmptyState } from '../components/EmptyState';
+import { ProBadgeIfNeeded } from '../components/ProBadge';
+import { useProFeature } from '../hooks/useProFeature';
 import { MINI_GAME_MODES, pickFromPool, type MiniGameModeId } from '../data/coupleMiniGames';
 import { lq } from '../theme';
 
@@ -11,6 +13,7 @@ const MAX_DAILY_REWARDS = 3;
 export function MiniGamesPage() {
   const { navigateTo } = useCoupleRpgNav();
   const { rpgView, claimMiniGameReward } = useLoveQuest();
+  const gamesPro = useProFeature('flirt_games_premium');
   const [mode, setMode] = useState<MiniGameModeId>('coupleDice');
   const [line, setLine] = useState<string | null>(null);
   const [roundRewarded, setRoundRewarded] = useState(false);
@@ -50,7 +53,11 @@ export function MiniGamesPage() {
       </button>
 
       <div className={`mb-3 rounded-2xl border border-rose-100/90 bg-white/95 px-3 py-2.5 ${lq.card}`}>
-        <p className="text-[10px] font-bold text-stone-500">🎲 今日小遊戲獎勵</p>
+        <p className="flex flex-wrap items-center gap-1.5 text-[12px] font-bold text-stone-600">
+          🎲 情侶小遊戲
+          <ProBadgeIfNeeded show={gamesPro.showProBadge} feature="flirt_games_premium" />
+        </p>
+        <p className="mt-1 text-[10px] font-bold text-stone-500">今日小遊戲獎勵</p>
         <p className="text-sm font-extrabold text-rose-700">
           {count}/{MAX_DAILY_REWARDS}
         </p>

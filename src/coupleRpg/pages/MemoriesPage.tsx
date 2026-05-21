@@ -1,5 +1,7 @@
 import { useLoveQuest } from '../context/LoveQuestContext';
 import { PageHero } from '../components/ui';
+import { ProBadgeIfNeeded } from '../components/ProBadge';
+import { useProFeature } from '../hooks/useProFeature';
 import { lq } from '../theme';
 
 export function MemoriesPage({ embedded }: { embedded?: boolean } = {}) {
@@ -14,7 +16,11 @@ export function MemoriesPage({ embedded }: { embedded?: boolean } = {}) {
       ) : null}
 
       <section className={`mb-3 p-4 ${lq.card}`}>
-        <h2 className="mb-2 text-sm font-bold text-stone-900">晚餐回憶</h2>
+        <h2 className={`mb-2 flex flex-wrap items-center gap-2 ${lq.sectionTitleSm}`}>
+          回憶與歷史
+          <ProBadgeIfNeeded show={historyPro.showProBadge} feature="history_unlimited" />
+        </h2>
+        <h3 className="mb-2 text-[14px] font-bold text-stone-800">晚餐回憶</h3>
         {dinnerHistory.length === 0 ? (
           <p className="text-[13px] text-stone-500">尚無晚餐紀錄</p>
         ) : (

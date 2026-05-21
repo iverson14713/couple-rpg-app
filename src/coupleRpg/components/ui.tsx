@@ -3,12 +3,19 @@ import { lq } from '../theme';
 
 export function PageHero({ emoji, title, subtitle }: { emoji: string; title: string; subtitle: string }) {
   return (
-    <section className={`mb-3 p-3.5 ${lq.card}`}>
-      <span className="text-3xl" aria-hidden>
-        {emoji}
-      </span>
-      <h1 className={`mt-1 text-xl font-bold ${lq.text}`}>{title}</h1>
-      <p className={`mt-0.5 text-[13px] ${lq.textSecondary}`}>{subtitle}</p>
+    <section className={`mb-4 p-4 ${lq.card}`}>
+      <div className="flex items-start gap-3">
+        <span
+          className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-rose-50 to-pink-50 ring-1 ring-rose-100 ${lq.pageEmoji}`}
+          aria-hidden
+        >
+          {emoji}
+        </span>
+        <div className="min-w-0 pt-0.5">
+          <h1 className={lq.pageTitle}>{title}</h1>
+          <p className={`mt-1 ${lq.pageSubtitle}`}>{subtitle}</p>
+        </div>
+      </div>
     </section>
   );
 }
