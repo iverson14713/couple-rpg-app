@@ -1,12 +1,20 @@
 import { Check } from 'lucide-react';
 import {
+  PRO_ACTIVE_DESCRIPTION,
+  PRO_ACTIVE_TITLE,
   PRO_BENEFIT_LINES,
-  PRO_PLAN_SUBTITLE,
+  PRO_BTN_LATER,
+  PRO_BTN_PRIMARY,
+  PRO_PLAN_DESCRIPTION,
+  PRO_PLAN_TAGLINE,
   PRO_PLAN_TITLE,
   PRO_PRICE_MONTHLY,
   PRO_PRICE_YEARLY,
   PRO_PRICE_YEARLY_AVG,
+  PRO_ACTIVE_CONTEXT_BOUND,
+  getProCoupleContextMessage,
 } from '../lib/proPlanContent';
+import { useCoupleSpace } from '../context/CoupleSpaceContext';
 import { useUserPlan } from '../context/UserPlanContext';
 import { lq } from '../theme';
 
@@ -17,15 +25,34 @@ type Props = {
 
 export function UpgradeProPanel({ onLater, showLaterButton = true }: Props) {
   const { isPro, tryProExperience } = useUserPlan();
+  const { isFullyBound } = useCoupleSpace();
+  const coupleContext = getProCoupleContextMessage(isFullyBound);
+
+  if (isPro) {
+    return (
+      <div className="space-y-3">
+        <div>
+          <p className="text-[20px] font-extrabold text-violet-900">{PRO_ACTIVE_TITLE}</p>
+          <p className="mt-1 text-[13px] leading-relaxed text-violet-800/90">{PRO_ACTIVE_DESCRIPTION}</p>
+        </div>
+        {isFullyBound ? (
+          <p className="rounded-xl bg-violet-50/80 px-3 py-2 text-[12px] font-semibold text-violet-800 ring-1 ring-violet-100">
+            {PRO_ACTIVE_CONTEXT_BOUND}
+          </p>
+        ) : null}
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4">
       <div>
-        <p className="flex items-center gap-2 text-[13px] font-bold text-violet-600">
-          <span aria-hidden>✨</span>
-          {PRO_PLAN_TITLE}
+        <p className="text-[20px] font-extrabold tracking-tight text-stone-900">{PRO_PLAN_TITLE}</p>
+        <p className="mt-1 text-[15px] font-bold text-rose-600">{PRO_PLAN_TAGLINE}</p>
+        <p className={`mt-2 text-[13px] leading-relaxed ${lq.textSecondary}`}>{PRO_PLAN_DESCRIPTION}</p>
+        <p className="mt-2 rounded-xl bg-rose-50/70 px-3 py-2 text-[12px] font-semibold text-rose-900/90 ring-1 ring-rose-100/80">
+          {coupleContext}
         </p>
-        <p className={`mt-1 ${lq.pageSubtitle}`}>{PRO_PLAN_SUBTITLE}</p>
       </div>
 
       <section className={`rounded-2xl p-3.5 ${lq.cardSoft}`}>
@@ -58,18 +85,13 @@ export function UpgradeProPanel({ onLater, showLaterButton = true }: Props) {
         <button
           type="button"
           onClick={() => void tryProExperience()}
-          disabled={isPro}
-          className={`min-h-[48px] w-full ${lq.btnPrimary} disabled:opacity-60`}
+          className={`min-h-[48px] w-full ${lq.btnPrimary}`}
         >
-          {isPro ? '✓ 已是 Pro 體驗' : '✨ 先體驗 Pro'}
+          {PRO_BTN_PRIMARY}
         </button>
         {showLaterButton ? (
-          <button
-            type="button"
-            onClick={onLater}
-            className={`min-h-[48px] w-full ${lq.btnSecondary}`}
-          >
-            之後再說
+          <button type="button" onClick={onLater} className={`min-h-[48px] w-full ${lq.btnSecondary}`}>
+            {PRO_BTN_LATER}
           </button>
         ) : null}
       </div>

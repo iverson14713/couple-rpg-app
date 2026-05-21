@@ -1,9 +1,16 @@
 import { useState } from 'react';
 import { useCoupleRpgNav } from '../context/CoupleRpgNavContext';
+import { useCoupleSpace } from '../context/CoupleSpaceContext';
 import { useUserPlan } from '../context/UserPlanContext';
 import { PlanStatusPill } from './ProBadge';
 import { UpgradeProPanel } from './UpgradeProPanel';
-import { PRO_PLAN_SUBTITLE, PRO_PLAN_TITLE } from '../lib/proPlanContent';
+import {
+  PRO_ACTIVE_DESCRIPTION,
+  PRO_ACTIVE_TITLE,
+  PRO_PLAN_TAGLINE,
+  PRO_PLAN_TITLE,
+  getProCoupleContextMessage,
+} from '../lib/proPlanContent';
 import { lq } from '../theme';
 
 type Props = {
@@ -13,24 +20,26 @@ type Props = {
 };
 
 export function UpgradeCard({ compact, className = '' }: Props) {
-  const { isPro, planSnapshot } = useUserPlan();
+  const { isPro } = useUserPlan();
+  const { isFullyBound } = useCoupleSpace();
   const { navigateTo } = useCoupleRpgNav();
   const [dismissed, setDismissed] = useState(false);
+  const coupleContext = getProCoupleContextMessage(isFullyBound);
 
   if (dismissed && !isPro) return null;
 
   if (isPro) {
     return (
       <section
-        className={`flex items-center justify-between gap-2 rounded-2xl border border-violet-100 bg-violet-50/60 px-3 py-2.5 ${className}`}
+        className={`rounded-2xl border border-violet-100 bg-violet-50/60 px-3.5 py-3 ${className}`}
       >
-        <div>
-          <p className="text-[14px] font-extrabold text-violet-900">✨ Pro 體驗中</p>
-          <p className="text-[12px] text-violet-700">
-            {planSnapshot.isShared ? '情侶空間已共享 Pro' : '你已解鎖進階功能'}
-          </p>
+        <div className="flex items-start justify-between gap-2">
+          <div className="min-w-0 flex-1">
+            <p className="text-[16px] font-extrabold text-violet-900">{PRO_ACTIVE_TITLE}</p>
+            <p className="mt-1 text-[12px] leading-relaxed text-violet-800/90">{PRO_ACTIVE_DESCRIPTION}</p>
+          </div>
+          <PlanStatusPill isPro />
         </div>
-        <PlanStatusPill isPro />
       </section>
     );
   }
@@ -41,9 +50,10 @@ export function UpgradeCard({ compact, className = '' }: Props) {
         className={`overflow-hidden rounded-2xl border border-violet-100/90 bg-gradient-to-br from-violet-50/90 via-white to-rose-50/70 p-3.5 shadow-sm ${className}`}
       >
         <div className="mb-2 flex items-start justify-between gap-2">
-          <div>
-            <p className="text-[15px] font-extrabold text-stone-900">{PRO_PLAN_TITLE}</p>
-            <p className="text-[12px] text-stone-500">{PRO_PLAN_SUBTITLE}</p>
+          <div className="min-w-0">
+            <p className="text-[16px] font-extrabold text-stone-900">{PRO_PLAN_TITLE}</p>
+            <p className="text-[13px] font-bold text-rose-600">{PRO_PLAN_TAGLINE}</p>
+            <p className="mt-1 line-clamp-2 text-[11px] leading-snug text-stone-500">{coupleContext}</p>
           </div>
           <PlanStatusPill isPro={false} />
         </div>
@@ -52,7 +62,7 @@ export function UpgradeCard({ compact, className = '' }: Props) {
           onClick={() => navigateTo('upgrade')}
           className={`min-h-[44px] w-full ${lq.btnPrimary}`}
         >
-          查看 Pro
+          開始甜蜜共享
         </button>
       </section>
     );
