@@ -1,5 +1,5 @@
-import { useCallback, useMemo, useState } from 'react';
-import { Check, Users } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Check, Cloud, RefreshCw, Users } from 'lucide-react';
 import { useLoveQuest } from '../context/LoveQuestContext';
 import { DEFAULT_HOUSEWORK_ITEMS, getTodayAssignment } from '../storage/houseworkStore';
 import { EmptyState } from '../components/EmptyState';
@@ -11,10 +11,34 @@ import { lq } from '../theme';
 
 const DEFAULT_HW_IDS = new Set(DEFAULT_HOUSEWORK_ITEMS.map((i) => i.id));
 
+const CHORE_SYNC_STATUS_LABEL = {
+  local: '本機保存',
+  syncing: '同步中',
+  synced: '已同步',
+  error: '同步失敗，稍後再試',
+} as const;
+
 export function HouseworkPage({ embedded }: { embedded?: boolean } = {}) {
   const game = useLoveQuest();
+  const { pullHouseworkFromCloud, syncHousework, choreSyncStatus, choreSyncError } = game;
   const [newLabel, setNewLabel] = useState('');
   const [confirmReassign, setConfirmReassign] = useState(false);
+  const [syncingManual, setSyncingManual] = useState(false);
+
+  useEffect(() => {
+    void pullHouseworkFromCloud();
+  }, [pullHouseworkFromCloud]);
+
+  const showSyncing = choreSyncStatus === 'syncing' || syncingManual;
+
+  const handleSync = async () => {
+    setSyncingManual(true);
+    try {
+      await syncHousework();
+    } finally {
+      setSyncingManual(false);
+    }
+  };
 
   const todayAssignment = useMemo(
     () => getTodayAssignment(game.housework),
@@ -67,9 +91,41 @@ export function HouseworkPage({ embedded }: { embedded?: boolean } = {}) {
         </>
       ) : null}
 
-      <p className={`mb-2.5 px-0.5 text-[12px] leading-snug ${lq.textSecondary}`}>
-        🧹 選好家事後平均分配 · 完成每項 🤝+3 ✨+10 🪙+3
-      </p>
+      <div className="mb-2.5 flex flex-wrap items-center justify-between gap-2 px-0.5">
+        <p className={`text-[12px] leading-snug ${lq.textSecondary}`}>
+          🧹 選好家事後平均分配 · 完成每項 🤝+3 ✨+10 🪙+3
+        </p>
+        <button
+          type="button"
+          disabled={showSyncing}
+          onClick={() => void handleSync()}
+          className={`inline-flex min-h-[36px] shrink-0 items-center gap-1.5 rounded-xl px-3 py-1.5 text-[12px] font-bold ${lq.btnSecondary}`}
+        >
+          {showSyncing ? (
+            <RefreshCw className="h-3.5 w-3.5 animate-spin" aria-hidden />
+          ) : (
+            <Cloud className="h-3.5 w-3.5" aria-hidden />
+          )}
+          同步家事
+        </button>
+      </div>
+
+      <div className="mb-2.5 flex flex-wrap items-center gap-2 rounded-xl bg-stone-50/90 px-2.5 py-2 ring-1 ring-stone-100">
+        <span className="text-[11px] font-semibold text-stone-600">
+          {CHORE_SYNC_STATUS_LABEL[choreSyncStatus]}
+        </span>
+        {showSyncing ? <RefreshCw className="h-3 w-3 animate-spin text-rose-500" aria-hidden /> : null}
+      </div>
+
+      {choreSyncError ? (
+        <p className="mb-2.5 rounded-xl bg-amber-50 px-3 py-2 text-[12px] font-semibold text-amber-900 ring-1 ring-amber-100">
+          {choreSyncError}
+        </p>
+      ) : (
+        <p className={`mb-2.5 px-0.5 text-[11px] leading-relaxed ${lq.textMuted}`}>
+          分配與完成會先存本機；登入並完成情侶綁定後，另一半重新整理或按「同步家事」即可看到最新狀態。
+        </p>
+      )}
 
       {!isAssigned ? (
         <section className={`mb-3 p-3 ${lq.card}`}>

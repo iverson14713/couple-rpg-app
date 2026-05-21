@@ -183,7 +183,8 @@ export type HouseworkChoreCompleteResult = {
 export function completeAssignedChore(
   data: HouseworkData,
   taskId: string,
-  today: string = todayKey()
+  today: string = todayKey(),
+  completedByUserId?: string | null
 ): HouseworkChoreCompleteResult {
   const cur = getTodayAssignment(data, today);
   if (!cur?.assignedAt) {
@@ -197,10 +198,13 @@ export function completeAssignedChore(
   }
 
   const grantNow = !chore.rewarded;
+  const now = new Date().toISOString();
   const updatedChore: HouseworkAssignedChore = {
     ...chore,
     completed: true,
     rewarded: chore.rewarded || grantNow,
+    completedAt: chore.completedAt ?? now,
+    completedBy: chore.completedBy ?? completedByUserId ?? null,
   };
   const chores = cur.chores.map((c) => (c.taskId === taskId ? updatedChore : c));
 

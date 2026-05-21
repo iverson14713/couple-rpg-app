@@ -66,6 +66,9 @@ export type HouseworkItem = {
   id: string;
   label: string;
   emoji: string;
+  remoteId?: string | null;
+  isActive?: boolean;
+  syncPending?: boolean;
 };
 
 export type HouseworkCompletion = {
@@ -87,6 +90,9 @@ export type HouseworkAssignedChore = {
   assignee: PartnerId;
   completed: boolean;
   rewarded: boolean;
+  remoteId?: string | null;
+  completedAt?: string | null;
+  completedBy?: string | null;
 };
 
 export type HouseworkTodayAssignment = {
