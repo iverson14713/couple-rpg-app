@@ -38,6 +38,7 @@ import {
 } from '../storage/houseworkStore';
 import {
   backfillChoreRewardClaimsFromHousework,
+  evaluateChoreRewardGrant,
   hasChoreRewardClaim,
   tryClaimChoreReward,
 } from '../storage/choreRewardClaimsStore';
@@ -263,7 +264,11 @@ type LoveQuestContextValue = {
   removeHouseworkItem: (id: string) => void;
   setHouseworkSelectedTaskIds: (taskIds: string[]) => void;
   startHouseworkAssignment: () => boolean;
-  completeHouseworkChore: (taskId: string) => { granted: boolean; rewardAlreadyClaimed: boolean };
+  completeHouseworkChore: (taskId: string) => {
+    granted: boolean;
+    rewardAlreadyClaimed: boolean;
+    dailyLimitReached: boolean;
+  };
   clearTodayHousework: () => void;
   reassignTodayHousework: () => boolean;
   choreSyncStatus: ChoreSyncStatus;
@@ -977,9 +982,13 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
   const houseworkCompleteLocksRef = useRef<Set<string>>(new Set());
 
   const completeHouseworkChoreFn = useCallback(
-    (taskId: string): { granted: boolean; rewardAlreadyClaimed: boolean } => {
+    (taskId: string): {
+      granted: boolean;
+      rewardAlreadyClaimed: boolean;
+      dailyLimitReached: boolean;
+    } => {
       if (houseworkCompleteLocksRef.current.has(taskId)) {
-        return { granted: false, rewardAlreadyClaimed: true };
+        return { granted: false, rewardAlreadyClaimed: true, dailyLimitReached: false };
       }
       houseworkCompleteLocksRef.current.add(taskId);
 
@@ -995,11 +1004,14 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
           return {
             granted: false,
             rewardAlreadyClaimed: hasChoreRewardClaim(today, taskId),
+            dailyLimitReached: false,
           };
         }
 
-        const alreadyClaimed = hasChoreRewardClaim(today, taskId);
-        const grantNow = !alreadyClaimed && tryClaimChoreReward(today, taskId);
+        const grantReason = evaluateChoreRewardGrant(today, taskId, isPro);
+        const alreadyClaimed = grantReason === 'already_claimed';
+        const dailyLimitReached = grantReason === 'daily_limit';
+        const grantNow = grantReason === 'grant' && tryClaimChoreReward(today, taskId, isPro);
 
         const { data: next, granted, item: doneItem } = completeAssignedChore(
           prev,
@@ -1034,7 +1046,8 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
 
         return {
           granted: Boolean(granted),
-          rewardAlreadyClaimed: alreadyClaimed || (!grantNow && hasChoreRewardClaim(today, taskId)),
+          rewardAlreadyClaimed: alreadyClaimed,
+          dailyLimitReached,
         };
       } finally {
         houseworkCompleteLocksRef.current.delete(taskId);
@@ -1045,6 +1058,7 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
       coupleExtended.partnerNickname,
       currentUserId,
       grantReward,
+      isPro,
       logTodayActivity,
     ]
   );

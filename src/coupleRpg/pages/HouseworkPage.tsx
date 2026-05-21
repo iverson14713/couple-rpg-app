@@ -2,8 +2,18 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Check, Users } from 'lucide-react';
 import { ChoreSyncStatusLine } from '../components/ChoreSyncStatusLine';
 import { useLoveQuest } from '../context/LoveQuestContext';
+import {
+  HOUSEWORK_CHORE_REWARD_GRANTED_HINT,
+  PRO_DAILY_CHORE_REWARD_LIMIT,
+} from '../constants/choreRewardLimits';
 import { todayKey } from '../lib/dates';
-import { hasChoreRewardClaim } from '../storage/choreRewardClaimsStore';
+import { useUserPlan } from '../context/UserPlanContext';
+import {
+  getDailyChoreRewardCount,
+  getDailyChoreRewardLimit,
+  hasChoreRewardClaim,
+  isDailyChoreRewardLimitReached,
+} from '../storage/choreRewardClaimsStore';
 import { DEFAULT_HOUSEWORK_ITEMS, getTodayAssignment } from '../storage/houseworkStore';
 import { EmptyState } from '../components/EmptyState';
 import { RpgMiniStats } from '../components/RpgMiniStats';
@@ -16,14 +26,25 @@ const DEFAULT_HW_IDS = new Set(DEFAULT_HOUSEWORK_ITEMS.map((i) => i.id));
 
 export function HouseworkPage({ embedded }: { embedded?: boolean } = {}) {
   const game = useLoveQuest();
+  const { isPro } = useUserPlan();
   const { pullHouseworkFromCloud, choreSyncStatus, choreSyncError, choreCanSyncItems, retryChoreSync } =
     game;
   const [newLabel, setNewLabel] = useState('');
   const [confirmReassign, setConfirmReassign] = useState(false);
   const [completingIds, setCompletingIds] = useState<Set<string>>(() => new Set());
   const [rewardHint, setRewardHint] = useState<string | null>(null);
+  const [claimsTick, setClaimsTick] = useState(0);
 
   const today = todayKey();
+  const dailyRewardCount = useMemo(() => {
+    void claimsTick;
+    return getDailyChoreRewardCount(today);
+  }, [today, claimsTick]);
+  const dailyRewardLimit = getDailyChoreRewardLimit(isPro);
+  const dailyLimitReached = useMemo(() => {
+    void claimsTick;
+    return isDailyChoreRewardLimitReached(today, isPro);
+  }, [today, isPro, claimsTick]);
 
   useEffect(() => {
     void pullHouseworkFromCloud();
@@ -80,8 +101,13 @@ export function HouseworkPage({ embedded }: { embedded?: boolean } = {}) {
       setRewardHint(null);
       try {
         const result = game.completeHouseworkChore(taskId);
-        if (result.rewardAlreadyClaimed && !result.granted) {
-          setRewardHint('今天這項家事已領過獎勵，默契與 LoveCoin 不會重複增加');
+        setClaimsTick((t) => t + 1);
+        if (result.granted) {
+          setRewardHint(HOUSEWORK_CHORE_REWARD_GRANTED_HINT);
+        } else if (result.rewardAlreadyClaimed) {
+          setRewardHint('已完成，今天這項家事已領過獎勵');
+        } else if (result.dailyLimitReached) {
+          setRewardHint('已完成，今日家事獎勵已達上限');
         }
       } finally {
         setCompletingIds((prev) => {
@@ -112,9 +138,18 @@ export function HouseworkPage({ embedded }: { embedded?: boolean } = {}) {
         </>
       ) : null}
 
-      <p className={`mb-1.5 px-0.5 text-[12px] leading-snug ${lq.textSecondary}`}>
+      <p className={`mb-0.5 px-0.5 text-[12px] leading-snug ${lq.textSecondary}`}>
         🧹 選好家事後平均分配 · 完成每項 🤝+3 ✨+10 🪙+3
       </p>
+      <p className={`mb-1.5 px-0.5 text-[11px] font-semibold leading-snug ${lq.textMuted}`}>
+        今日家事獎勵 {dailyRewardCount}/{dailyRewardLimit}
+        {isPro ? '' : `（Pro ${PRO_DAILY_CHORE_REWARD_LIMIT} 項）`}
+      </p>
+      {dailyLimitReached ? (
+        <p className={`mb-1.5 px-0.5 text-[11px] leading-snug ${lq.textMuted}`}>
+          今日家事獎勵已達上限，仍可繼續完成家事。
+        </p>
+      ) : null}
 
       <ChoreSyncStatusLine
         status={choreSyncStatus}
@@ -189,6 +224,7 @@ export function HouseworkPage({ embedded }: { embedded?: boolean } = {}) {
               items={game.housework.items}
               today={today}
               completingIds={completingIds}
+              dailyLimitReached={dailyLimitReached}
               onComplete={handleCompleteChore}
             />
             <AssigneeColumn
@@ -197,6 +233,7 @@ export function HouseworkPage({ embedded }: { embedded?: boolean } = {}) {
               items={game.housework.items}
               today={today}
               completingIds={completingIds}
+              dailyLimitReached={dailyLimitReached}
               onComplete={handleCompleteChore}
             />
           </div>
@@ -227,7 +264,13 @@ export function HouseworkPage({ embedded }: { embedded?: boolean } = {}) {
           </div>
 
           {rewardHint ? (
-            <p className={`mt-2 rounded-xl border border-stone-200 bg-stone-50 px-3 py-2 text-[12px] ${lq.textMuted}`}>
+            <p
+              className={`mt-2 rounded-xl border px-3 py-2 text-[12px] ${
+                rewardHint === HOUSEWORK_CHORE_REWARD_GRANTED_HINT
+                  ? 'border-emerald-200 bg-emerald-50/90 text-emerald-800'
+                  : `border-stone-200 bg-stone-50 ${lq.textMuted}`
+              }`}
+            >
               {rewardHint}
             </p>
           ) : null}
@@ -303,6 +346,7 @@ function AssigneeColumn({
   items,
   today,
   completingIds,
+  dailyLimitReached,
   onComplete,
 }: {
   title: string;
@@ -310,6 +354,7 @@ function AssigneeColumn({
   items: { id: string; label: string; emoji: string }[];
   today: string;
   completingIds: Set<string>;
+  dailyLimitReached: boolean;
   onComplete: (id: string) => void;
 }) {
   return (
@@ -327,13 +372,18 @@ function AssigneeColumn({
             if (!item) return null;
             const rewardClaimed = hasChoreRewardClaim(today, c.taskId);
             const locking = completingIds.has(c.taskId);
+            const noReward = rewardClaimed || dailyLimitReached;
             const statusLabel = c.completed
               ? rewardClaimed
                 ? '已完成，本日獎勵已領'
-                : '完成'
+                : dailyLimitReached
+                  ? '已完成，今日獎勵已達上限'
+                  : '完成'
               : rewardClaimed
                 ? '可完成（本日獎勵已領）'
-                : '點擊完成';
+                : dailyLimitReached
+                  ? '可完成（今日獎勵已達上限）'
+                  : '點擊完成';
             return (
               <li key={c.taskId}>
                 <button
@@ -361,7 +411,7 @@ function AssigneeColumn({
                   </span>
                   <span
                     className={`max-w-[42%] text-right text-[10px] leading-tight ${
-                      c.completed ? 'text-emerald-600' : rewardClaimed ? 'text-amber-700' : lq.textMuted
+                      c.completed ? 'text-emerald-600' : noReward ? 'text-amber-700' : lq.textMuted
                     }`}
                   >
                     {locking ? '處理中…' : statusLabel}
