@@ -17,6 +17,12 @@
     },
     "api/assistant/weekly-report.js": {
       "maxDuration": 120
+    },
+    "api/assistant/date-itinerary.js": {
+      "maxDuration": 120
+    },
+    "api/assistant/important-date.js": {
+      "maxDuration": 120
     }
   }
 }

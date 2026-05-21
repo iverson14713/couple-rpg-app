@@ -23,6 +23,12 @@ export const CARE_MAX_TOKENS = 450;
 export const QA_MAX_TOKENS = 1500;
 export const VET_REPORT_MAX_TOKENS = 900;
 export const WEEKLY_REPORT_MAX_TOKENS = 2000;
+export const COUPLE_PROMPT_MAX_CHARS = 16_000;
+export const DATE_ITINERARY_MAX_TOKENS = 2200;
+export const IMPORTANT_DATE_MAX_TOKENS = 1800;
+
+const COUPLE_SYSTEM_ZH =
+  '你是專業、貼心的情侶生活顧問。請依使用者指示，用繁體中文、條列清楚、具體可執行地回覆。';
 
 const MODEL = (process.env.OPENAI_MODEL || 'gpt-4o-mini').trim();
 
@@ -225,7 +231,7 @@ function assistantRateAndQuota(clientId, catId, usageDate, feature, planHint) {
  *   catId: string;
  *   usageDate: string;
  *   planHint: 'free' | 'pro';
- *   feature: 'care-bundle' | 'qa' | 'weekly-report' | 'vet-report';
+ *   feature: 'care-bundle' | 'qa' | 'weekly-report' | 'vet-report' | 'date-itinerary' | 'important-date';
  *   run: () => Promise<Record<string, unknown> & { usage: unknown }>;
  * }} opts
  * @returns {Promise<{ status: number, json: object }>}
@@ -688,4 +694,83 @@ export async function assistVetReportPOST(body) {
     feature: 'vet-report',
     run: async () => handleVetReport(lang, recordContext),
   });
+}
+
+async function handleCouplePrompt(prompt, maxTokens) {
+  const { content, usage } = await openAiChatCompletion({
+    messages: [
+      { role: 'system', content: COUPLE_SYSTEM_ZH },
+      { role: 'user', content: prompt },
+    ],
+    temperature: 0.55,
+    maxTokens,
+    jsonMode: false,
+  });
+  return { answer: content, usage };
+}
+
+/**
+ * @param {unknown} body
+ * @param {'date-itinerary' | 'important-date'} feature
+ * @param {string} catId
+ * @param {number} maxTokens
+ * @returns {Promise<{ status: number, json: object }>}
+ */
+async function assistCouplePromptPOST(body, feature, catId, maxTokens) {
+  const b = body && typeof body === 'object' ? body : {};
+  const clientId = typeof b.clientId === 'string' ? b.clientId.trim() : '';
+  const usageDate = typeof b.usageDate === 'string' ? b.usageDate.trim() : '';
+  const prompt = typeof b.prompt === 'string' ? b.prompt.trim() : '';
+
+  if (!isClientId(clientId)) {
+    return { status: 400, json: { error: 'Invalid or missing clientId', code: 'BAD_REQUEST' } };
+  }
+  if (!isYmd(usageDate)) {
+    return {
+      status: 400,
+      json: { error: 'Invalid or missing usageDate (YYYY-MM-DD)', code: 'BAD_REQUEST' },
+    };
+  }
+  if (!prompt) {
+    return { status: 400, json: { error: 'Missing prompt', code: 'BAD_REQUEST' } };
+  }
+  if (prompt.length > COUPLE_PROMPT_MAX_CHARS) {
+    return { status: 400, json: { error: 'prompt too long', code: 'BAD_REQUEST' } };
+  }
+
+  if (!process.env.OPENAI_API_KEY?.trim()) {
+    return {
+      status: 503,
+      json: { error: 'Server is not configured with OPENAI_API_KEY', code: 'NO_API_KEY' },
+    };
+  }
+
+  const planHint = planHintFromBody(b.plan);
+  const rq = assistantRateAndQuota(clientId, catId, usageDate, feature, planHint);
+  if (!rq.ok) return { status: rq.status, json: rq.json };
+
+  return runAssistantOpenAiCounted({
+    clientId,
+    catId,
+    usageDate,
+    planHint,
+    feature,
+    run: async () => handleCouplePrompt(prompt, maxTokens),
+  });
+}
+
+/**
+ * @param {unknown} body
+ * @returns {Promise<{ status: number, json: object }>}
+ */
+export async function assistDateItineraryPOST(body) {
+  return assistCouplePromptPOST(body, 'date-itinerary', 'couple-date-itinerary', DATE_ITINERARY_MAX_TOKENS);
+}
+
+/**
+ * @param {unknown} body
+ * @returns {Promise<{ status: number, json: object }>}
+ */
+export async function assistImportantDatePOST(body) {
+  return assistCouplePromptPOST(body, 'important-date', 'couple-important-date', IMPORTANT_DATE_MAX_TOKENS);
 }

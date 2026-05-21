@@ -5,7 +5,9 @@ import dotenv from 'dotenv';
 import http from 'node:http';
 import {
   assistCareBundlePOST,
+  assistDateItineraryPOST,
   assistHealthGET,
+  assistImportantDatePOST,
   assistQaPOST,
   assistVetReportPOST,
   assistWeeklyReportPOST,
@@ -113,6 +115,18 @@ const server = http.createServer(async (req, res) => {
 
     if (url.pathname === '/api/assistant/weekly-report') {
       const { status, json } = await assistWeeklyReportPOST(body);
+      sendJson(res, status, json);
+      return;
+    }
+
+    if (url.pathname === '/api/assistant/date-itinerary') {
+      const { status, json } = await assistDateItineraryPOST(body);
+      sendJson(res, status, json);
+      return;
+    }
+
+    if (url.pathname === '/api/assistant/important-date') {
+      const { status, json } = await assistImportantDatePOST(body);
       sendJson(res, status, json);
       return;
     }
