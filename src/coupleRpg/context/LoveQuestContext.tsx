@@ -98,6 +98,7 @@ import {
   loadRewards,
   processDailyLogin,
   redeemCoupon,
+  redeemCustomCoupon,
   saveRewards,
   useRewardCardLocal,
 } from '../storage/rewardsStore';
@@ -114,8 +115,9 @@ import {
   formatCompleteFeedLine,
   formatRedeemFeedLine,
   formatUseFeedLine,
-  needsPartnerCompletion,
+  couponNeedsPartnerCompletion,
 } from '../lib/rewardCardHelpers';
+import type { CustomRewardCardInput } from '../storage/rewardTypes';
 import { useCoupleSpace } from './CoupleSpaceContext';
 import type { CoinEarnMeta, RewardsData, ShopItemId } from '../storage/rewardTypes';
 import {
@@ -267,6 +269,7 @@ type LoveQuestContextValue = {
   completedCoupons: ReturnType<typeof getCouponsByStatus>;
   rewardCardSyncError: string | null;
   redeemRewardItem: (itemId: ShopItemId) => boolean;
+  redeemCustomRewardItem: (input: CustomRewardCardInput) => boolean;
   useCoupon: (couponId: string) => void;
   completeRewardCard: (couponId: string) => void;
   pullRewardCardsFromCloud: () => Promise<void>;
@@ -1086,6 +1089,28 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
     [actorDisplayName, currentUserId, pushCouponBackground]
   );
 
+  const redeemCustomRewardItemFn = useCallback(
+    (input: CustomRewardCardInput): boolean => {
+      const rpgPrev = loadRpg();
+      const rewPrev = loadRewards();
+      const result = redeemCustomCoupon(rewPrev, input, rpgPrev.loveCoins, currentUserId);
+      if (result.error || !result.coupon) return false;
+      const nextRpg = normalizeRpgState({
+        ...rpgPrev,
+        loveCoins: rpgPrev.loveCoins - result.coupon.cost,
+      });
+      saveRpg(nextRpg);
+      saveRewards(result.rewards);
+      setRpg(nextRpg);
+      setRewards(result.rewards);
+      const name = actorDisplayName(currentUserId);
+      setActivity(appendActivity(formatRedeemFeedLine(name, result.coupon.cardTitle)));
+      pushCouponBackground(result.coupon);
+      return true;
+    },
+    [actorDisplayName, currentUserId, pushCouponBackground]
+  );
+
   const useCouponFn = useCallback(
     (couponId: string) => {
       const target = partnerUserId;
@@ -1093,8 +1118,7 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
         const r = useRewardCardLocal(prev, couponId, currentUserId, target);
         if (r.error || !r.coupon) return prev;
         saveRewards(r.rewards);
-        const towardPartner =
-          needsPartnerCompletion(r.coupon.category, r.coupon.itemId) && Boolean(target);
+        const towardPartner = couponNeedsPartnerCompletion(r.coupon) && Boolean(target);
         const name = actorDisplayName(currentUserId);
         setActivity(
           appendActivity(formatUseFeedLine(name, r.coupon.cardTitle, towardPartner))
@@ -1350,6 +1374,7 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
       completedCoupons: getCouponsByStatus(rewards, 'completed'),
       rewardCardSyncError,
       redeemRewardItem: redeemRewardItemFn,
+      redeemCustomRewardItem: redeemCustomRewardItemFn,
       useCoupon: useCouponFn,
       completeRewardCard: completeRewardCardFn,
       pullRewardCardsFromCloud,
@@ -1417,6 +1442,7 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
       generateGiftSuggestionsFn,
       dismissAnniversaryReminderFn,
       redeemRewardItemFn,
+      redeemCustomRewardItemFn,
       useCouponFn,
       completeRewardCardFn,
       pullRewardCardsFromCloud,

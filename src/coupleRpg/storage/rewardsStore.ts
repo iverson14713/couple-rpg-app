@@ -1,11 +1,13 @@
 import { makeId } from '../lib/id';
 import { todayKey, timeLabel, weekKey } from '../lib/dates';
-import { needsPartnerCompletion } from '../lib/rewardCardHelpers';
 import { getShopItem } from '../data/rewardShopCatalog';
 import { LQ_KEYS } from './keys';
 import { loadJson, saveJson } from './persist';
+import { makeCustomRewardItemId, normalizeCustomRewardInput } from '../lib/customRewardCard';
+import { couponNeedsPartnerCompletion } from '../lib/rewardCardHelpers';
 import type {
   CoinEarnMeta,
+  CustomRewardCardInput,
   LoveCoinEarnRecord,
   OwnedCoupon,
   RewardCardStatus,
@@ -20,7 +22,7 @@ function migrateCoupon(raw: Partial<OwnedCoupon> & Record<string, unknown>): Own
   const id = String(raw.id ?? '');
   if (!id) return null;
 
-  const itemId = (raw.itemId ?? raw.cardId) as ShopItemId;
+  const itemId = String(raw.itemId ?? raw.cardId ?? '');
   const title = String(raw.title ?? raw.cardTitle ?? '');
   const emoji = String(raw.emoji ?? '🎫');
   const category = (raw.category ?? 'date') as OwnedCoupon['category'];
@@ -58,6 +60,10 @@ function migrateCoupon(raw: Partial<OwnedCoupon> & Record<string, unknown>): Own
     note: raw.note != null ? String(raw.note) : null,
     status,
     syncPending: Boolean(raw.syncPending),
+    isCustom: Boolean(raw.isCustom) || itemId.startsWith('custom:'),
+    description: raw.description != null ? String(raw.description) : undefined,
+    needsPartnerComplete:
+      raw.needsPartnerComplete != null ? Boolean(raw.needsPartnerComplete) : undefined,
   };
 }
 
@@ -172,6 +178,53 @@ export function redeemCoupon(
   };
 }
 
+/** Pro：兌換自訂卡券（自訂標題、說明、點數） */
+export function redeemCustomCoupon(
+  rewards: RewardsData,
+  raw: CustomRewardCardInput,
+  balance: number,
+  redeemedBy: string | null
+): { rewards: RewardsData; coupon: OwnedCoupon | null; error?: string } {
+  const input = normalizeCustomRewardInput(raw);
+  if (!input) return { rewards, coupon: null, error: 'invalid_input' };
+  if (balance < input.cost) return { rewards, coupon: null, error: 'insufficient_coins' };
+
+  const now = new Date().toISOString();
+  const itemId = makeCustomRewardItemId();
+  const coupon: OwnedCoupon = {
+    id: makeId(),
+    remoteId: null,
+    itemId,
+    cardId: itemId,
+    cardTitle: input.title,
+    cardType: input.category,
+    title: input.title,
+    emoji: input.emoji,
+    category: input.category,
+    cost: input.cost,
+    isCustom: true,
+    description: input.description,
+    needsPartnerComplete: input.needsPartnerComplete,
+    redeemedBy,
+    usedBy: null,
+    targetUser: null,
+    redeemedAt: now,
+    usedAt: null,
+    completedAt: null,
+    note: null,
+    status: 'redeemed',
+    syncPending: true,
+  };
+
+  return {
+    rewards: {
+      ...rewards,
+      coupons: [coupon, ...rewards.coupons].slice(0, 100),
+    },
+    coupon,
+  };
+}
+
 export function useRewardCardLocal(
   rewards: RewardsData,
   couponId: string,
@@ -183,7 +236,7 @@ export function useRewardCardLocal(
   if (cur.status !== 'redeemed') return { rewards, coupon: null, error: 'invalid_status' };
 
   const now = new Date().toISOString();
-  const autoComplete = !needsPartnerCompletion(cur.category, cur.itemId);
+  const autoComplete = !couponNeedsPartnerCompletion(cur);
   const updated: OwnedCoupon = {
     ...cur,
     status: autoComplete ? 'completed' : 'used',

@@ -2,6 +2,7 @@
  * Sync reward card records with Supabase public.reward_card_records.
  */
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { isCustomRewardCardId } from '../lib/customRewardCard';
 import { pickPreferredStatus, STATUS_PROGRESS } from '../lib/rewardCardHelpers';
 import type { OwnedCoupon, RewardCardStatus, RewardsData } from '../storage/rewardTypes';
 
@@ -63,6 +64,7 @@ export function rowToCoupon(row: RewardCardRecordRow): OwnedCoupon {
     note: row.note,
     status: row.status,
     syncPending: false,
+    isCustom: isCustomRewardCardId(itemId),
   };
 }
 

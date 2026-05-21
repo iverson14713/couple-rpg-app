@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Cloud, Coins, Gift, RefreshCw, Ticket, Wallet } from 'lucide-react';
 import { REWARD_CATEGORY_LABEL, REWARD_SHOP_ITEMS } from '../data/rewardShopCatalog';
 import { EmptyState } from '../components/EmptyState';
+import { CustomRewardCardPanel } from '../components/CustomRewardCardPanel';
 import { ProBadgeIfNeeded } from '../components/ProBadge';
 import { useProFeature } from '../hooks/useProFeature';
 import { NicknameSetupBanner } from '../components/NicknameSetupBanner';
@@ -10,11 +11,11 @@ import { useLoveQuest } from '../context/LoveQuestContext';
 import { useSupabaseAuth } from '../../useSupabaseAuth';
 import {
   canMarkRewardCardComplete,
+  couponNeedsPartnerCompletion,
   displayNameForUserId,
   formatCompleteFeedLine,
   formatRedeemFeedLine,
   formatUseFeedLine,
-  needsPartnerCompletion,
   REWARD_CARD_STATUS_LABEL,
 } from '../lib/rewardCardHelpers';
 import type { OwnedCoupon, RewardShopCategory } from '../storage/rewardTypes';
@@ -58,6 +59,7 @@ export function RewardsPage({ embedded }: { embedded?: boolean } = {}) {
     weeklyTitles,
     coupleExtended,
     redeemRewardItem,
+    redeemCustomRewardItem,
     useCoupon,
     completeRewardCard,
     redeemedCoupons,
@@ -281,7 +283,14 @@ export function RewardsPage({ embedded }: { embedded?: boolean } = {}) {
       )}
 
       {tab === 'coupons' && (
-        <section className={`space-y-3 p-3.5 ${lq.card}`}>
+        <>
+          <CustomRewardCardPanel
+            loveCoins={rpg.loveCoins}
+            onRedeem={redeemCustomRewardItem}
+            compact
+          />
+
+          <section className={`space-y-3 p-3.5 ${lq.card}`}>
           <div className="flex flex-wrap items-center justify-between gap-2">
             <h2 className={`flex flex-wrap items-center gap-1.5 ${lq.sectionTitleSm}`}>
               <Ticket className="h-4 w-4 text-emerald-600" aria-hidden />
@@ -352,6 +361,7 @@ export function RewardsPage({ embedded }: { embedded?: boolean } = {}) {
             </CouponSection>
           ) : null}
         </section>
+        </>
       )}
 
       <section className={`mt-3 p-3 ${lq.cardSoft}`}>
@@ -459,7 +469,7 @@ function CouponCard({
     }
     if (c.status === 'used' && c.usedBy) {
       const towardPartner =
-        needsPartnerCompletion(c.category, c.itemId) &&
+        couponNeedsPartnerCompletion(c) &&
         Boolean(currentUserId && c.targetUser === currentUserId);
       return formatUseFeedLine(user ?? redeemer, c.cardTitle, towardPartner);
     }
@@ -482,18 +492,27 @@ function CouponCard({
   const showComplete =
     c.status === 'used' &&
     onComplete &&
-    canMarkRewardCardComplete(c, currentUserId, c.category, c.itemId);
+    canMarkRewardCardComplete(c, currentUserId);
 
   return (
     <li className="rounded-2xl border border-rose-100 bg-white p-3.5 text-[13px] shadow-sm">
       <div className="flex items-start justify-between gap-2">
         <span className="text-[15px] font-bold text-stone-900">
           {c.emoji} {c.title}
+          {c.isCustom ? (
+            <span className="ml-1.5 rounded-full bg-violet-100 px-2 py-0.5 text-[10px] font-bold text-violet-700">
+              自訂
+            </span>
+          ) : null}
         </span>
         <span className={`shrink-0 rounded-full px-2.5 py-0.5 text-[11px] font-bold ${badgeClass}`}>
           {REWARD_CARD_STATUS_LABEL[c.status]}
         </span>
       </div>
+
+      {c.description ? (
+        <p className="mt-1.5 text-[12px] leading-snug text-stone-500">{c.description}</p>
+      ) : null}
 
       {feedLine ? (
         <p className="mt-2 rounded-lg bg-rose-50/80 px-2.5 py-1.5 text-[12px] font-semibold text-rose-800">
@@ -502,6 +521,10 @@ function CouponCard({
       ) : null}
 
       <dl className="mt-2 space-y-0.5 text-[12px] text-stone-500">
+        <div>
+          <dt className="inline font-semibold text-stone-600">點數：</dt>
+          <dd className="inline">🪙 {c.cost}</dd>
+        </div>
         <div>
           <dt className="inline font-semibold text-stone-600">兌換：</dt>
           <dd className="inline">

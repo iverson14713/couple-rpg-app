@@ -45,18 +45,34 @@ export type LoveCoinEarnRecord = {
 
 export type RewardCardStatus = 'redeemed' | 'used' | 'completed' | 'cancelled';
 
+/** Pro：自訂卡券兌換輸入 */
+export type CustomRewardCardInput = {
+  title: string;
+  description: string;
+  emoji: string;
+  category: RewardShopCategory;
+  cost: number;
+  /** 勾選時需對方標記完成 */
+  needsPartnerComplete: boolean;
+};
+
 export type OwnedCoupon = {
   /** 本地 client id（與 Supabase client_id 對應） */
   id: string;
   remoteId?: string | null;
-  itemId: ShopItemId;
-  cardId: ShopItemId;
+  /** 商城 id 或 custom-{uuid} */
+  itemId: string;
+  cardId: string;
   cardTitle: string;
   cardType: string;
   title: string;
   emoji: string;
   category: RewardShopCategory;
   cost: number;
+  /** Pro 自訂卡券 */
+  isCustom?: boolean;
+  description?: string;
+  needsPartnerComplete?: boolean;
   redeemedBy: string | null;
   usedBy: string | null;
   targetUser: string | null;

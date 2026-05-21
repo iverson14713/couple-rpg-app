@@ -1,9 +1,17 @@
-import type { RewardShopCategory, ShopItemId } from '../storage/rewardTypes';
+import { isCustomRewardCardId } from './customRewardCard';
+import type { OwnedCoupon, RewardShopCategory } from '../storage/rewardTypes';
 import type { RewardCardStatus } from '../storage/rewardTypes';
 
-/** 需由對方標記完成的卡券類型 */
-export function needsPartnerCompletion(category: RewardShopCategory, _itemId: ShopItemId): boolean {
+/** 需由對方標記完成的卡券類型（商城預設） */
+export function needsPartnerCompletion(category: RewardShopCategory, itemId: string): boolean {
+  if (isCustomRewardCardId(itemId)) return false;
   return category === 'massage' || category === 'date' || category === 'flirt';
+}
+
+/** 此張卡券是否需對方完成 */
+export function couponNeedsPartnerCompletion(coupon: Pick<OwnedCoupon, 'isCustom' | 'needsPartnerComplete' | 'category' | 'itemId'>): boolean {
+  if (coupon.isCustom) return Boolean(coupon.needsPartnerComplete);
+  return needsPartnerCompletion(coupon.category, coupon.itemId);
 }
 
 export function displayNameForUserId(
@@ -53,13 +61,11 @@ export function formatCompleteFeedLine(actorName: string, cardTitle: string): st
 }
 
 export function canMarkRewardCardComplete(
-  coupon: { status: RewardCardStatus; targetUser: string | null; usedBy: string | null },
-  currentUserId: string | null,
-  category: RewardShopCategory,
-  itemId: ShopItemId
+  coupon: Pick<OwnedCoupon, 'status' | 'targetUser' | 'usedBy' | 'isCustom' | 'needsPartnerComplete' | 'category' | 'itemId'>,
+  currentUserId: string | null
 ): boolean {
   if (coupon.status !== 'used') return false;
-  if (!needsPartnerCompletion(category, itemId)) return false;
+  if (!couponNeedsPartnerCompletion(coupon)) return false;
   if (!currentUserId) return false;
   if (coupon.targetUser) return coupon.targetUser === currentUserId;
   return coupon.usedBy !== currentUserId;
