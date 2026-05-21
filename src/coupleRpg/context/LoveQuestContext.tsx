@@ -118,7 +118,9 @@ import {
   couponNeedsPartnerCompletion,
 } from '../lib/rewardCardHelpers';
 import type { CustomRewardCardInput } from '../storage/rewardTypes';
+import { getMiniGameDailyRewardCap } from '../lib/miniGameRewards';
 import { useCoupleSpace } from './CoupleSpaceContext';
+import { useUserPlan } from './UserPlanContext';
 import type { CoinEarnMeta, RewardsData, ShopItemId } from '../storage/rewardTypes';
 import {
   applyReward,
@@ -177,7 +179,7 @@ type LoveQuestContextValue = {
   couple: CoupleProfile;
   nicknameSetup: NicknameSetupStatus;
   rpg: RpgState;
-  rpgView: ReturnType<typeof rpgSnapshot>;
+  rpgView: ReturnType<typeof rpgSnapshot> & { miniGamesRewardCap: number };
   dinner: DinnerData;
   todayDinner: ReturnType<typeof getTodayDinner>;
   dinnerHistory: ReturnType<typeof getRecentHistory>;
@@ -302,6 +304,7 @@ function loadCouple(): CoupleProfile {
 export function LoveQuestProvider({ children }: { children: ReactNode }) {
   const auth = useSupabaseAuth();
   const isOnline = useOnlineStatus();
+  const { isPro } = useUserPlan();
   const { space, loading: coupleSpaceLoading, isFullyBound } = useCoupleSpace();
   const coupleId = space?.coupleId ?? null;
   const currentUserId = auth.user?.id ?? null;
@@ -366,16 +369,15 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
     []
   );
 
-  const MINI_GAME_DAILY_REWARD_CAP = 3;
-
   const claimMiniGameReward = useCallback(
     (detail?: string): boolean => {
+      const cap = getMiniGameDailyRewardCap(isPro);
       let granted = false;
       setRpg((prev) => {
         const rolled = rollDailyGuardForToday(normalizeRpgState(prev));
         const g = rolled.dailyGuard ?? defaultDailyGuard();
         const count = g.miniGamesRewardCount ?? 0;
-        if (count >= MINI_GAME_DAILY_REWARD_CAP) {
+        if (count >= cap) {
           return rolled === prev ? prev : rolled;
         }
         granted = true;
@@ -410,7 +412,15 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
 
       return granted;
     },
-    [addCompletion]
+    [addCompletion, isPro]
+  );
+
+  const rpgView = useMemo(
+    () => ({
+      ...rpgSnapshot(rpg),
+      miniGamesRewardCap: getMiniGameDailyRewardCap(isPro),
+    }),
+    [rpg, isPro]
   );
 
   const pullDinnerFromCloud = useCallback(async () => {
@@ -1301,7 +1311,7 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
       couple,
       nicknameSetup,
       rpg,
-      rpgView: rpgSnapshot(rpg),
+      rpgView,
       dinner,
       todayDinner: getTodayDinner(dinner.history),
       dinnerHistory: getRecentHistory(dinner.history),
@@ -1386,6 +1396,7 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
       couple,
       nicknameSetup,
       rpg,
+      rpgView,
       dinner,
       housework,
       houseworkHomeStatus,

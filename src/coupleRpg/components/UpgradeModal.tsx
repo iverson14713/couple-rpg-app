@@ -6,7 +6,7 @@ import { PRO_PLAN_TITLE } from '../lib/proPlanContent';
 import { lq } from '../theme';
 
 export function UpgradeModal() {
-  const { upgradeModalOpen, closeUpgradeModal, isPro } = useUserPlan();
+  const { upgradeModalOpen, upgradeModalHint, closeUpgradeModal, isPro } = useUserPlan();
 
   if (!upgradeModalOpen) return null;
 
@@ -29,6 +29,11 @@ export function UpgradeModal() {
           </button>
         </div>
         <div className="overflow-y-auto px-4 pb-8 pt-4">
+          {upgradeModalHint ? (
+            <p className="mb-3 rounded-xl bg-violet-50 px-3 py-2.5 text-center text-[13px] font-semibold text-violet-900 ring-1 ring-violet-100">
+              {upgradeModalHint}
+            </p>
+          ) : null}
           <UpgradeProPanel onLater={closeUpgradeModal} />
         </div>
       </div>

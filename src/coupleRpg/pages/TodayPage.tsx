@@ -67,13 +67,13 @@ export function TodayPage() {
           <div className="relative">
             <p className="text-[11px] font-semibold uppercase tracking-wide text-stone-400">一起玩</p>
             <h3 className={`mt-0.5 text-[20px] font-extrabold leading-snug ${lq.text}`}>情侶小遊戲</h3>
-            <p className={`mt-1 text-[13px] ${lq.textSecondary}`}>骰子 · 真心話 · 默契問答</p>
+            <p className={`mt-1 text-[13px] ${lq.textSecondary}`}>骰子 · 真心話 · 默契 · 情話 · 挑戰</p>
             <div className="mt-3 flex flex-wrap items-center gap-2">
               <button type="button" onClick={() => navigateTo('miniGames')} className={lq.btnPrimary}>
                 🎲 開始玩
               </button>
               <span className="rounded-full bg-stone-100/90 px-2.5 py-1 text-[11px] font-bold text-stone-600">
-                今日獎勵 {Math.min(rpgView.miniGamesRewardsToday, 3)}/3
+                今日獎勵 {rpgView.miniGamesRewardsToday}/{rpgView.miniGamesRewardCap}
               </span>
             </div>
           </div>

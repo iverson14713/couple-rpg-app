@@ -37,7 +37,8 @@ type UserPlanContextValue = {
   planToast: string | null;
   clearPlanToast: () => void;
   upgradeModalOpen: boolean;
-  openUpgradeModal: () => void;
+  upgradeModalHint: string | null;
+  openUpgradeModal: (hint?: string) => void;
   closeUpgradeModal: () => void;
 };
 
@@ -61,6 +62,7 @@ export function UserPlanProvider({ children }: { children: ReactNode }) {
   const [planLoading, setPlanLoading] = useState(false);
   const [planToast, setPlanToast] = useState<string | null>(null);
   const [upgradeModalOpen, setUpgradeModalOpen] = useState(false);
+  const [upgradeModalHint, setUpgradeModalHint] = useState<string | null>(null);
 
   const coupleId = space?.coupleId ?? null;
   const userId = auth.user?.id ?? null;
@@ -171,8 +173,14 @@ export function UserPlanProvider({ children }: { children: ReactNode }) {
     setPlanToast(PRO_TOAST_LOCAL);
   }, [syncInput, auth.supabase, coupleId, userId, refreshPlan]);
 
-  const openUpgradeModal = useCallback(() => setUpgradeModalOpen(true), []);
-  const closeUpgradeModal = useCallback(() => setUpgradeModalOpen(false), []);
+  const openUpgradeModal = useCallback((hint?: string) => {
+    setUpgradeModalHint(hint ?? null);
+    setUpgradeModalOpen(true);
+  }, []);
+  const closeUpgradeModal = useCallback(() => {
+    setUpgradeModalOpen(false);
+    setUpgradeModalHint(null);
+  }, []);
 
   useEffect(() => {
     if (!planToast) return;
@@ -193,6 +201,7 @@ export function UserPlanProvider({ children }: { children: ReactNode }) {
       planToast,
       clearPlanToast,
       upgradeModalOpen,
+      upgradeModalHint,
       openUpgradeModal,
       closeUpgradeModal,
     }),
@@ -206,6 +215,7 @@ export function UserPlanProvider({ children }: { children: ReactNode }) {
       planToast,
       clearPlanToast,
       upgradeModalOpen,
+      upgradeModalHint,
       openUpgradeModal,
       closeUpgradeModal,
     ]
