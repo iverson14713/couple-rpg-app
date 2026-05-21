@@ -1,4 +1,5 @@
 import type { CoupleExtendedProfile } from '../storage/coupleExtendedTypes';
+import type { TogetherDaysInfo } from './relationshipDays';
 
 export type UpcomingImportant = {
   id: string;
@@ -158,6 +159,23 @@ export function getUpcomingImportantDates(
   });
 
   return { items, totalCount: items.length, hasConfigured: true };
+}
+
+/** 首頁「重要日子」收合列單行摘要（不影響 getUpcomingImportantDates 計算）。 */
+export function getImportantDatesCollapsedSummary(
+  preview: { items: UpcomingImportant[]; hasConfigured: boolean },
+  togetherDays: TogetherDaysInfo
+): string {
+  const todayItem = preview.items.find((i) => i.isToday);
+  if (todayItem) return `${todayItem.icon} ${todayItem.todayLine}`;
+
+  const next = preview.items[0];
+  if (next) return `${next.icon} ${next.countdownLine}`;
+
+  if (togetherDays.kind === 'active') return `💕 在一起第 ${togetherDays.days} 天`;
+  if (togetherDays.kind === 'future') return '💕 在一起紀念日尚未開始';
+  if (!preview.hasConfigured) return '設定生日與紀念日';
+  return '暫無即將到來的日子';
 }
 
 /** 首頁抬頭：情侶資料暱稱（無則預設「我・另一半」）。 */

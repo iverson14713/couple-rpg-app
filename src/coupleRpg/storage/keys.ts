@@ -18,4 +18,8 @@ export const LQ_KEYS = {
   dailyMessage: 'lovequest-daily-message',
   /** 首頁「今天想對你說」展開狀態（local only） */
   dailyMessageExpanded: 'lovequest-daily-message-expanded',
+  /** 首頁「情侶生活總控台」展開狀態（local only） */
+  homeConsoleExpanded: 'lovequest-home-console-expanded',
+  /** 首頁「重要日子」展開狀態（local only） */
+  homeDatesExpanded: 'lovequest-home-dates-expanded',
 } as const;
