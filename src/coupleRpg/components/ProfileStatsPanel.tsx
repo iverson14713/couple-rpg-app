@@ -1,5 +1,6 @@
 import { useLoveQuest } from '../context/LoveQuestContext';
 import { CoupleBindSection } from './CoupleBindSection';
+import { NicknameSetupBanner } from './NicknameSetupBanner';
 import { RpgMiniStats } from './RpgMiniStats';
 import { lq } from '../theme';
 
@@ -8,6 +9,7 @@ export function ProfileStatsPanel() {
 
   return (
     <>
+      <NicknameSetupBanner />
       <section className={`mb-3 overflow-hidden p-4 ${lq.card}`}>
         <div className="flex items-center gap-3">
           <div className="flex -space-x-1">

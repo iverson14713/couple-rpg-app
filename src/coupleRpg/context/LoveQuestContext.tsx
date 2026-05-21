@@ -139,16 +139,18 @@ import {
 import { useCoupleSpace } from './CoupleSpaceContext';
 import { loadCoupleExtendedProfile, saveCoupleExtendedProfile } from '../storage/coupleExtendedStore';
 import { importantDatesKnowledgeIncreased } from '../lib/coupleProfileImportantReward';
+import { getNicknameSetupStatus, mergeCoupleProfile, type NicknameSetupStatus } from '../lib/coupleDisplayNames';
 
 const DEFAULT_COUPLE: CoupleProfile = {
-  nameA: '小晴',
-  nameB: '阿宇',
+  nameA: '我',
+  nameB: '另一半',
   emojiA: '💗',
   emojiB: '💙',
 };
 
 type LoveQuestContextValue = {
   couple: CoupleProfile;
+  nicknameSetup: NicknameSetupStatus;
   rpg: RpgState;
   rpgView: ReturnType<typeof rpgSnapshot>;
   dinner: DinnerData;
@@ -266,12 +268,15 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
   const { space, loading: coupleSpaceLoading } = useCoupleSpace();
   const coupleId = space?.coupleId ?? null;
 
-  const [couple] = useState(loadCouple);
+  const [coupleBase] = useState(loadCouple);
   const [rpg, setRpg] = useState(loadRpg);
   const [dinner, setDinner] = useState(loadDinner);
   const [housework, setHousework] = useState(loadHousework);
   const [tasks, setTasks] = useState(loadTasks);
   const [coupleExtended, setCoupleExtendedState] = useState(loadCoupleExtendedProfile);
+
+  const couple = useMemo(() => mergeCoupleProfile(coupleBase, coupleExtended), [coupleBase, coupleExtended]);
+  const nicknameSetup = useMemo(() => getNicknameSetupStatus(coupleExtended), [coupleExtended]);
   const [flirtGames, setFlirtGames] = useState(loadFlirtGames);
   const [completionHistory, setCompletionHistory] = useState(loadCompletionHistory);
   const [datePlanner, setDatePlanner] = useState(loadDatePlanner);
@@ -1001,6 +1006,7 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
   const value = useMemo<LoveQuestContextValue>(
     () => ({
       couple,
+      nicknameSetup,
       rpg,
       rpgView: rpgSnapshot(rpg),
       dinner,
@@ -1075,6 +1081,7 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
     }),
     [
       couple,
+      nicknameSetup,
       rpg,
       dinner,
       housework,

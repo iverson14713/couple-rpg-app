@@ -75,7 +75,7 @@ export function CoupleDetailsSection() {
             type="text"
             value={draft.myNickname}
             onChange={(e) => updateDraft({ myNickname: e.target.value })}
-            placeholder="例如：小晴"
+            placeholder="你的名字"
             className={inputClass}
           />
         </FieldRow>
@@ -84,7 +84,7 @@ export function CoupleDetailsSection() {
             type="text"
             value={draft.partnerNickname}
             onChange={(e) => updateDraft({ partnerNickname: e.target.value })}
-            placeholder="例如：阿宇"
+            placeholder="對方的名字"
             className={inputClass}
           />
         </FieldRow>

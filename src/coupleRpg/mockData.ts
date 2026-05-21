@@ -96,8 +96,8 @@ export const MOCK_REMINDERS: ReminderItem[] = [
 ];
 
 export const MOCK_COUPLE = {
-  nameA: '小晴',
-  nameB: '阿宇',
+  nameA: '我',
+  nameB: '另一半',
   emojiA: '💗',
   emojiB: '💙',
   togetherSince: '2024-08-15',

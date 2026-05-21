@@ -1,4 +1,5 @@
 import { useLoveQuest } from '../context/LoveQuestContext';
+import { NicknameSetupBanner } from './NicknameSetupBanner';
 import { APP_NAME, APP_NAME_EN, lq } from '../theme';
 
 type Props = {
@@ -8,6 +9,8 @@ type Props = {
 export function AppHeader({ dateLabel }: Props) {
   const { couple } = useLoveQuest();
   return (
+    <>
+    <NicknameSetupBanner compact />
     <header className={`mb-4 p-4 ${lq.card}`}>
       <div className="flex items-center gap-3">
         <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-rose-100 to-pink-100 text-2xl shadow-inner">
@@ -22,5 +25,6 @@ export function AppHeader({ dateLabel }: Props) {
         </div>
       </div>
     </header>
+    </>
   );
 }

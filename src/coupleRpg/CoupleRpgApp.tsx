@@ -56,7 +56,7 @@ function CoupleRpgShell() {
         )}
         {tab === 'rewards' && (
           <>
-            <TabPageHeader emoji="🎁" title="獎勵商城" subtitle="LoveCoin · 專屬卡券" />
+            <TabPageHeader emoji="🎁" title="情侶獎勵" subtitle="錢包 · 商城 · 卡券" />
             <RewardsPage embedded />
           </>
         )}
