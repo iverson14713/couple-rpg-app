@@ -1,4 +1,5 @@
 import { useCallback, useMemo, useState, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import { Loader2, Sparkles, X } from 'lucide-react';
 import {
   COST_LABEL,
@@ -16,7 +17,7 @@ import {
   type DateAiStyleChoice,
   type DateAiTransportChoice,
 } from '../lib/dateItineraryAiPrompt';
-import { postCoupleAssistant } from '../lib/coupleAssistantApi';
+import { postCoupleAssistant, resolveCoupleAssistantUrl } from '../lib/coupleAssistantApi';
 import type { DateSuggestion } from '../storage/dateTypes';
 import { useProFeature } from '../hooks/useProFeature';
 import { useUserPlan } from '../context/UserPlanContext';
@@ -45,32 +46,50 @@ export function DateItineraryAiSheet({ suggestion, onClose }: Props) {
   const preview = useMemo(() => getDateItineraryPreview(suggestion), [suggestion]);
 
   const handleGenerate = useCallback(async () => {
-    const prompt = buildDateItineraryAiPrompt({
-      suggestion,
-      departure,
-      budget,
-      customBudget,
-      transport,
-      style,
-      partnerPrefs,
-    });
+    console.log('AI button clicked');
+    const apiUrl = resolveCoupleAssistantUrl('date-itinerary');
+    console.log('calling assistant api', apiUrl);
+
     setLoading(true);
     setError(null);
     setAnswer(null);
-    const result = await postCoupleAssistant('date-itinerary', prompt, isPro ? 'pro' : 'free');
-    setLoading(false);
-    if (!result.ok) {
-      setError(result.message);
-      return;
+    try {
+      const prompt = buildDateItineraryAiPrompt({
+        suggestion,
+        departure,
+        budget,
+        customBudget,
+        transport,
+        style,
+        partnerPrefs,
+      });
+      const result = await postCoupleAssistant('date-itinerary', prompt, isPro ? 'pro' : 'free');
+      if (!result.ok) {
+        setError(result.message);
+        return;
+      }
+      setAnswer(result.data.answer);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : '產生行程時發生錯誤，請再試一次。');
+    } finally {
+      setLoading(false);
     }
-    setAnswer(result.data.answer);
   }, [suggestion, departure, budget, customBudget, transport, style, partnerPrefs, isPro]);
 
-  return (
-    <div className="fixed inset-0 z-50 flex flex-col justify-end bg-black/45" role="dialog" aria-modal="true">
-      <button type="button" className="absolute inset-0" aria-label="關閉" onClick={onClose} />
-      <div className="relative max-h-[92vh] overflow-hidden rounded-t-3xl bg-white shadow-2xl">
-        <div className="flex items-center justify-between border-b border-rose-50 px-4 py-3.5">
+  const sheet = (
+    <div className="fixed inset-0 z-[100] flex flex-col justify-end" role="presentation">
+      <button
+        type="button"
+        className="absolute inset-0 cursor-default bg-black/45"
+        aria-label="關閉"
+        onClick={onClose}
+      />
+      <div
+        className="relative z-10 flex max-h-[92vh] w-full flex-col overflow-hidden rounded-t-3xl bg-white shadow-2xl"
+        role="dialog"
+        aria-modal="true"
+      >
+        <div className="flex shrink-0 items-center justify-between border-b border-rose-50 px-4 py-3.5">
           <div className="min-w-0">
             <p className="flex flex-wrap items-center gap-1.5 text-[13px] font-bold text-rose-500">
               <Sparkles className="h-4 w-4" aria-hidden />
@@ -91,7 +110,7 @@ export function DateItineraryAiSheet({ suggestion, onClose }: Props) {
           </button>
         </div>
 
-        <div className="overflow-y-auto px-4 pb-8 pt-3">
+        <div className="min-h-0 flex-1 overflow-y-auto px-4 pt-3">
           <p className={`mb-3 text-[13px] leading-relaxed ${lq.textSecondary}`}>
             依目前抽到的約會點子，由 AI 直接產生完整行程建議（需本機助理服務運行中）。
           </p>
@@ -197,31 +216,40 @@ export function DateItineraryAiSheet({ suggestion, onClose }: Props) {
               </div>
             </Field>
           ) : null}
+        </div>
 
-          <div className="mt-2 flex flex-col gap-2">
-            <button
-              type="button"
-              onClick={() => void handleGenerate()}
-              disabled={loading}
-              className={`flex min-h-[48px] w-full items-center justify-center gap-2 ${lq.btnPrimary} disabled:opacity-60`}
-            >
-              {loading ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
-                  正在產生行程…
-                </>
-              ) : (
-                '✨ 產生約會行程'
-              )}
-            </button>
-            <button type="button" onClick={onClose} className="min-h-[44px] text-[14px] font-semibold text-stone-500">
-              關閉
-            </button>
-          </div>
+        <div className="shrink-0 border-t border-stone-100 bg-white px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3">
+          <button
+            type="button"
+            onClick={handleGenerate}
+            disabled={loading}
+            aria-busy={loading}
+            className={`flex min-h-[48px] w-full items-center justify-center gap-2 ${lq.btnPrimary} disabled:pointer-events-none disabled:opacity-60`}
+          >
+            {loading ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+                正在產生行程…
+              </>
+            ) : (
+              '✨ 產生約會行程'
+            )}
+          </button>
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={loading}
+            className="mt-2 min-h-[44px] w-full text-[14px] font-semibold text-stone-500 disabled:opacity-50"
+          >
+            關閉
+          </button>
         </div>
       </div>
     </div>
   );
+
+  if (typeof document === 'undefined') return sheet;
+  return createPortal(sheet, document.body);
 }
 
 function PreviewRow({

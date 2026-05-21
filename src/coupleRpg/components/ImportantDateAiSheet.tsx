@@ -44,19 +44,24 @@ export function ImportantDateAiSheet({ event, initialPrefs, onClose, onSavePrefs
     setLoading(true);
     setError(null);
     setAnswer(null);
-    const result = await postCoupleAssistant('important-date', prompt, isPro ? 'pro' : 'free');
-    setLoading(false);
-    if (!result.ok) {
-      setError(result.message);
-      return;
+    try {
+      const result = await postCoupleAssistant('important-date', prompt, isPro ? 'pro' : 'free');
+      if (!result.ok) {
+        setError(result.message);
+        return;
+      }
+      setAnswer(result.data.answer);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : '產生建議時發生錯誤，請再試一次。');
+    } finally {
+      setLoading(false);
     }
-    setAnswer(result.data.answer);
   }, [prompt, partnerPrefs, onSavePrefs, isPro]);
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col justify-end bg-black/40 p-0" role="dialog" aria-modal="true">
       <button type="button" className="absolute inset-0" aria-label="關閉" onClick={onClose} />
-      <div className="relative max-h-[88vh] overflow-hidden rounded-t-2xl bg-white shadow-2xl">
+      <div className="relative z-10 max-h-[88vh] overflow-hidden rounded-t-2xl bg-white shadow-2xl">
         <div className="flex items-center justify-between border-b border-stone-100 px-4 py-3">
           <div className="min-w-0">
             <p className="flex items-center gap-1.5 text-[11px] font-bold text-rose-500">

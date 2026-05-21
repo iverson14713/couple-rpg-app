@@ -185,7 +185,7 @@ import { ENABLE_DINNER_DECISION_CLOUD_SYNC } from '../constants/dinnerSyncFlags'
 import { canSyncDinnerOptions, type DinnerSyncStatus } from '../services/dinnerSyncService';
 import { createDinnerSyncScheduler, type DinnerSyncScheduler } from '../services/dinnerSyncScheduler';
 import { touchDinnerOption } from '../storage/dinnerSyncMeta';
-import { useCoupleSpace } from './CoupleSpaceContext';
+
 import {
   loadCoupleExtendedProfile,
   saveCoupleExtendedProfile,

@@ -1,14 +1,7 @@
 import { getOrCreateClientId } from '../../aiClient';
 
-/** Local dev assistant API (see `npm run dev:server`). Production uses same-origin Vercel routes. */
+/** Local assistant API (see `npm run dev:server`). */
 export const COUPLE_ASSISTANT_DEV_BASE = 'http://127.0.0.1:8788';
-
-function coupleAssistantBase(): string {
-  if (typeof window === 'undefined') return COUPLE_ASSISTANT_DEV_BASE;
-  const host = window.location.hostname;
-  if (host === 'localhost' || host === '127.0.0.1') return COUPLE_ASSISTANT_DEV_BASE;
-  return '';
-}
 
 export type CoupleAssistantEndpoint = 'date-itinerary' | 'important-date';
 
@@ -25,6 +18,31 @@ type CoupleAssistantErrorBody = {
   detail?: string;
 };
 
+/**
+ * Dev on localhost → direct 8788. Dev on LAN/custom host → Vite proxy `/api/...`.
+ * Production → same-origin `/api/assistant/...`.
+ */
+export function resolveCoupleAssistantUrl(endpoint: CoupleAssistantEndpoint): string {
+  const path = `/api/assistant/${endpoint}`;
+  if (import.meta.env.PROD) {
+    return path;
+  }
+
+  const override = import.meta.env.VITE_ASSISTANT_SERVER_URL?.trim().replace(/\/$/, '');
+  if (override) {
+    return `${override}${path}`;
+  }
+
+  if (typeof window !== 'undefined') {
+    const host = window.location.hostname;
+    if (host !== 'localhost' && host !== '127.0.0.1') {
+      return path;
+    }
+  }
+
+  return `${COUPLE_ASSISTANT_DEV_BASE}${path}`;
+}
+
 export function todayUsageDateYmd(): string {
   const d = new Date();
   const y = d.getFullYear();
@@ -33,7 +51,12 @@ export function todayUsageDateYmd(): string {
   return `${y}-${m}-${day}`;
 }
 
-function errorMessageZh(body: CoupleAssistantErrorBody, status: number): string {
+function errorMessageZh(
+  body: CoupleAssistantErrorBody,
+  status: number,
+  requestUrl: string,
+  networkDetail?: string
+): string {
   const code = body.code;
   if (code === 'NO_API_KEY') {
     return '助理服務尚未設定 API 金鑰，請確認專案根目錄 .env 的 OPENAI_API_KEY。';
@@ -45,15 +68,22 @@ function errorMessageZh(body: CoupleAssistantErrorBody, status: number): string 
     return '請求太頻繁，請稍候約一分鐘再試。';
   }
   if (code === 'OPENAI') {
-    return 'AI 服務暫時無法回應，請稍後再試。';
+    const detail = body.detail?.trim();
+    return detail
+      ? `AI 服務暫時無法回應，請稍後再試。（${detail}）`
+      : 'AI 服務暫時無法回應，請稍後再試。';
   }
   if (status === 0) {
-    return '無法連線到助理服務，請確認已執行 npm run dev（會啟動 127.0.0.1:8788）。';
+    const net = networkDetail?.trim();
+    return net
+      ? `無法連線到助理服務（${net}）。請確認已執行 npm run dev，且可連線：${requestUrl}`
+      : `無法連線到助理服務。請確認已執行 npm run dev，且可連線：${requestUrl}`;
   }
   if (typeof body.error === 'string' && body.error.trim()) {
-    return body.error.trim();
+    const detail = body.detail?.trim();
+    return detail ? `${body.error.trim()}（${detail}）` : body.error.trim();
   }
-  return `請求失敗（${status}）`;
+  return `請求失敗（HTTP ${status}）`;
 }
 
 export async function postCoupleAssistant(
@@ -61,7 +91,8 @@ export async function postCoupleAssistant(
   prompt: string,
   plan: 'free' | 'pro'
 ): Promise<{ ok: true; data: CoupleAssistantSuccess } | { ok: false; message: string }> {
-  const url = `${coupleAssistantBase()}/api/assistant/${endpoint}`;
+  const url = resolveCoupleAssistantUrl(endpoint);
+  console.log('calling assistant api', url);
   let res: Response;
   try {
     res = await fetch(url, {
@@ -74,19 +105,20 @@ export async function postCoupleAssistant(
         prompt,
       }),
     });
-  } catch {
-    return { ok: false, message: errorMessageZh({}, 0) };
+  } catch (e) {
+    const networkDetail = e instanceof Error ? e.message : String(e);
+    return { ok: false, message: errorMessageZh({}, 0, url, networkDetail) };
   }
 
   let body: CoupleAssistantSuccess & CoupleAssistantErrorBody;
   try {
     body = (await res.json()) as CoupleAssistantSuccess & CoupleAssistantErrorBody;
   } catch {
-    return { ok: false, message: errorMessageZh({}, res.status) };
+    return { ok: false, message: errorMessageZh({}, res.status, url) };
   }
 
   if (!res.ok) {
-    return { ok: false, message: errorMessageZh(body, res.status) };
+    return { ok: false, message: errorMessageZh(body, res.status, url) };
   }
 
   const answer = typeof body.answer === 'string' ? body.answer.trim() : '';

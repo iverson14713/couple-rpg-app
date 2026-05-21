@@ -53,10 +53,16 @@ function readBody(req, maxBytes = 512_000) {
   });
 }
 
+function logRequest(method, pathname) {
+  console.log(`[assistant-api] ${method} ${pathname}`);
+}
+
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url || '/', `http://${req.headers.host}`);
+  const pathname = url.pathname;
 
   if (req.method === 'OPTIONS') {
+    logRequest('OPTIONS', pathname);
     res.writeHead(204, {
       'Access-Control-Allow-Origin': '*',
       'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
@@ -68,16 +74,20 @@ const server = http.createServer(async (req, res) => {
   }
 
   try {
-    if (req.method === 'GET' && url.pathname === '/api/assistant/health') {
+    if (req.method === 'GET' && pathname === '/api/assistant/health') {
+      logRequest('GET', pathname);
       const { status, json } = assistHealthGET(url.searchParams);
       sendJson(res, status, json);
       return;
     }
 
     if (req.method !== 'POST') {
+      logRequest(req.method || 'GET', pathname);
       sendJson(res, 404, { error: 'Not found' });
       return;
     }
+
+    logRequest('POST', pathname);
 
     let bodyRaw;
     try {
@@ -95,37 +105,37 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
-    if (url.pathname === '/api/assistant/care-bundle') {
+    if (pathname === '/api/assistant/care-bundle') {
       const { status, json } = await assistCareBundlePOST(body);
       sendJson(res, status, json);
       return;
     }
 
-    if (url.pathname === '/api/assistant/qa') {
+    if (pathname === '/api/assistant/qa') {
       const { status, json } = await assistQaPOST(body);
       sendJson(res, status, json);
       return;
     }
 
-    if (url.pathname === '/api/assistant/vet-report') {
+    if (pathname === '/api/assistant/vet-report') {
       const { status, json } = await assistVetReportPOST(body);
       sendJson(res, status, json);
       return;
     }
 
-    if (url.pathname === '/api/assistant/weekly-report') {
+    if (pathname === '/api/assistant/weekly-report') {
       const { status, json } = await assistWeeklyReportPOST(body);
       sendJson(res, status, json);
       return;
     }
 
-    if (url.pathname === '/api/assistant/date-itinerary') {
+    if (pathname === '/api/assistant/date-itinerary') {
       const { status, json } = await assistDateItineraryPOST(body);
       sendJson(res, status, json);
       return;
     }
 
-    if (url.pathname === '/api/assistant/important-date') {
+    if (pathname === '/api/assistant/important-date') {
       const { status, json } = await assistImportantDatePOST(body);
       sendJson(res, status, json);
       return;
