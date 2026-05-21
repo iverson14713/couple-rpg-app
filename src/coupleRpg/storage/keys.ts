@@ -5,6 +5,8 @@ export const LQ_KEYS = {
   coupleExtended: 'lovequest-couple-profile',
   dinner: 'lovequest-dinner',
   housework: 'lovequest-housework',
+  /** 每日家事 LoveCoin/RPG 領獎紀錄（dateKey::taskId，不受重新分配影響） */
+  choreRewardClaims: 'lovequest-chore-reward-claims',
   tasks: 'lovequest-tasks',
   flirtGames: 'lovequest-flirt-games',
   completionHistory: 'lovequest-completion-history',

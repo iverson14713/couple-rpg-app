@@ -181,11 +181,19 @@ export type HouseworkChoreCompleteResult = {
   item: HouseworkItem | null;
 };
 
+export type CompleteAssignedChoreOptions = {
+  /** 通過每日 claim 檢查後才為 true */
+  grantReward?: boolean;
+  /** 今日此 taskId 已在 claim 表（含舊 record.rewarded 補登） */
+  rewardAlreadyClaimed?: boolean;
+};
+
 export function completeAssignedChore(
   data: HouseworkData,
   taskId: string,
   today: string = todayKey(),
-  completedByUserId?: string | null
+  completedByUserId?: string | null,
+  options?: CompleteAssignedChoreOptions
 ): HouseworkChoreCompleteResult {
   const cur = getTodayAssignment(data, today);
   if (!cur?.assignedAt) {
@@ -198,12 +206,14 @@ export function completeAssignedChore(
     return { data, granted: false, chore: chore ?? null, item };
   }
 
-  const grantNow = !chore.rewarded;
+  const grantNow = options?.grantReward === true;
+  const rewardMarked =
+    grantNow || options?.rewardAlreadyClaimed === true || chore.rewarded;
   const now = new Date().toISOString();
   const updatedChore: HouseworkAssignedChore = touchAssignedChore({
     ...chore,
     completed: true,
-    rewarded: chore.rewarded || grantNow,
+    rewarded: rewardMarked,
     completedAt: chore.completedAt ?? now,
     completedBy: chore.completedBy ?? completedByUserId ?? null,
   });

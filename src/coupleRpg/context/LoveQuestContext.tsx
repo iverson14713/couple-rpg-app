@@ -29,12 +29,18 @@ import {
   completeAssignedChore,
   clearTodayAssignment,
   getHouseworkHomeStatus,
+  getTodayAssignment,
   loadHousework,
   reassignToday,
   saveHousework,
   setSelectedTaskIds,
   startTodayAssignment,
 } from '../storage/houseworkStore';
+import {
+  backfillChoreRewardClaimsFromHousework,
+  hasChoreRewardClaim,
+  tryClaimChoreReward,
+} from '../storage/choreRewardClaimsStore';
 import type { HouseworkHomeStatus } from '../storage/houseworkStore';
 import {
   dailyTaskProgress,
@@ -187,10 +193,11 @@ import {
 import {
   canSyncCoupleProfile,
   getRemoteCoupleProfile,
-  mergeCoupleProfile,
+  mergeCoupleExtendedProfile,
   pullCoupleProfileFromRemote,
   pushCoupleProfileToRemote,
   syncCoupleProfile,
+  type CoupleProfileSyncContext,
   type CoupleProfileSyncStatus,
 } from '../services/coupleProfileSyncService';
 import {
@@ -256,7 +263,7 @@ type LoveQuestContextValue = {
   removeHouseworkItem: (id: string) => void;
   setHouseworkSelectedTaskIds: (taskIds: string[]) => void;
   startHouseworkAssignment: () => boolean;
-  completeHouseworkChore: (taskId: string) => void;
+  completeHouseworkChore: (taskId: string) => { granted: boolean; rewardAlreadyClaimed: boolean };
   clearTodayHousework: () => void;
   reassignTodayHousework: () => boolean;
   choreSyncStatus: ChoreSyncStatus;
@@ -377,6 +384,10 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
   const [rpg, setRpg] = useState(loadRpg);
   const [dinner, setDinner] = useState(loadDinner);
   const [housework, setHousework] = useState(loadHousework);
+
+  useEffect(() => {
+    backfillChoreRewardClaimsFromHousework(loadHousework());
+  }, []);
   const [tasks, setTasks] = useState(loadTasks);
   const [coupleExtended, setCoupleExtendedState] = useState(loadCoupleExtendedProfile);
   const [importantDateReminders, setImportantDateReminders] = useState(loadImportantDateReminders);
@@ -398,6 +409,11 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
       partnerName: coupleExtended.partnerNickname.trim() || '另一半',
     }),
     [currentUserId, partnerUserId, coupleExtended.myNickname, coupleExtended.partnerNickname]
+  );
+
+  const coupleProfileSyncCtx = useMemo<CoupleProfileSyncContext>(
+    () => ({ currentUserId, partnerUserId }),
+    [currentUserId, partnerUserId]
   );
 
   const logTodayActivity = useCallback(
@@ -958,31 +974,71 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
     return ok;
   }, [logTodayActivity]);
 
+  const houseworkCompleteLocksRef = useRef<Set<string>>(new Set());
+
   const completeHouseworkChoreFn = useCallback(
-    (taskId: string) => {
-      setHousework((prev) => {
-        const { data: next, granted, item } = completeAssignedChore(prev, taskId, todayKey(), currentUserId);
-        if (granted && item) {
+    (taskId: string): { granted: boolean; rewardAlreadyClaimed: boolean } => {
+      if (houseworkCompleteLocksRef.current.has(taskId)) {
+        return { granted: false, rewardAlreadyClaimed: true };
+      }
+      houseworkCompleteLocksRef.current.add(taskId);
+
+      try {
+        const today = todayKey();
+        const prev = loadHousework();
+        backfillChoreRewardClaimsFromHousework(prev, today);
+
+        const item = prev.items.find((i) => i.id === taskId) ?? null;
+        const cur = getTodayAssignment(prev, today);
+        const chore = cur?.chores.find((c) => c.taskId === taskId);
+        if (!item || !cur?.assignedAt || !chore || chore.completed) {
+          return {
+            granted: false,
+            rewardAlreadyClaimed: hasChoreRewardClaim(today, taskId),
+          };
+        }
+
+        const alreadyClaimed = hasChoreRewardClaim(today, taskId);
+        const grantNow = !alreadyClaimed && tryClaimChoreReward(today, taskId);
+
+        const { data: next, granted, item: doneItem } = completeAssignedChore(
+          prev,
+          taskId,
+          today,
+          currentUserId,
+          { grantReward: grantNow, rewardAlreadyClaimed: alreadyClaimed }
+        );
+
+        if (granted && doneItem) {
           const assigneeName =
             next.todayAssignment?.chores.find((c) => c.taskId === taskId)?.assignee === 'A'
               ? coupleExtended.myNickname.trim() || '我'
               : coupleExtended.partnerNickname.trim() || '另一半';
-          grantReward(REWARDS.houseworkChoreComplete, `${assigneeName} 完成「${item.label}」`, {
+          grantReward(REWARDS.houseworkChoreComplete, `${assigneeName} 完成「${doneItem.label}」`, {
             source: 'housework',
-            title: item.label,
-            emoji: item.emoji,
+            title: doneItem.label,
+            emoji: doneItem.emoji,
           });
         }
+
         saveHousework(next);
-        if (item) {
+        setHousework(next);
+
+        if (doneItem) {
           logTodayActivity({
             actionType: 'complete',
             targetType: 'chore',
-            targetTitle: item.label,
+            targetTitle: doneItem.label,
           });
         }
-        return next;
-      });
+
+        return {
+          granted: Boolean(granted),
+          rewardAlreadyClaimed: alreadyClaimed || (!grantNow && hasChoreRewardClaim(today, taskId)),
+        };
+      } finally {
+        houseworkCompleteLocksRef.current.delete(taskId);
+      }
     },
     [
       coupleExtended.myNickname,
@@ -1057,10 +1113,17 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
       setCoupleProfileSyncError(null);
       try {
         const { serverUpdatedAt } = await getRemoteCoupleProfile(sb, coupleId);
-        const result = await pushCoupleProfileToRemote(sb, coupleId, profile, serverUpdatedAt);
+        if (!currentUserId) return;
+        const result = await pushCoupleProfileToRemote(
+          sb,
+          coupleId,
+          profile,
+          currentUserId,
+          serverUpdatedAt
+        );
         if (result.conflict) {
           const row = await pullCoupleProfileFromRemote(sb, coupleId);
-          const merged = mergeCoupleProfile(profile, row.profile);
+          const merged = mergeCoupleExtendedProfile(profile, row.profile, coupleProfileSyncCtx);
           saveCoupleExtendedProfile(merged);
           setCoupleExtendedState(merged);
         }
@@ -1071,7 +1134,7 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
         setCoupleProfileSyncError('同步失敗，稍後再試');
       }
     },
-    [auth.configured, auth.supabase, coupleId, currentUserId, isFullyBound, isOnline]
+    [auth.configured, auth.supabase, coupleId, coupleProfileSyncCtx, currentUserId, isFullyBound, isOnline]
   );
 
   const syncCoupleProfileFn = useCallback(async () => {
@@ -1094,7 +1157,7 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
     setCoupleProfileSyncStatus('syncing');
     setCoupleProfileSyncError(null);
     try {
-      const result = await syncCoupleProfile(sb, coupleId);
+      const result = await syncCoupleProfile(sb, coupleId, coupleProfileSyncCtx);
       setCoupleExtendedState(result.merged);
       setCoupleProfileSyncStatus('synced');
     } catch (err) {
@@ -1102,7 +1165,7 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
       setCoupleProfileSyncStatus('error');
       setCoupleProfileSyncError('同步失敗，稍後再試');
     }
-  }, [auth.configured, auth.supabase, coupleId, currentUserId, isFullyBound, isOnline]);
+  }, [auth.configured, auth.supabase, coupleId, coupleProfileSyncCtx, currentUserId, isFullyBound, isOnline]);
 
   useEffect(() => {
     if (
@@ -1127,7 +1190,7 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
         const row = await pullCoupleProfileFromRemote(sb, coupleId);
         if (cancelled) return;
         const local = loadCoupleExtendedProfile();
-        const merged = mergeCoupleProfile(local, row.profile);
+        const merged = mergeCoupleExtendedProfile(local, row.profile, coupleProfileSyncCtx);
         saveCoupleExtendedProfile(merged);
         setCoupleExtendedState(merged);
         setCoupleProfileSyncStatus('synced');
@@ -1143,7 +1206,15 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
     return () => {
       cancelled = true;
     };
-  }, [auth.configured, auth.supabase, coupleId, currentUserId, isFullyBound, isOnline]);
+  }, [
+    auth.configured,
+    auth.supabase,
+    coupleId,
+    coupleProfileSyncCtx,
+    currentUserId,
+    isFullyBound,
+    isOnline,
+  ]);
 
   const setCoupleExtendedProfileFn = useCallback(
     (profile: CoupleExtendedProfile) => {

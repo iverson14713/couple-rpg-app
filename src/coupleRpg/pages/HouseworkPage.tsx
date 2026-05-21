@@ -2,6 +2,8 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Check, Users } from 'lucide-react';
 import { ChoreSyncStatusLine } from '../components/ChoreSyncStatusLine';
 import { useLoveQuest } from '../context/LoveQuestContext';
+import { todayKey } from '../lib/dates';
+import { hasChoreRewardClaim } from '../storage/choreRewardClaimsStore';
 import { DEFAULT_HOUSEWORK_ITEMS, getTodayAssignment } from '../storage/houseworkStore';
 import { EmptyState } from '../components/EmptyState';
 import { RpgMiniStats } from '../components/RpgMiniStats';
@@ -18,6 +20,10 @@ export function HouseworkPage({ embedded }: { embedded?: boolean } = {}) {
     game;
   const [newLabel, setNewLabel] = useState('');
   const [confirmReassign, setConfirmReassign] = useState(false);
+  const [completingIds, setCompletingIds] = useState<Set<string>>(() => new Set());
+  const [rewardHint, setRewardHint] = useState<string | null>(null);
+
+  const today = todayKey();
 
   useEffect(() => {
     void pullHouseworkFromCloud();
@@ -66,6 +72,27 @@ export function HouseworkPage({ embedded }: { embedded?: boolean } = {}) {
   const doneCount = todayAssignment?.chores.filter((c) => c.completed).length ?? 0;
   const totalCount = todayAssignment?.chores.length ?? 0;
   const hasCompleted = doneCount > 0;
+
+  const handleCompleteChore = useCallback(
+    (taskId: string) => {
+      if (completingIds.has(taskId)) return;
+      setCompletingIds((prev) => new Set(prev).add(taskId));
+      setRewardHint(null);
+      try {
+        const result = game.completeHouseworkChore(taskId);
+        if (result.rewardAlreadyClaimed && !result.granted) {
+          setRewardHint('今天這項家事已領過獎勵，默契與 LoveCoin 不會重複增加');
+        }
+      } finally {
+        setCompletingIds((prev) => {
+          const next = new Set(prev);
+          next.delete(taskId);
+          return next;
+        });
+      }
+    },
+    [completingIds, game]
+  );
 
   const handleReassign = useCallback(() => {
     if (hasCompleted && !confirmReassign) {
@@ -160,13 +187,17 @@ export function HouseworkPage({ embedded }: { embedded?: boolean } = {}) {
               title={meName}
               chores={choresByPerson.A}
               items={game.housework.items}
-              onComplete={(id) => game.completeHouseworkChore(id)}
+              today={today}
+              completingIds={completingIds}
+              onComplete={handleCompleteChore}
             />
             <AssigneeColumn
               title={partnerName}
               chores={choresByPerson.B}
               items={game.housework.items}
-              onComplete={(id) => game.completeHouseworkChore(id)}
+              today={today}
+              completingIds={completingIds}
+              onComplete={handleCompleteChore}
             />
           </div>
 
@@ -181,7 +212,11 @@ export function HouseworkPage({ embedded }: { embedded?: boolean } = {}) {
             <button
               type="button"
               onClick={() => {
-                if (hasCompleted && !window.confirm('清除今日分配可能會遺失完成狀態，確定嗎？')) return;
+                if (
+                  hasCompleted &&
+                  !window.confirm('清除今日分配會移除畫面上的完成狀態，但今日已領獎勵不會重置。確定嗎？')
+                )
+                  return;
                 game.clearTodayHousework();
                 setConfirmReassign(false);
               }}
@@ -191,9 +226,15 @@ export function HouseworkPage({ embedded }: { embedded?: boolean } = {}) {
             </button>
           </div>
 
+          {rewardHint ? (
+            <p className={`mt-2 rounded-xl border border-stone-200 bg-stone-50 px-3 py-2 text-[12px] ${lq.textMuted}`}>
+              {rewardHint}
+            </p>
+          ) : null}
+
           {confirmReassign ? (
             <div className={`mt-2 rounded-xl border border-amber-200 bg-amber-50/90 px-3 py-2 text-[12px] text-amber-950`}>
-              <p>重新分配可能會清除今日完成狀態，確定嗎？</p>
+              <p>重新分配會重排家事，今日已領過的獎勵不會重置。確定嗎？</p>
               <div className="mt-2 flex gap-2">
                 <button type="button" onClick={handleReassign} className="font-bold text-amber-800 underline">
                   確定重新分配
@@ -260,11 +301,15 @@ function AssigneeColumn({
   title,
   chores,
   items,
+  today,
+  completingIds,
   onComplete,
 }: {
   title: string;
   chores: { taskId: string; assignee: 'A' | 'B'; completed: boolean; rewarded: boolean }[];
   items: { id: string; label: string; emoji: string }[];
+  today: string;
+  completingIds: Set<string>;
   onComplete: (id: string) => void;
 }) {
   return (
@@ -280,16 +325,27 @@ function AssigneeColumn({
           {chores.map((c) => {
             const item = items.find((i) => i.id === c.taskId);
             if (!item) return null;
+            const rewardClaimed = hasChoreRewardClaim(today, c.taskId);
+            const locking = completingIds.has(c.taskId);
+            const statusLabel = c.completed
+              ? rewardClaimed
+                ? '已完成，本日獎勵已領'
+                : '完成'
+              : rewardClaimed
+                ? '可完成（本日獎勵已領）'
+                : '點擊完成';
             return (
               <li key={c.taskId}>
                 <button
                   type="button"
-                  onClick={() => !c.completed && onComplete(c.taskId)}
-                  disabled={c.completed}
+                  onClick={() => !c.completed && !locking && onComplete(c.taskId)}
+                  disabled={c.completed || locking}
                   className={`flex w-full min-h-[40px] items-center gap-2 rounded-lg border px-2.5 py-2 text-left transition ${
                     c.completed
                       ? 'border-emerald-200 bg-emerald-50/80 opacity-90'
-                      : 'border-stone-200 bg-white active:scale-[0.99]'
+                      : locking
+                        ? 'border-stone-200 bg-stone-50 opacity-70'
+                        : 'border-stone-200 bg-white active:scale-[0.99]'
                   }`}
                 >
                   <span
@@ -303,8 +359,12 @@ function AssigneeColumn({
                   <span className={`flex-1 text-[14px] font-semibold ${c.completed ? 'text-stone-500 line-through' : lq.text}`}>
                     {item.label}
                   </span>
-                  <span className={`text-[11px] ${c.completed ? 'text-emerald-600' : lq.textMuted}`}>
-                    {c.completed ? '完成' : '點擊完成'}
+                  <span
+                    className={`max-w-[42%] text-right text-[10px] leading-tight ${
+                      c.completed ? 'text-emerald-600' : rewardClaimed ? 'text-amber-700' : lq.textMuted
+                    }`}
+                  >
+                    {locking ? '處理中…' : statusLabel}
                   </span>
                 </button>
               </li>
