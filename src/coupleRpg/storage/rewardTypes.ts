@@ -57,9 +57,11 @@ export type CustomRewardCardInput = {
 };
 
 export type OwnedCoupon = {
-  /** 本地 client id（與 Supabase client_id 對應） */
+  /** 本地 id（與 Supabase local_id 對應） */
   id: string;
   remoteId?: string | null;
+  /** 雲端列 updated_at（合併用） */
+  remoteUpdatedAt?: string;
   /** 商城 id 或 custom-{uuid} */
   itemId: string;
   cardId: string;

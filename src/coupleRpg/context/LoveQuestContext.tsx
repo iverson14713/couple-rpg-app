@@ -104,11 +104,12 @@ import {
 } from '../storage/rewardsStore';
 import {
   canSyncRewardCards,
-  completeRewardCardRemote,
+  completeRewardCard as pushCompleteRewardCardRemote,
   pullRewardCardsFromRemote,
-  pushRewardCardsToRemote,
-  redeemRewardCardRemote,
-  useRewardCardRemote,
+  redeemRewardCard,
+  syncRewardCards as syncRewardCardsRemote,
+  useRewardCard as pushUseRewardCardRemote,
+  type RewardCardSyncStatus,
 } from '../services/rewardCardSync';
 import {
   displayNameForUserId,
@@ -285,6 +286,7 @@ type LoveQuestContextValue = {
   redeemedCoupons: ReturnType<typeof getCouponsByStatus>;
   inProgressCoupons: ReturnType<typeof getCouponsByStatus>;
   completedCoupons: ReturnType<typeof getCouponsByStatus>;
+  rewardCardSyncStatus: RewardCardSyncStatus;
   rewardCardSyncError: string | null;
   redeemRewardItem: (itemId: ShopItemId) => boolean;
   redeemCustomRewardItem: (input: CustomRewardCardInput) => boolean;
@@ -325,6 +327,7 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
   const coupleId = space?.coupleId ?? null;
   const currentUserId = auth.user?.id ?? null;
 
+  const [rewardCardSyncStatus, setRewardCardSyncStatus] = useState<RewardCardSyncStatus>('local');
   const [rewardCardSyncError, setRewardCardSyncError] = useState<string | null>(null);
   const [coupleProfileSyncStatus, setCoupleProfileSyncStatus] =
     useState<CoupleProfileSyncStatus>('local');
@@ -1187,9 +1190,12 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
         !auth.supabase ||
         !coupleId
       ) {
+        setRewardCardSyncStatus('local');
         return;
       }
-      void redeemRewardCardRemote(auth.supabase, coupleId, coupon)
+      setRewardCardSyncStatus('syncing');
+      setRewardCardSyncError(null);
+      void redeemRewardCard(auth.supabase, coupleId, coupon)
         .then((synced) => {
           setRewards((prev) => {
             const next = {
@@ -1199,12 +1205,14 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
             saveRewards(next);
             return next;
           });
+          setRewardCardSyncStatus('synced');
           setRewardCardSyncError(null);
         })
         .catch((e) => {
           const msg = e instanceof Error ? e.message : String(e);
           console.error('[reward-card-sync] push failed:', msg);
-          setRewardCardSyncError('卡券同步失敗，資料已保存在本機');
+          setRewardCardSyncStatus('error');
+          setRewardCardSyncError('同步失敗，稍後再試');
         });
     },
     [auth.configured, auth.supabase, coupleId, currentUserId, isFullyBound, isOnline]
@@ -1277,7 +1285,8 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
           auth.supabase &&
           coupleId
         ) {
-          void useRewardCardRemote(auth.supabase, coupleId, r.coupon)
+          setRewardCardSyncStatus('syncing');
+          void pushUseRewardCardRemote(auth.supabase, coupleId, r.coupon)
             .then((synced) => {
               setRewards((p) => {
                 const n = {
@@ -1287,12 +1296,14 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
                 saveRewards(n);
                 return n;
               });
+              setRewardCardSyncStatus('synced');
               setRewardCardSyncError(null);
             })
             .catch((e) => {
               const msg = e instanceof Error ? e.message : String(e);
               console.error('[reward-card-sync] use push failed:', msg);
-              setRewardCardSyncError('卡券同步失敗，資料已保存在本機');
+              setRewardCardSyncStatus('error');
+              setRewardCardSyncError('同步失敗，稍後再試');
             });
         }
         return r.rewards;
@@ -1329,7 +1340,8 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
           auth.supabase &&
           coupleId
         ) {
-          void completeRewardCardRemote(auth.supabase, coupleId, r.coupon)
+          setRewardCardSyncStatus('syncing');
+          void pushCompleteRewardCardRemote(auth.supabase, coupleId, r.coupon)
             .then((synced) => {
               setRewards((p) => {
                 const n = {
@@ -1339,12 +1351,14 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
                 saveRewards(n);
                 return n;
               });
+              setRewardCardSyncStatus('synced');
               setRewardCardSyncError(null);
             })
             .catch((e) => {
               const msg = e instanceof Error ? e.message : String(e);
               console.error('[reward-card-sync] complete push failed:', msg);
-              setRewardCardSyncError('卡券同步失敗，資料已保存在本機');
+              setRewardCardSyncStatus('error');
+              setRewardCardSyncError('同步失敗，稍後再試');
             });
         }
         return r.rewards;
@@ -1372,19 +1386,24 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
         isFullyBound,
       })
     ) {
+      setRewardCardSyncStatus('local');
       return;
     }
     if (!auth.supabase || !coupleId) return;
+    setRewardCardSyncStatus('syncing');
+    setRewardCardSyncError(null);
     try {
       const cur = loadRewards();
       const merged = await pullRewardCardsFromRemote(auth.supabase, coupleId, cur);
       saveRewards(merged);
       setRewards(merged);
+      setRewardCardSyncStatus('synced');
       setRewardCardSyncError(null);
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       console.error('[reward-card-sync] pull failed:', msg);
-      setRewardCardSyncError('無法從雲端載入卡券，請稍後再試');
+      setRewardCardSyncStatus('error');
+      setRewardCardSyncError('同步失敗，稍後再試');
     }
   }, [
     auth.configured,
@@ -1406,23 +1425,71 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
         isFullyBound,
       })
     ) {
+      setRewardCardSyncStatus('local');
       setRewardCardSyncError('需要登入、完成情侶綁定並連上網路才能同步');
       return;
     }
     if (!auth.supabase || !coupleId) return;
+    setRewardCardSyncStatus('syncing');
+    setRewardCardSyncError(null);
     try {
-      const cur = loadRewards();
-      const pushed = await pushRewardCardsToRemote(auth.supabase, coupleId, cur);
-      const merged = await pullRewardCardsFromRemote(auth.supabase, coupleId, pushed);
-      saveRewards(merged);
+      const merged = await syncRewardCardsRemote(auth.supabase, coupleId);
       setRewards(merged);
+      setRewardCardSyncStatus('synced');
       setRewardCardSyncError(null);
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       console.error('[reward-card-sync] sync failed:', msg);
-      setRewardCardSyncError('卡券同步失敗，本機資料不受影響');
+      setRewardCardSyncStatus('error');
+      setRewardCardSyncError('同步失敗，稍後再試');
     }
   }, [auth.configured, auth.supabase, coupleId, currentUserId, isFullyBound, isOnline]);
+
+  useEffect(() => {
+    if (
+      !canSyncRewardCards({
+        configured: auth.configured,
+        userId: currentUserId,
+        coupleId,
+        online: isOnline,
+        isFullyBound,
+      })
+    ) {
+      setRewardCardSyncStatus('local');
+      return;
+    }
+    if (!auth.supabase || !coupleId || coupleSpaceLoading) return;
+
+    let cancelled = false;
+    void (async () => {
+      try {
+        const cur = loadRewards();
+        const merged = await pullRewardCardsFromRemote(auth.supabase!, coupleId, cur);
+        if (cancelled) return;
+        saveRewards(merged);
+        setRewards(merged);
+        setRewardCardSyncStatus('synced');
+        setRewardCardSyncError(null);
+      } catch (e) {
+        if (cancelled) return;
+        console.error('[reward-card-sync] auto pull failed:', e);
+        setRewardCardSyncStatus('error');
+        setRewardCardSyncError('同步失敗，稍後再試');
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    auth.configured,
+    auth.supabase,
+    coupleId,
+    coupleSpaceLoading,
+    currentUserId,
+    isFullyBound,
+    isOnline,
+  ]);
 
   const weeklyTitles = useMemo(
     () => getWeeklyTitles(weeklyStats, completionHistory, couple),
@@ -1518,6 +1585,7 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
       redeemedCoupons: getCouponsByStatus(rewards, 'redeemed'),
       inProgressCoupons: getCouponsByStatus(rewards, 'used'),
       completedCoupons: getCouponsByStatus(rewards, 'completed'),
+      rewardCardSyncStatus,
       rewardCardSyncError,
       redeemRewardItem: redeemRewardItemFn,
       redeemCustomRewardItem: redeemCustomRewardItemFn,
@@ -1597,6 +1665,7 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
       completeRewardCardFn,
       pullRewardCardsFromCloud,
       syncRewardCards,
+      rewardCardSyncStatus,
       rewardCardSyncError,
       partnerName,
       partnerEmoji,

@@ -1,17 +1,24 @@
 /**
  * Sync reward card records with Supabase public.reward_card_records.
+ * local coupon.id ↔ DB local_id (legacy column client_id supported on read).
  */
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { isCustomRewardCardId } from '../lib/customRewardCard';
 import { pickPreferredStatus, STATUS_PROGRESS } from '../lib/rewardCardHelpers';
 import type { OwnedCoupon, RewardCardStatus, RewardsData } from '../storage/rewardTypes';
+import { loadRewards, saveRewards } from '../storage/rewardsStore';
 
 const LOG = '[reward-card-sync]';
+
+const SELECT_COLS =
+  'id, couple_id, local_id, card_id, card_title, card_type, status, redeemed_by, used_by, target_user, redeemed_at, used_at, completed_at, note, cost, emoji, created_at, updated_at';
+
+export type RewardCardSyncStatus = 'local' | 'syncing' | 'synced' | 'error';
 
 export type RewardCardRecordRow = {
   id: string;
   couple_id: string;
-  client_id: string;
+  local_id: string;
   card_id: string;
   card_title: string;
   card_type: string | null;
@@ -41,11 +48,26 @@ export function canSyncRewardCards(input: {
   );
 }
 
+function rowLocalId(row: { local_id?: string | null }): string {
+  return String(row.local_id ?? '').trim();
+}
+
+function parseTs(iso: string | null | undefined): number {
+  if (!iso) return 0;
+  const t = Date.parse(iso);
+  return Number.isFinite(t) ? t : 0;
+}
+
+function couponLocalUpdatedAt(c: OwnedCoupon): number {
+  return Math.max(parseTs(c.completedAt), parseTs(c.usedAt), parseTs(c.redeemedAt));
+}
+
 export function rowToCoupon(row: RewardCardRecordRow): OwnedCoupon {
-  const itemId = row.card_id as OwnedCoupon['itemId'];
+  const localId = rowLocalId(row);
+  const itemId = row.card_id;
   const category = (row.card_type ?? 'date') as OwnedCoupon['category'];
   return {
-    id: row.client_id,
+    id: localId,
     remoteId: row.id,
     itemId,
     cardId: itemId,
@@ -64,6 +86,7 @@ export function rowToCoupon(row: RewardCardRecordRow): OwnedCoupon {
     note: row.note,
     status: row.status,
     syncPending: false,
+    remoteUpdatedAt: row.updated_at,
     isCustom: isCustomRewardCardId(itemId),
   };
 }
@@ -71,7 +94,7 @@ export function rowToCoupon(row: RewardCardRecordRow): OwnedCoupon {
 export function couponToRowPayload(coupon: OwnedCoupon, coupleId: string) {
   return {
     couple_id: coupleId,
-    client_id: coupon.id,
+    local_id: coupon.id,
     card_id: coupon.cardId,
     card_title: coupon.cardTitle,
     card_type: coupon.cardType,
@@ -90,7 +113,11 @@ export function couponToRowPayload(coupon: OwnedCoupon, coupleId: string) {
 
 function mergeTwoCoupons(local: OwnedCoupon, remote: OwnedCoupon): OwnedCoupon {
   const status = pickPreferredStatus(local.status, remote.status);
-  const preferRemote = STATUS_PROGRESS[remote.status] >= STATUS_PROGRESS[local.status];
+  const localScore = STATUS_PROGRESS[local.status];
+  const remoteScore = STATUS_PROGRESS[remote.status];
+  const preferRemote =
+    remoteScore > localScore ||
+    (remoteScore === localScore && parseTs(remote.remoteUpdatedAt) >= couponLocalUpdatedAt(local));
   const primary = preferRemote ? remote : local;
   const secondary = preferRemote ? local : remote;
 
@@ -105,12 +132,21 @@ function mergeTwoCoupons(local: OwnedCoupon, remote: OwnedCoupon): OwnedCoupon {
     usedAt: primary.usedAt ?? secondary.usedAt,
     completedAt: primary.completedAt ?? secondary.completedAt,
     note: primary.note ?? secondary.note,
-    syncPending: local.syncPending && !remote.remoteId,
+    description: primary.description ?? secondary.description,
+    needsPartnerComplete: primary.needsPartnerComplete ?? secondary.needsPartnerComplete,
+    isCustom: primary.isCustom ?? secondary.isCustom,
+    syncPending: false,
+    remoteUpdatedAt: preferRemote ? remote.remoteUpdatedAt : local.remoteUpdatedAt,
   };
 }
 
+/** @alias mergeRemoteRewardCards */
+export function mergeRewardCards(local: OwnedCoupon[], remoteRows: RewardCardRecordRow[]): OwnedCoupon[] {
+  return mergeRemoteRewardCards(local, remoteRows);
+}
+
 export function mergeRemoteRewardCards(local: OwnedCoupon[], remoteRows: RewardCardRecordRow[]): OwnedCoupon[] {
-  const remoteCoupons = remoteRows.map(rowToCoupon);
+  const remoteCoupons = remoteRows.map(rowToCoupon).filter((c) => c.id);
   const byId = new Map<string, OwnedCoupon>();
 
   for (const r of remoteCoupons) {
@@ -122,7 +158,7 @@ export function mergeRemoteRewardCards(local: OwnedCoupon[], remoteRows: RewardC
     if (existing) {
       byId.set(lo.id, mergeTwoCoupons(lo, existing));
     } else {
-      byId.set(lo.id, lo);
+      byId.set(lo.id, { ...lo, syncPending: !lo.remoteId });
     }
   }
 
@@ -131,8 +167,22 @@ export function mergeRemoteRewardCards(local: OwnedCoupon[], remoteRows: RewardC
   );
 }
 
-export function getRewardCards(rewards: RewardsData): OwnedCoupon[] {
-  return rewards.coupons;
+export async function getRemoteRewardCards(
+  supabase: SupabaseClient,
+  coupleId: string
+): Promise<RewardCardRecordRow[]> {
+  const { data, error } = await supabase
+    .from('reward_card_records')
+    .select(SELECT_COLS)
+    .eq('couple_id', coupleId)
+    .order('redeemed_at', { ascending: false });
+
+  if (error) {
+    console.error(`${LOG} getRemote failed:`, error.message);
+    throw error;
+  }
+
+  return (data ?? []) as RewardCardRecordRow[];
 }
 
 export async function pullRewardCardsFromRemote(
@@ -141,20 +191,7 @@ export async function pullRewardCardsFromRemote(
   current: RewardsData
 ): Promise<RewardsData> {
   console.log(`${LOG} pulling`);
-  const { data, error } = await supabase
-    .from('reward_card_records')
-    .select(
-      'id, couple_id, client_id, card_id, card_title, card_type, status, redeemed_by, used_by, target_user, redeemed_at, used_at, completed_at, note, cost, emoji, created_at, updated_at'
-    )
-    .eq('couple_id', coupleId)
-    .order('redeemed_at', { ascending: false });
-
-  if (error) {
-    console.error(`${LOG} pull failed:`, error.message);
-    throw error;
-  }
-
-  const rows = (data ?? []) as RewardCardRecordRow[];
+  const rows = await getRemoteRewardCards(supabase, coupleId);
   console.log(`${LOG} pull count = ${rows.length}`);
   const merged = mergeRemoteRewardCards(current.coupons, rows);
   return { ...current, coupons: merged };
@@ -171,7 +208,7 @@ async function upsertRewardCard(
     .from('reward_card_records')
     .select('id')
     .eq('couple_id', coupleId)
-    .eq('client_id', coupon.id)
+    .eq('local_id', coupon.id)
     .maybeSingle();
 
   if (selErr) {
@@ -211,25 +248,45 @@ export async function pushRewardCardToRemote(
   coupon: OwnedCoupon
 ): Promise<OwnedCoupon> {
   const remoteId = await upsertRewardCard(supabase, coupleId, coupon);
-  return { ...coupon, remoteId: remoteId ?? coupon.remoteId ?? null, syncPending: false };
+  return {
+    ...coupon,
+    remoteId: remoteId ?? coupon.remoteId ?? null,
+    syncPending: false,
+    remoteUpdatedAt: new Date().toISOString(),
+  };
 }
 
 export async function pushRewardCardsToRemote(
   supabase: SupabaseClient,
   coupleId: string,
-  rewards: RewardsData
+  rewards: RewardsData,
+  options?: { pushAll?: boolean }
 ): Promise<RewardsData> {
-  console.log(`${LOG} pushing pending/all count = ${rewards.coupons.length}`);
+  const pushAll = options?.pushAll ?? false;
+  console.log(`${LOG} pushing coupons=${rewards.coupons.length} pushAll=${pushAll}`);
   let coupons = rewards.coupons;
   for (const c of rewards.coupons) {
-    if (!c.syncPending && c.remoteId) continue;
+    if (!pushAll && !c.syncPending && c.remoteId) continue;
     const updated = await pushRewardCardToRemote(supabase, coupleId, c);
     coupons = coupons.map((x) => (x.id === c.id ? updated : x));
   }
   return { ...rewards, coupons };
 }
 
-export async function redeemRewardCardRemote(
+/** 雙向同步：先 push 本機，再 pull 合併 */
+export async function syncRewardCards(
+  supabase: SupabaseClient,
+  coupleId: string,
+  current?: RewardsData
+): Promise<RewardsData> {
+  const base = current ?? loadRewards();
+  const pushed = await pushRewardCardsToRemote(supabase, coupleId, base, { pushAll: true });
+  const merged = await pullRewardCardsFromRemote(supabase, coupleId, pushed);
+  saveRewards(merged);
+  return merged;
+}
+
+export async function redeemRewardCard(
   supabase: SupabaseClient,
   coupleId: string,
   coupon: OwnedCoupon
@@ -237,7 +294,7 @@ export async function redeemRewardCardRemote(
   return pushRewardCardToRemote(supabase, coupleId, coupon);
 }
 
-export async function useRewardCardRemote(
+export async function useRewardCard(
   supabase: SupabaseClient,
   coupleId: string,
   coupon: OwnedCoupon
@@ -245,10 +302,17 @@ export async function useRewardCardRemote(
   return pushRewardCardToRemote(supabase, coupleId, coupon);
 }
 
-export async function completeRewardCardRemote(
+export async function completeRewardCard(
   supabase: SupabaseClient,
   coupleId: string,
   coupon: OwnedCoupon
 ): Promise<OwnedCoupon> {
   return pushRewardCardToRemote(supabase, coupleId, coupon);
 }
+
+/** @deprecated use redeemRewardCard */
+export const redeemRewardCardRemote = redeemRewardCard;
+/** @deprecated use useRewardCard */
+export const useRewardCardRemote = useRewardCard;
+/** @deprecated use completeRewardCard */
+export const completeRewardCardRemote = completeRewardCard;

@@ -3,7 +3,7 @@
 create table if not exists public.reward_card_records (
   id uuid primary key default gen_random_uuid(),
   couple_id uuid not null references public.couples(id) on delete cascade,
-  client_id text not null,
+  local_id text not null,
   card_id text not null,
   card_title text not null,
   card_type text,
@@ -22,7 +22,7 @@ create table if not exists public.reward_card_records (
   constraint reward_card_records_status_check check (
     status in ('redeemed', 'used', 'completed', 'cancelled')
   ),
-  constraint reward_card_records_couple_client_unique unique (couple_id, client_id)
+  constraint reward_card_records_couple_local_unique unique (couple_id, local_id)
 );
 
 create index if not exists reward_card_records_couple_id_idx on public.reward_card_records (couple_id);
@@ -45,9 +45,19 @@ create trigger reward_card_records_updated_at
 
 alter table public.reward_card_records enable row level security;
 
-drop policy if exists "reward_card_records_all_member" on public.reward_card_records;
-create policy "reward_card_records_all_member"
-  on public.reward_card_records for all to authenticated
+drop policy if exists "reward_card_records_select_member" on public.reward_card_records;
+create policy "reward_card_records_select_member"
+  on public.reward_card_records for select to authenticated
+  using (public.is_couple_member(couple_id));
+
+drop policy if exists "reward_card_records_insert_member" on public.reward_card_records;
+create policy "reward_card_records_insert_member"
+  on public.reward_card_records for insert to authenticated
+  with check (public.is_couple_member(couple_id));
+
+drop policy if exists "reward_card_records_update_member" on public.reward_card_records;
+create policy "reward_card_records_update_member"
+  on public.reward_card_records for update to authenticated
   using (public.is_couple_member(couple_id))
   with check (public.is_couple_member(couple_id));
 
