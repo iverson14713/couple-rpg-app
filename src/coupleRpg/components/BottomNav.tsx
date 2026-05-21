@@ -22,7 +22,7 @@ export function BottomNav({ activeTab, onChange }: Props) {
 
   return (
     <nav
-      className={`fixed bottom-0 left-0 right-0 z-40 border-t px-1 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-1.5 ${lq.nav}`}
+      className={`fixed bottom-0 left-0 right-0 z-40 px-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-1 ${lq.nav}`}
       aria-label="主要功能"
     >
       <div className="mx-auto flex max-w-md">
@@ -35,12 +35,14 @@ export function BottomNav({ activeTab, onChange }: Props) {
               type="button"
               onClick={() => onChange(tab.id)}
               aria-current={isActive ? 'page' : undefined}
-              className={`flex min-w-0 flex-1 flex-col items-center gap-0.5 rounded-xl px-1 py-1.5 transition active:scale-95 ${
-                isActive ? lq.navActive : 'text-stone-600'
+              className={`flex min-w-0 flex-1 flex-col items-center gap-0.5 rounded-lg px-1 py-2 transition active:opacity-80 ${
+                isActive ? lq.navActive : lq.navIdle
               }`}
             >
-              <TabIcon className="h-5 w-5 shrink-0" strokeWidth={isActive ? 2.5 : 2} aria-hidden />
-              <span className={`truncate text-[10px] leading-tight ${isActive ? 'font-bold' : 'font-semibold'}`}>
+              <TabIcon className="h-[22px] w-[22px] shrink-0" strokeWidth={isActive ? 2.25 : 1.75} aria-hidden />
+              <span
+                className={`truncate text-[11px] leading-tight ${isActive ? 'font-semibold text-rose-500' : 'font-medium text-stone-400'}`}
+              >
                 {tab.label}
               </span>
             </button>

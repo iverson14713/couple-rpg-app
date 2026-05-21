@@ -14,8 +14,8 @@ export function TabPageHeader({ emoji, title, subtitle }: Props) {
           {emoji}
         </span>
         <div>
-          <h1 className="text-lg font-bold text-stone-900">{title}</h1>
-          {subtitle ? <p className="text-[12px] text-stone-500">{subtitle}</p> : null}
+          <h1 className={`text-xl font-bold ${lq.text}`}>{title}</h1>
+          {subtitle ? <p className={`text-[13px] ${lq.textSecondary}`}>{subtitle}</p> : null}
         </div>
       </div>
     </header>

@@ -4,6 +4,9 @@ export type UpcomingImportant = {
   id: string;
   daysUntil: number;
   isToday: boolean;
+  icon: string;
+  /** 資訊卡主標，例如「B生日」 */
+  displayTitle: string;
   /** 今天顯示的完整一句（含句尾「！」） */
   todayLine: string;
   /** 倒數顯示的完整一句（含天數） */
@@ -61,6 +64,8 @@ function hasHomeImportantDates(p: CoupleExtendedProfile): boolean {
 type RawEvent = {
   id: string;
   ymd: string;
+  icon: string;
+  displayTitle: string;
   todayLine: string;
   countdownLine: (days: number) => string;
 };
@@ -83,6 +88,8 @@ export function getUpcomingImportantDates(
     raw.push({
       id: 'partner-bd',
       ymd: profile.partnerBirthday.trim(),
+      icon: '🎂',
+      displayTitle: `${partner}生日`,
       todayLine: `今天是${partner}的生日！`,
       countdownLine: (d) => `距離${partner}生日還有 ${d} 天`,
     });
@@ -91,6 +98,8 @@ export function getUpcomingImportantDates(
     raw.push({
       id: 'together',
       ymd: profile.relationshipStart.trim(),
+      icon: '💕',
+      displayTitle: '在一起紀念日',
       todayLine: '今天是在一起紀念日！',
       countdownLine: (days) => `距離在一起紀念日還有 ${days} 天`,
     });
@@ -99,6 +108,8 @@ export function getUpcomingImportantDates(
     raw.push({
       id: 'wedding',
       ymd: profile.weddingAnniversary.trim(),
+      icon: '💍',
+      displayTitle: '結婚紀念日',
       todayLine: '今天是結婚紀念日！',
       countdownLine: (days) => `距離結婚紀念日還有 ${days} 天`,
     });
@@ -107,6 +118,8 @@ export function getUpcomingImportantDates(
     raw.push({
       id: 'first-date',
       ymd: profile.firstDate.trim(),
+      icon: '🌸',
+      displayTitle: '第一次約會',
       todayLine: '今天是第一次約會日！',
       countdownLine: (days) => `距離第一次約會日還有 ${days} 天`,
     });
@@ -117,6 +130,8 @@ export function getUpcomingImportantDates(
     raw.push({
       id: `c-${c.id}`,
       ymd: c.date.trim(),
+      icon: '✨',
+      displayTitle: name,
       todayLine: `今天是${name}！`,
       countdownLine: (days) => `距離${name}還有 ${days} 天`,
     });
@@ -130,6 +145,8 @@ export function getUpcomingImportantDates(
       id: r.id,
       daysUntil: next.daysUntil,
       isToday: next.isToday,
+      icon: r.icon,
+      displayTitle: r.displayTitle,
       todayLine: r.todayLine,
       countdownLine: r.countdownLine(next.daysUntil),
     });

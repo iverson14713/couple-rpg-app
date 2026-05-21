@@ -3,12 +3,12 @@ import { lq } from '../theme';
 
 export function PageHero({ emoji, title, subtitle }: { emoji: string; title: string; subtitle: string }) {
   return (
-    <section className={`mb-3 p-4 ${lq.card}`}>
+    <section className={`mb-3 p-3.5 ${lq.card}`}>
       <span className="text-3xl" aria-hidden>
         {emoji}
       </span>
-      <h1 className="mt-1.5 text-lg font-bold text-stone-900">{title}</h1>
-      <p className="mt-0.5 text-[13px] text-stone-500">{subtitle}</p>
+      <h1 className={`mt-1 text-xl font-bold ${lq.text}`}>{title}</h1>
+      <p className={`mt-0.5 text-[13px] ${lq.textSecondary}`}>{subtitle}</p>
     </section>
   );
 }
@@ -26,11 +26,7 @@ export function PrimaryButton({
         ? lq.btnSecondary
         : 'border border-stone-200 bg-white text-stone-700';
   return (
-    <button
-      type="button"
-      className={`w-full rounded-2xl px-4 py-3 text-sm font-bold transition active:scale-[0.98] disabled:opacity-50 ${base} ${className}`}
-      {...props}
-    >
+    <button type="button" className={`w-full transition ${base} ${className}`} {...props}>
       {children}
     </button>
   );
@@ -48,7 +44,7 @@ export function OptionChip({
   onRemove?: () => void;
 }) {
   return (
-    <span className="inline-flex max-w-full items-center gap-1 rounded-full bg-rose-50 px-2.5 py-1 text-[12px] font-semibold text-rose-900 ring-1 ring-rose-100">
+    <span className={`inline-flex max-w-full items-center gap-1 px-2.5 py-1 text-[12px] font-semibold ${lq.tag}`}>
       <span className="truncate">{label}</span>
       {onRemove ? (
         <button
@@ -83,12 +79,12 @@ export function InlineInput({
         onChange={(e) => onChange(e.target.value)}
         onKeyDown={(e) => e.key === 'Enter' && onSubmit()}
         placeholder={placeholder}
-        className="min-w-0 flex-1 rounded-xl border border-rose-100 bg-white px-3 py-2.5 text-sm outline-none focus:border-rose-300"
+        className="min-w-0 flex-1 rounded-xl border border-stone-200 bg-white px-3 py-2.5 text-[15px] outline-none focus:border-rose-300 focus:ring-1 focus:ring-rose-200"
       />
       <button
         type="button"
         onClick={onSubmit}
-        className={`shrink-0 rounded-xl px-4 py-2.5 text-sm font-bold ${lq.btnPrimary}`}
+        className={`shrink-0 ${lq.btnPrimary}`}
       >
         新增
       </button>
