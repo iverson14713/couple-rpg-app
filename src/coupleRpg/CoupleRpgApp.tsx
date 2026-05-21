@@ -44,13 +44,13 @@ function CoupleRpgShell() {
         {tab === 'home' && <TodayPage />}
         {tab === 'dinner' && (
           <>
-            <TabPageHeader emoji="🍽️" title="今晚吃什麼" subtitle="抽籤決定，不再糾結" />
+            <TabPageHeader emoji="🍽️" title="今晚吃什麼" subtitle="🎲 隨機抽籤 · 不再糾結" />
             <DinnerPage embedded />
           </>
         )}
         {tab === 'housework' && (
           <>
-            <TabPageHeader emoji="🏠" title="家事誰來做" subtitle="選好家事，平均分配給兩人" />
+            <TabPageHeader emoji="🧹" title="家事誰來做" subtitle="多選家事 · 平均分配" />
             <HouseworkPage embedded />
           </>
         )}

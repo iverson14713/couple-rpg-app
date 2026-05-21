@@ -1,5 +1,5 @@
-import { useCallback, useMemo, useState, type ReactNode } from 'react';
-import { ChevronDown, Coins, Heart, Sparkles, Users } from 'lucide-react';
+import { useCallback, useMemo, useState } from 'react';
+import { ChevronDown } from 'lucide-react';
 import { useSupabaseAuth } from '../../useSupabaseAuth';
 import { useCoupleRpgNav } from '../context/CoupleRpgNavContext';
 import { useLoveQuest } from '../context/LoveQuestContext';
@@ -8,7 +8,9 @@ import {
   getUpcomingImportantDates,
   formatHomeCoupleHeaderLine,
 } from '../lib/importantDates';
+import { formatHomeConsoleCompactSummary } from '../lib/homeConsoleSummary';
 import { loadHomeConsoleExpanded, loadHomeDatesExpanded, saveHomeConsoleExpanded, saveHomeDatesExpanded } from '../lib/homeUiExpanded';
+import { EmptyState } from '../components/EmptyState';
 import { getTogetherDaysInfo } from '../lib/relationshipDays';
 import { todayKey } from '../lib/dates';
 import { useCoupleSpace } from '../context/CoupleSpaceContext';
@@ -62,7 +64,13 @@ export function TodayPage() {
 
   const consoleSummary = useMemo(
     () =>
-      `${coupleHeaderLine}　愛心 ${rpgView.heartPoints}｜默契 ${rpgView.compatibility}%｜Lv.${rpgView.level}｜今日 +${todayCoinEarned}`,
+      formatHomeConsoleCompactSummary(
+        coupleHeaderLine,
+        rpgView.heartPoints,
+        rpgView.compatibility,
+        rpgView.level,
+        todayCoinEarned
+      ),
     [coupleHeaderLine, rpgView.heartPoints, rpgView.compatibility, rpgView.level, todayCoinEarned]
   );
 
@@ -144,12 +152,10 @@ export function TodayPage() {
           <div className="relative">
             <p className="text-[11px] font-semibold uppercase tracking-wide text-stone-400">一起玩</p>
             <h3 className={`mt-0.5 text-[22px] font-bold leading-snug ${lq.text}`}>情侶小遊戲</h3>
-            <p className={`mt-1 text-[14px] leading-snug ${lq.textSecondary}`}>
-              骰子、真心話、默契問答，讓今天更有趣
-            </p>
+            <p className={`mt-1 text-[13px] leading-snug ${lq.textSecondary}`}>骰子 · 真心話 · 默契問答</p>
             <div className="mt-2.5 flex flex-wrap items-center gap-2">
               <button type="button" onClick={() => navigateTo('miniGames')} className={lq.btnPrimary}>
-                開始玩
+                🎲 開始玩
               </button>
               <span className={lq.tag}>
                 今日獎勵 {Math.min(rpgView.miniGamesRewardsToday, 3)}/3
@@ -164,7 +170,7 @@ export function TodayPage() {
             title="今晚吃什麼？"
             description="不知道吃什麼就交給命運決定"
             badge={dinnerLabel ? '已決定' : undefined}
-            cta="開始抽晚餐"
+            cta="🍽️ 開始抽"
             onAction={() => navigateTo('dinner')}
           />
           <HomeCoreFeatureCard
@@ -172,7 +178,7 @@ export function TodayPage() {
             title="家事誰來做？"
             description="公平分配，不再吵架"
             badge={houseworkHomeStatus.badge}
-            cta="分配家事"
+            cta="🧹 分配"
             onAction={() => navigateTo('housework')}
           />
           <HomeCoreFeatureCard
@@ -180,7 +186,7 @@ export function TodayPage() {
             title="今日戀愛任務"
             description="完成小任務，累積愛心幣"
             badge={total > 0 ? `${done}/${total}` : undefined}
-            cta="查看任務"
+            cta="💌 任務"
             onAction={() => navigateTo('tasks')}
           />
           <HomeCoreFeatureCard
@@ -188,7 +194,7 @@ export function TodayPage() {
             title="約會去哪裡？"
             description="今天來一點不一樣的"
             badge={datePlanner.current ? '有提案' : undefined}
-            cta="抽約會"
+            cta="💑 約會"
             onAction={() => navigateTo('dates')}
           />
         </div>
@@ -252,39 +258,19 @@ function HomeConsoleCard({
           </div>
 
           <div className="mt-2 grid grid-cols-4 gap-1.5">
-            <HudStat
-              icon={<Heart className="h-3.5 w-3.5 text-rose-400" strokeWidth={2.5} />}
-              label="愛心值"
-              value={String(rpgView.heartPoints)}
-              hint="愛心值：代表近期甜蜜程度（0～100）。"
-            />
-            <HudStat
-              icon={<Users className="h-3.5 w-3.5 text-violet-400" strokeWidth={2.5} />}
-              label="默契度"
-              value={`${rpgView.compatibility}%`}
-              hint="默契度：代表你們長期一起完成事情的配合度（0～100）。"
-            />
-            <HudStat
-              icon={<Sparkles className="h-3.5 w-3.5 text-amber-500" strokeWidth={2.5} />}
-              label="Lv."
-              value={String(rpgView.level)}
-              hint="EXP：完成任務、家事、約會後累積，用來提升情侶等級（每 100 EXP 升一等）。"
-            />
-            <HudStat
-              icon={<Coins className="h-3.5 w-3.5 text-amber-600" strokeWidth={2.5} />}
-              label="今日獲得"
-              value={`+${todayCoinEarned}`}
-              hint="LoveCoin：完成互動後獲得，可在獎勵商城兌換卡券。此欄為今日累積的愛心幣。"
-            />
+            <EmojiHudStat emoji="❤️" label="愛心值" value={String(rpgView.heartPoints)} hint="愛心值：近期甜蜜程度（0～100）" />
+            <EmojiHudStat emoji="🤝" label="默契度" value={`${rpgView.compatibility}%`} hint="默契度：長期配合度（0～100）" />
+            <EmojiHudStat emoji="✨" label="等級" value={`Lv.${rpgView.level}`} hint="EXP 累積可提升情侶等級" />
+            <EmojiHudStat emoji="🪙" label="今日獲得" value={`+${todayCoinEarned}`} hint="LoveCoin：完成互動後累積" />
           </div>
 
           <details className="mt-1.5 rounded-lg border border-stone-200/80 bg-stone-50/80 px-2 py-1.5 text-[11px] leading-snug text-stone-500">
-            <summary className="cursor-pointer select-none font-semibold text-stone-500">數值說明</summary>
+            <summary className="cursor-pointer select-none font-semibold text-stone-500">ℹ️ 數值說明</summary>
             <ul className="mt-1.5 list-disc space-y-1 pl-3.5">
-              <li>愛心值：代表近期甜蜜程度。</li>
-              <li>默契度：代表你們長期一起完成事情的配合度。</li>
-              <li>EXP：完成任務、家事、約會後累積，用來提升情侶等級。</li>
-              <li>LoveCoin：完成互動後獲得，可在獎勵商城兌換卡券。</li>
+              <li>❤️ 愛心值：近期甜蜜程度</li>
+              <li>🤝 默契度：長期配合度</li>
+              <li>✨ EXP：任務、家事、約會累積</li>
+              <li>🪙 LoveCoin：獎勵商城兌換</li>
             </ul>
           </details>
           <p className="mt-1.5 truncate rounded-lg bg-stone-50 px-2 py-1 text-[12px] font-medium text-stone-600 ring-1 ring-stone-100">
@@ -317,7 +303,7 @@ function HomeCoreFeatureCard({
         <span className={`absolute right-2 top-2 max-w-[calc(100%-3.5rem)] truncate ${lq.tag}`}>{badge}</span>
       ) : null}
       <span
-        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-stone-50 text-base ring-1 ring-stone-200/60"
+        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-stone-50 to-rose-50/80 text-2xl ring-1 ring-stone-200/60"
         aria-hidden
       >
         {emoji}
@@ -331,25 +317,27 @@ function HomeCoreFeatureCard({
   );
 }
 
-function HudStat({
-  icon,
+function EmojiHudStat({
+  emoji,
   label,
   value,
   hint,
 }: {
-  icon: ReactNode;
+  emoji: string;
   label: string;
   value: string;
-  hint?: string;
+  hint: string;
 }) {
   return (
     <div
       className="flex min-w-0 flex-col items-center rounded-xl border border-stone-200/60 bg-gradient-to-b from-white to-stone-50/90 px-1 py-1.5 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.9)]"
       title={hint}
     >
-      <div className="mb-0.5 flex items-center gap-0.5">{icon}</div>
+      <span className="text-base leading-none" aria-hidden>
+        {emoji}
+      </span>
       <p className={`truncate text-[15px] font-bold leading-none ${lq.text}`}>{value}</p>
-      <p className="mt-0.5 truncate text-[10px] font-medium text-stone-500">{label}</p>
+      <p className="mt-0.5 truncate text-[9px] font-medium text-stone-500">{label}</p>
     </div>
   );
 }
@@ -394,7 +382,7 @@ function ImportantDatesCard({
         className="flex min-h-[52px] w-full items-center gap-2 px-3 py-2 text-left active:bg-stone-50/80"
         aria-expanded={expanded}
       >
-        <span className={`shrink-0 text-[13px] font-bold ${lq.text}`}>重要日子</span>
+        <span className={`shrink-0 text-[13px] font-bold ${lq.text}`}>📅 重要日子</span>
         <span className={`min-w-0 flex-1 truncate text-[12px] font-medium ${lq.textSecondary}`}>{summary}</span>
         <ChevronDown
           className={`h-5 w-5 shrink-0 text-stone-400 transition-transform ${expanded ? 'rotate-180' : ''}`}
@@ -406,11 +394,15 @@ function ImportantDatesCard({
         <div className="border-t border-stone-100 px-3 pb-2 pt-1">
           {unconfigured ? (
             <>
-              <p className={`py-1 text-[12px] leading-snug ${lq.textSecondary}`}>
-                設定生日與紀念日，LoveQuest 會幫你記住重要日子。
-              </p>
-              <button type="button" onClick={onGoSettings} className={`py-1 text-[12px] font-semibold ${lq.accent}`}>
-                去設定 →
+              <EmptyState
+                compact
+                emoji="📅"
+                title="還沒設定重要日子"
+                hint="填寫紀念日與另一半生日，LoveQuest 會提醒你"
+                className="my-1 border-0 bg-transparent"
+              />
+              <button type="button" onClick={onGoSettings} className={`pb-1 text-[12px] font-semibold ${lq.accent}`}>
+                💑 去設定 →
               </button>
             </>
           ) : (

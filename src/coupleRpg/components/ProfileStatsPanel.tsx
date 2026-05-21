@@ -22,7 +22,7 @@ export function ProfileStatsPanel() {
           </div>
           <div className="min-w-0 flex-1">
             <p className="truncate text-sm font-bold text-stone-900">
-              {couple.nameA} & {couple.nameB}
+              💑 {couple.nameA} & {couple.nameB}
             </p>
             <p className="text-[12px] text-rose-600">
               Lv.{rpgView.level} {rpgView.title}

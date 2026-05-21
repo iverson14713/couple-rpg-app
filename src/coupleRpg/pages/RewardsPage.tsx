@@ -1,6 +1,7 @@
 import { useMemo, useState, type ReactNode } from 'react';
 import { Coins, Gift, Ticket, Wallet } from 'lucide-react';
 import { REWARD_CATEGORY_LABEL, REWARD_SHOP_ITEMS } from '../data/rewardShopCatalog';
+import { EmptyState } from '../components/EmptyState';
 import { NicknameSetupBanner } from '../components/NicknameSetupBanner';
 import { PageHero } from '../components/ui';
 import { useLoveQuest } from '../context/LoveQuestContext';
@@ -159,9 +160,13 @@ export function RewardsPage({ embedded }: { embedded?: boolean } = {}) {
               最近獲得
             </h2>
             {recentCoinEarns.length === 0 ? (
-              <p className="text-[14px] leading-relaxed text-stone-500">
-                完成家事、任務、約會或小遊戲可賺愛心幣
-              </p>
+              <EmptyState
+                compact
+                emoji="🪙"
+                title="還沒有獲得紀錄"
+                hint="完成任務、家事、約會或小遊戲就會累積 LoveCoin"
+                className="border-0 bg-transparent"
+              />
             ) : (
               <ul className="space-y-2">
                 {recentCoinEarns.map((e) => (
@@ -219,7 +224,7 @@ export function RewardsPage({ embedded }: { embedded?: boolean } = {}) {
                             canAfford ? lq.btnPrimary : 'bg-stone-100 text-stone-400'
                           }`}
                         >
-                          兌換
+                          🎁 兌換
                         </button>
                       </article>
                     );
@@ -243,7 +248,7 @@ export function RewardsPage({ embedded }: { embedded?: boolean } = {}) {
             ) : null}
           </h2>
           {activeCoupons.length === 0 && usedCoupons.length === 0 ? (
-            <p className="text-[14px] text-stone-500">還沒有卡券，到商城用 LoveCoin 兌換吧～</p>
+            <EmptyState compact emoji="🎫" title="還沒有卡券" hint="到商城用 LoveCoin 兌換吧" className="border-0 bg-transparent" />
           ) : null}
           {activeCoupons.length > 0 ? (
             <>

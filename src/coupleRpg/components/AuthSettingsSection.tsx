@@ -61,7 +61,7 @@ export function AuthSettingsSection() {
   if (!auth.configured) {
     return (
       <section className={`mb-4 p-4 ${lq.card}`}>
-        <h2 className="mb-2 text-base font-bold text-stone-900">帳號登入</h2>
+        <h2 className="mb-2 text-base font-bold text-stone-900">🔐 帳號登入</h2>
         <p className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-3 text-xs leading-relaxed text-amber-950">
           雲端登入尚未設定。請在專案根目錄建立 `.env.local`，填入 `VITE_SUPABASE_URL` 與 `VITE_SUPABASE_ANON_KEY` 後重新啟動。
         </p>
@@ -72,7 +72,7 @@ export function AuthSettingsSection() {
   if (!auth.authReady) {
     return (
       <section className={`mb-4 p-4 ${lq.card}`}>
-        <h2 className="mb-2 text-base font-bold text-stone-900">帳號登入</h2>
+        <h2 className="mb-2 text-base font-bold text-stone-900">🔐 帳號登入</h2>
         <SkeletonCard rows={3} />
       </section>
     );
@@ -81,7 +81,7 @@ export function AuthSettingsSection() {
   if (auth.user) {
     return (
       <section className={`mb-4 p-4 ${lq.card}`}>
-        <h2 className="mb-2 text-base font-bold text-stone-900">已登入</h2>
+        <h2 className="mb-2 text-base font-bold text-stone-900">🔐 已登入</h2>
         <p className="text-sm text-stone-600">
           <span className="font-bold text-rose-700">{displayLabel}</span>
         </p>
@@ -98,7 +98,7 @@ export function AuthSettingsSection() {
 
   return (
     <section className={`mb-4 p-4 ${lq.card}`}>
-      <h2 className="mb-2 text-base font-bold text-stone-900">帳號登入</h2>
+      <h2 className="mb-2 text-base font-bold text-stone-900">🔐 帳號登入</h2>
       <p className="mb-3 text-[11px] leading-relaxed text-stone-500">登入後可同步雲端資料（後端 schema 維持不變）。</p>
 
       <div className="mb-3 space-y-2">

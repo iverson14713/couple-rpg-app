@@ -18,8 +18,10 @@ export function FlirtGamesPanel() {
 
   return (
     <section className={`mb-3 p-4 ${lq.card}`}>
-      <h2 className="mb-1 text-sm font-bold text-stone-900">曖昧小遊戲</h2>
-      <p className="mb-3 text-[11px] text-stone-500">健康互動 · 每日每款可領一次獎勵</p>
+      <h2 className="mb-1 flex items-center gap-1.5 text-sm font-bold text-stone-900">
+        <span aria-hidden>💕</span> 曖昧小遊戲
+      </h2>
+      <p className="mb-3 text-[11px] text-stone-500">每日每款可領一次獎勵</p>
 
       <div className="grid grid-cols-2 gap-2">
         {flirtGameDefs.map((g) => {

@@ -2,10 +2,11 @@ import { useCallback, useMemo, useState } from 'react';
 import { Check, Users } from 'lucide-react';
 import { useLoveQuest } from '../context/LoveQuestContext';
 import { DEFAULT_HOUSEWORK_ITEMS, getTodayAssignment } from '../storage/houseworkStore';
-
-const DEFAULT_HW_IDS = new Set(DEFAULT_HOUSEWORK_ITEMS.map((i) => i.id));
+import { EmptyState } from '../components/EmptyState';
 import { RpgMiniStats } from '../components/RpgMiniStats';
 import { InlineInput, PageHero, PrimaryButton } from '../components/ui';
+
+const DEFAULT_HW_IDS = new Set(DEFAULT_HOUSEWORK_ITEMS.map((i) => i.id));
 import { lq } from '../theme';
 
 export function HouseworkPage({ embedded }: { embedded?: boolean } = {}) {
@@ -59,18 +60,23 @@ export function HouseworkPage({ embedded }: { embedded?: boolean } = {}) {
     <>
       {!embedded ? (
         <>
-          <PageHero emoji="🏠" title="家事分配" subtitle="選今天要做的家事，LoveQuest 會幫你們平均分配" />
+          <PageHero emoji="🧹" title="家事分配" subtitle="多選家事 · 平均分配 · 完成領獎勵" />
           <RpgMiniStats compact />
         </>
       ) : null}
 
-      <p className={`mb-2.5 px-0.5 text-[13px] leading-snug ${lq.textSecondary}`}>
-        選今天要做的家事，系統會依數量平均分配給兩人。完成每一項可獲默契 +3、EXP +10、LoveCoin +3。
+      <p className={`mb-2.5 px-0.5 text-[12px] leading-snug ${lq.textSecondary}`}>
+        🧹 選好家事後平均分配 · 完成每項 🤝+3 ✨+10 🪙+3
       </p>
 
       {!isAssigned ? (
         <section className={`mb-3 p-3 ${lq.card}`}>
-          <h2 className={`mb-2 text-sm font-bold ${lq.text}`}>Step 1 · 選今天要做的家事</h2>
+          <h2 className={`mb-2 flex items-center gap-1.5 text-sm font-bold ${lq.text}`}>
+            <span aria-hidden>🧺</span> Step 1 · 選今天要做的家事
+          </h2>
+          {game.housework.items.length === 0 ? (
+            <EmptyState compact emoji="🧹" title="還沒有家事項目" hint="使用下方新增，或稍後載入預設項目" className="mb-2" />
+          ) : null}
           <div className="flex flex-wrap gap-2">
             {game.housework.items.map((item) => {
               const on = selectedIds.includes(item.id);
@@ -108,13 +114,15 @@ export function HouseworkPage({ embedded }: { embedded?: boolean } = {}) {
             disabled={selectedIds.length === 0}
             onClick={() => game.startHouseworkAssignment()}
           >
-            開始分配
+            🧹 開始分配
           </PrimaryButton>
         </section>
       ) : (
         <section className={`mb-3 p-3 ${lq.card}`}>
           <div className="mb-2 flex items-center justify-between gap-2">
-            <h2 className={`text-sm font-bold ${lq.text}`}>今日分配結果</h2>
+            <h2 className={`flex items-center gap-1.5 text-sm font-bold ${lq.text}`}>
+              <span aria-hidden>📋</span> 今日分配結果
+            </h2>
             <span className={`rounded-full px-2 py-0.5 text-[11px] font-bold ${lq.tag}`}>
               {doneCount}/{totalCount}
             </span>
@@ -184,7 +192,9 @@ export function HouseworkPage({ embedded }: { embedded?: boolean } = {}) {
       )}
 
       <section className={`mb-3 p-3 ${lq.card}`}>
-        <h2 className={`mb-2 text-sm font-bold ${lq.text}`}>管理家事項目</h2>
+        <h2 className={`mb-2 flex items-center gap-1.5 text-sm font-bold ${lq.text}`}>
+          <span aria-hidden>⚙️</span> 管理家事項目
+        </h2>
         <InlineInput
           value={newLabel}
           onChange={setNewLabel}

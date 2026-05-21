@@ -40,7 +40,7 @@ export function DatesPage({ embedded }: { embedded?: boolean } = {}) {
     <>
       {!embedded ? (
         <>
-          <PageHero emoji="💑" title="約會去哪" subtitle="假日行程 · Date Ideas" />
+          <PageHero emoji="💑" title="約會去哪" subtitle="篩選條件 · 隨機提案 · 收藏點子" />
           <div className="mb-3 flex flex-wrap items-center gap-2">
             <RpgMiniStats compact />
             <span className="inline-flex items-center gap-1 rounded-full bg-pink-50 px-2.5 py-1 text-[11px] font-bold text-pink-800 ring-1 ring-pink-100">
@@ -52,7 +52,9 @@ export function DatesPage({ embedded }: { embedded?: boolean } = {}) {
 
       <section className={`mb-3 p-3 ${lq.card}`}>
         <div className="mb-2 flex items-center justify-between gap-2">
-          <h2 className="text-sm font-bold text-stone-900">篩選條件</h2>
+          <h2 className="flex items-center gap-1.5 text-sm font-bold text-stone-900">
+            <span aria-hidden>🎯</span> 篩選條件
+          </h2>
           {activeCount > 0 ? (
             <button
               type="button"

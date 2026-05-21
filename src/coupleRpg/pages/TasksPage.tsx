@@ -1,6 +1,7 @@
 import { ChevronLeft } from 'lucide-react';
 import { useCoupleRpgNav } from '../context/CoupleRpgNavContext';
 import { useLoveQuest } from '../context/LoveQuestContext';
+import { EmptyState } from '../components/EmptyState';
 import { FlirtGamesPanel } from '../components/FlirtGamesPanel';
 import { RpgMiniStats } from '../components/RpgMiniStats';
 import { PageHero } from '../components/ui';
@@ -37,7 +38,7 @@ export function TasksPage({
 
       {!embedded ? (
         <>
-          <PageHero emoji="💕" title="戀愛任務" subtitle="每日隨機任務 + 曖昧小遊戲" />
+          <PageHero emoji="💌" title="戀愛任務" subtitle="每日隨機任務 · 完成領 LoveCoin" />
           <RpgMiniStats compact />
         </>
       ) : null}
@@ -45,7 +46,9 @@ export function TasksPage({
       {showTasks ? (
         <section className={`mb-3 p-4 ${lq.card}`}>
           <div className="mb-2 flex items-center justify-between">
-            <h2 className="text-sm font-bold text-stone-900">今日戀愛任務</h2>
+            <h2 className="flex items-center gap-1.5 text-sm font-bold text-stone-900">
+              <span aria-hidden>💌</span> 今日戀愛任務
+            </h2>
             <span className="rounded-full bg-rose-50 px-2 py-0.5 text-[10px] font-bold text-rose-600 ring-1 ring-rose-100">
               隨機 {total} 項
             </span>
@@ -59,20 +62,20 @@ export function TasksPage({
           <div className={`mb-2 h-1.5 overflow-hidden rounded-full ${lq.progressTrack}`}>
             <div className={`h-full rounded-full ${lq.progress} transition-all`} style={{ width: `${pct}%` }} />
           </div>
-          <p className="mb-2 text-[10px] text-stone-400">
-            每日戀愛任務獎勵（含 LoveCoin）每天最多領一次；「換一個」不會重置領獎狀態。今日已領過後再完成任務不會再次發放戀愛任務獎勵。
+          <p className="mb-2 text-[10px] text-stone-400" title="每日戀愛任務獎勵含 LoveCoin，每天最多領一次">
+            🪙 每日獎勵最多領一次 · 🔄 換一個不重置領獎
           </p>
 
           {tasks.dailyTasks.length === 0 ? (
-            <p className="text-sm text-stone-500">今日任務載入中…</p>
+            <EmptyState compact emoji="💌" title="任務載入中" hint="稍候片刻" className="border-0 bg-transparent" />
           ) : (
             <div className="grid grid-cols-1 gap-2">
               {tasks.dailyTasks.map((item) => {
                 const statusLine = (() => {
                   if (item.done) {
-                    return coinClaimedToday ? '獎勵已領' : '已完成';
+                    return coinClaimedToday ? '✅ 獎勵已領' : '✅ 已完成';
                   }
-                  return coinClaimedToday ? '今日獎勵已領' : '完成任務';
+                  return coinClaimedToday ? '🪙 今日已領' : '點擊完成';
                 })();
                 return (
                   <div
@@ -104,6 +107,7 @@ export function TasksPage({
                       onClick={() => rerollLoveTask(item.id)}
                       className="flex w-[3.25rem] shrink-0 flex-col items-center justify-center rounded-xl border border-stone-200/80 bg-white px-1 py-1 text-[10px] font-bold leading-tight text-rose-700 shadow-sm active:scale-95"
                     >
+                      <span aria-hidden>🔄</span>
                       換一個
                     </button>
                   </div>
@@ -112,7 +116,7 @@ export function TasksPage({
             </div>
           )}
 
-          <p className="mt-3 text-[11px] text-stone-500">每完成一項：愛心 +2 · 默契 +1 · EXP +12 · 愛心幣 +10</p>
+          <p className="mt-3 text-[11px] text-stone-500">每完成一項 ❤️+2 🤝+1 ✨+12 🪙+10</p>
         </section>
       ) : null}
 

@@ -74,7 +74,7 @@ export function DailyPartnerMessageCard() {
         className="flex min-h-[52px] w-full items-center gap-2 px-3 py-2.5 text-left active:bg-stone-50/80"
         aria-expanded={expanded}
       >
-        <span className={`shrink-0 text-[14px] font-bold ${lq.text}`}>今天想對你說</span>
+        <span className={`shrink-0 text-[14px] font-bold ${lq.text}`}>💬 今天想對你說</span>
         <span className={`min-w-0 flex-1 truncate text-[13px] ${lq.textSecondary}`}>{record.text}</span>
         <ChevronDown
           className={`h-5 w-5 shrink-0 text-stone-400 transition-transform ${expanded ? 'rotate-180' : ''}`}
@@ -96,7 +96,7 @@ export function DailyPartnerMessageCard() {
               />
               <div className="flex gap-2">
                 <button type="button" onClick={onSaveCustom} className={`flex-1 ${lq.btnPrimary}`}>
-                  儲存
+                  💾 儲存
                 </button>
                 <button type="button" onClick={() => setEditing(false)} className={`flex-1 ${lq.btnSecondary}`}>
                   取消
@@ -109,11 +109,11 @@ export function DailyPartnerMessageCard() {
                 {record.text}
               </p>
               <div className="mt-2 flex flex-wrap gap-1.5">
-                <MessageActionBtn icon={<RefreshCw className="h-3.5 w-3.5" />} label="換一句" onClick={onShuffle} />
-                <MessageActionBtn icon={<PenLine className="h-3.5 w-3.5" />} label="自己寫" onClick={onStartEdit} />
+                <MessageActionBtn icon={<RefreshCw className="h-3.5 w-3.5" />} label="🔄 換一句" onClick={onShuffle} />
+                <MessageActionBtn icon={<PenLine className="h-3.5 w-3.5" />} label="✍️ 自己寫" onClick={onStartEdit} />
                 <MessageActionBtn
                   icon={<Copy className="h-3.5 w-3.5" />}
-                  label={copyOk ? '已複製' : '複製'}
+                  label={copyOk ? '✓ 已複製' : '📋 複製'}
                   onClick={() => void onCopy()}
                 />
               </div>

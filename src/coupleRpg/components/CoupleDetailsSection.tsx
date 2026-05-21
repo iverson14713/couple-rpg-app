@@ -62,10 +62,8 @@ export function CoupleDetailsSection() {
       <div className="mb-3 flex items-start gap-2">
         <Heart className="mt-0.5 h-5 w-5 shrink-0 text-rose-500" aria-hidden />
         <div className="min-w-0">
-          <h2 className="text-sm font-bold text-stone-900">情侶資料</h2>
-          <p className="mt-0.5 text-[11px] leading-snug text-stone-500">
-            設定生日、紀念日與重要日子，讓 LoveQuest 更懂你們。
-          </p>
+          <h2 className="text-sm font-bold text-stone-900">💑 情侶資料</h2>
+          <p className="mt-0.5 text-[11px] leading-snug text-stone-500">生日 · 紀念日 · 重要日子</p>
         </div>
       </div>
 

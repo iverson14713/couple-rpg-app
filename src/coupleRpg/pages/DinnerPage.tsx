@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Dices } from 'lucide-react';
 import { useLoveQuest } from '../context/LoveQuestContext';
 import { formatDateShort } from '../lib/dates';
+import { foodEmojiForLabel } from '../lib/dinnerFoodEmoji';
 import { pickRandomOption } from '../storage/dinnerStore';
 import { DinnerFateCard } from '../components/DinnerFateCard';
+import { EmptyState } from '../components/EmptyState';
 import { RpgMiniStats } from '../components/RpgMiniStats';
 import { ChipRow, InlineInput, OptionChip, PageHero, PrimaryButton } from '../components/ui';
 import { lq } from '../theme';
@@ -81,7 +82,7 @@ export function DinnerPage({ embedded }: { embedded?: boolean } = {}) {
   }, [isRolling, rollingFoodName, selectedFood, savedTodayResult]);
 
   const canRedraw = optionCount > 0 && Boolean(selectedFood || savedTodayResult);
-  const drawButtonLabel = isDrawing ? '抽籤中...' : canRedraw ? '再抽一次' : '隨機抽籤';
+  const drawButtonLabel = isDrawing ? '抽籤中…' : canRedraw ? '🔄 再抽一次' : '🎲 隨機抽籤';
 
   const startDinnerDraw = useCallback(() => {
     const opts = lqState.dinner.options;
@@ -131,7 +132,7 @@ export function DinnerPage({ embedded }: { embedded?: boolean } = {}) {
     <>
       {!embedded ? (
         <>
-          <PageHero emoji="🍽️" title="晚餐決定器" subtitle="新增選項、隨機抽籤，再也不吵架" />
+          <PageHero emoji="🍽️" title="晚餐決定器" subtitle="新增選項 · 隨機抽籤 · 不再糾結" />
           <RpgMiniStats compact />
         </>
       ) : null}
@@ -146,33 +147,29 @@ export function DinnerPage({ embedded }: { embedded?: boolean } = {}) {
           }}
           className="rounded-xl border border-stone-200 bg-white px-3 py-1.5 text-[11px] font-semibold text-stone-600 shadow-sm active:scale-[0.98] disabled:opacity-50"
         >
-          {syncBusy ? '同步中…' : '同步晚餐資料'}
+          {syncBusy ? '同步中…' : '☁️ 同步晚餐'}
         </button>
       </div>
 
       <section className={`mb-3 p-4 ${lq.card}`}>
-        <h2 className={`mb-3 text-sm font-bold ${lq.text}`}>今晚吃什麼？</h2>
+        <h2 className={`mb-3 flex items-center gap-1.5 text-sm font-bold ${lq.text}`}>
+          <span aria-hidden>🍽️</span> 今晚吃什麼？
+        </h2>
 
         <div className="mb-3 flex min-h-[180px] items-center justify-center py-1">
-          {emptyHint ? (
-            <div className="flex min-h-[168px] w-full items-center justify-center rounded-2xl border border-dashed border-stone-200 bg-stone-50/80 px-4 text-center">
-              <p className="text-[14px] font-semibold text-stone-700">請先新增晚餐選項</p>
-            </div>
-          ) : optionCount > 0 ? (
-            <DinnerFateCard mode={cardMode} displayName={displayName} displaySubtitle={displaySubtitle} />
+          {emptyHint || optionCount === 0 ? (
+            <EmptyState
+              emoji="🍽️"
+              title={emptyHint ? '請先新增晚餐選項' : '還沒有晚餐選項'}
+              hint="先新增幾個常吃的餐點吧"
+              className="min-h-[168px] w-full"
+            />
           ) : (
-            <div className="flex min-h-[168px] w-full items-center justify-center rounded-2xl border border-dashed border-stone-200/90 bg-gradient-to-br from-rose-50/40 to-white px-4 text-center">
-              <p className={`text-[14px] ${lq.textSecondary}`}>請先新增晚餐選項</p>
-            </div>
+            <DinnerFateCard mode={cardMode} displayName={displayName} displaySubtitle={displaySubtitle} />
           )}
         </div>
 
-        <PrimaryButton
-          onClick={startDinnerDraw}
-          disabled={isDrawing || optionCount === 0}
-          className="flex items-center justify-center gap-2"
-        >
-          <Dices className="h-4 w-4 shrink-0" aria-hidden />
+        <PrimaryButton onClick={startDinnerDraw} disabled={isDrawing || optionCount === 0}>
           {drawButtonLabel}
         </PrimaryButton>
         <PrimaryButton
@@ -181,12 +178,14 @@ export function DinnerPage({ embedded }: { embedded?: boolean } = {}) {
           onClick={() => lqState.saveDinnerResult()}
           className="mt-2"
         >
-          儲存今日結果
+          💾 儲存今日結果
         </PrimaryButton>
       </section>
 
       <section className={`mb-3 p-4 ${lq.card}`}>
-        <h2 className={`mb-2 text-sm font-bold ${lq.text}`}>晚餐選項</h2>
+        <h2 className={`mb-2 flex items-center gap-1.5 text-sm font-bold ${lq.text}`}>
+          <span aria-hidden>🍱</span> 晚餐選項
+        </h2>
         <InlineInput
           value={newLabel}
           onChange={setNewLabel}
@@ -198,26 +197,36 @@ export function DinnerPage({ embedded }: { embedded?: boolean } = {}) {
         />
         <ChipRow>
           {lqState.dinner.options.map((o) => (
-            <OptionChip key={o.id} label={o.label} onRemove={() => lqState.removeDinnerOption(o.id)} />
+            <OptionChip
+              key={o.id}
+              emoji={foodEmojiForLabel(o.label)}
+              label={o.label}
+              onRemove={() => lqState.removeDinnerOption(o.id)}
+            />
           ))}
         </ChipRow>
         {lqState.dinner.options.length === 0 ? (
-          <p className={`mt-2 text-[13px] ${lq.textSecondary}`}>至少新增一個選項才能抽籤</p>
+          <p className={`mt-2 text-[12px] ${lq.textSecondary}`}>🍽️ 至少新增一項才能抽籤</p>
         ) : null}
       </section>
 
       <section className={`p-4 ${lq.card}`}>
-        <h2 className={`mb-2 text-sm font-bold ${lq.text}`}>最近 7 天晚餐</h2>
+        <h2 className={`mb-2 flex items-center gap-1.5 text-sm font-bold ${lq.text}`}>
+          <span aria-hidden>📆</span> 最近 7 天晚餐
+        </h2>
         {lqState.dinnerHistory.length === 0 ? (
-          <p className={`text-[13px] ${lq.textSecondary}`}>尚無紀錄，儲存今日結果後會出現在這裡</p>
+          <EmptyState compact emoji="🍽️" title="尚無晚餐紀錄" hint="儲存今日結果後會出現在這裡" className="border-0 bg-transparent" />
         ) : (
           <ul className="space-y-1.5">
             {lqState.dinnerHistory.map((h) => (
               <li
                 key={h.id}
-                className="flex items-center justify-between rounded-xl bg-stone-50 px-3 py-2 text-[13px]"
+                className="flex items-center justify-between gap-2 rounded-xl bg-stone-50 px-3 py-2 text-[13px]"
               >
-                <span className={`font-semibold ${lq.text}`}>{h.label}</span>
+                <span className={`flex min-w-0 items-center gap-1.5 font-semibold ${lq.text}`}>
+                  <span aria-hidden>{foodEmojiForLabel(h.label)}</span>
+                  <span className="truncate">{h.label}</span>
+                </span>
                 <span className={lq.textMuted}>{formatDateShort(h.date)}</span>
               </li>
             ))}

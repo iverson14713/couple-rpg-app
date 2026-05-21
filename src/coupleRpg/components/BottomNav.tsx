@@ -1,15 +1,15 @@
 import type { LucideIcon } from 'lucide-react';
-import { Home, ChefHat, ClipboardList, Gift, Heart } from 'lucide-react';
+import { Brush, Gift, Home, User, UtensilsCrossed } from 'lucide-react';
 import { bottomNavHighlight, type CoupleNavTabId } from '../context/CoupleRpgNavContext';
 import type { CoupleTabId } from '../context/CoupleRpgNavContext';
 import { lq } from '../theme';
 
 const TABS: { id: CoupleNavTabId; label: string; Icon: LucideIcon }[] = [
   { id: 'home', label: '首頁', Icon: Home },
-  { id: 'dinner', label: '晚餐', Icon: ChefHat },
-  { id: 'housework', label: '家事', Icon: ClipboardList },
+  { id: 'dinner', label: '晚餐', Icon: UtensilsCrossed },
+  { id: 'housework', label: '家事', Icon: Brush },
   { id: 'rewards', label: '獎勵', Icon: Gift },
-  { id: 'profile', label: '我的', Icon: Heart },
+  { id: 'profile', label: '我的', Icon: User },
 ];
 
 type Props = {

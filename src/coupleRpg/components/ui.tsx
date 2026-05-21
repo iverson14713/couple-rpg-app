@@ -38,13 +38,20 @@ export function ChipRow({ children }: { children: ReactNode }) {
 
 export function OptionChip({
   label,
+  emoji,
   onRemove,
 }: {
   label: string;
+  emoji?: string;
   onRemove?: () => void;
 }) {
   return (
     <span className={`inline-flex max-w-full items-center gap-1 px-2.5 py-1 text-[12px] font-semibold ${lq.tag}`}>
+      {emoji ? (
+        <span className="shrink-0 text-base leading-none" aria-hidden>
+          {emoji}
+        </span>
+      ) : null}
       <span className="truncate">{label}</span>
       {onRemove ? (
         <button
@@ -86,7 +93,7 @@ export function InlineInput({
         onClick={onSubmit}
         className={`shrink-0 ${lq.btnPrimary}`}
       >
-        新增
+        ➕ 新增
       </button>
     </div>
   );
