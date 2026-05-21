@@ -1,6 +1,7 @@
 /**
  * Sync housework items & today's assignments with public.chores / public.chore_records.
  */
+import { ENABLE_CHORE_CLOUD_SYNC } from '../constants/choreSyncFlags';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { todayKey } from '../lib/dates';
 import { DEFAULT_HOUSEWORK_ITEMS } from '../storage/houseworkStore';
@@ -82,6 +83,7 @@ export function canSyncChores(input: {
   online: boolean;
   isFullyBound: boolean;
 }): boolean {
+  if (!ENABLE_CHORE_CLOUD_SYNC) return false;
   return Boolean(
     input.configured && input.userId && input.coupleId && input.online && input.isFullyBound
   );
@@ -230,7 +232,8 @@ const RECORD_STATUS_RANK: Record<string, number> = {
 function mergeTwoAssignedChores(
   local: HouseworkAssignedChore | undefined,
   remote: HouseworkAssignedChore,
-  remoteUpdatedAt: string
+  remoteUpdatedAt: string,
+  options?: { preferLocal?: boolean }
 ): HouseworkAssignedChore {
   if (!local) return remote;
 
@@ -242,7 +245,14 @@ function mergeTwoAssignedChores(
   const remoteVer = remote.localVersion ?? 0;
 
   let preferRemote = false;
-  if (remoteRank > localRank) preferRemote = true;
+  if (options?.preferLocal) {
+    if (localRank > remoteRank) preferRemote = false;
+    else if (remoteRank > localRank) preferRemote = true;
+    else if (localTs > remoteTs) preferRemote = false;
+    else if (remoteTs > localTs) preferRemote = true;
+    else if (localVer >= remoteVer) preferRemote = false;
+    else preferRemote = true;
+  } else if (remoteRank > localRank) preferRemote = true;
   else if (localRank > remoteRank) preferRemote = false;
   else if (remoteTs > localTs) preferRemote = true;
   else if (localTs > remoteTs) preferRemote = false;
@@ -297,7 +307,8 @@ function recordToAssignedChore(row: ChoreRecordRow): HouseworkAssignedChore | nu
 export function mergeChoreRecords(
   localAssignment: HouseworkTodayAssignment | null,
   remoteRows: ChoreRecordRow[],
-  dateKey: string
+  dateKey: string,
+  options?: { preferLocal?: boolean }
 ): { assignment: HouseworkTodayAssignment | null; meta: AssignmentMeta | null } {
   const todayRows = remoteRows.filter((r) => {
     const dk = r.date_key?.trim();
@@ -338,7 +349,7 @@ export function mergeChoreRecords(
     const loc = local?.chores.find((c) => c.taskId === taskId);
     const rem = remoteChores.get(taskId);
     if (loc && rem) {
-      chores.push(mergeTwoAssignedChores(loc, rem.chore, rem.updatedAt));
+      chores.push(mergeTwoAssignedChores(loc, rem.chore, rem.updatedAt, options));
     } else if (rem) {
       chores.push(rem.chore);
     } else if (loc) {
@@ -410,14 +421,167 @@ export async function pullTodayChoreRecordsFromRemote(
   supabase: SupabaseClient,
   coupleId: string,
   current: HouseworkData,
-  dateKey: string = todayKey()
+  dateKey: string = todayKey(),
+  options?: { preferLocal?: boolean }
 ): Promise<HouseworkData> {
   const rows = await getRemoteChoreRecords(supabase, coupleId, dateKey);
-  const { assignment, meta } = mergeChoreRecords(current.todayAssignment, rows, dateKey);
+  const { assignment, meta } = mergeChoreRecords(current.todayAssignment, rows, dateKey, options);
   return {
     ...current,
     todayAssignment: assignment,
     lastExtraAssignee: meta?.lastExtraAssignee ?? current.lastExtraAssignee,
+  };
+}
+
+function mergeTwoHouseworkItems(local: HouseworkItem, incoming: HouseworkItem, preferLocal: boolean): HouseworkItem {
+  const preferLo = preferLocal && parseTs(local.updatedAt) >= parseTs(incoming.updatedAt);
+  const primary = preferLo ? local : incoming;
+  const secondary = preferLo ? incoming : local;
+  const mergedActive =
+    local.isActive === false || incoming.isActive === false
+      ? false
+      : local.isActive !== false && incoming.isActive !== false;
+  return {
+    ...primary,
+    label: primary.label || secondary.label,
+    emoji: primary.emoji || secondary.emoji,
+    remoteId: incoming.remoteId ?? local.remoteId ?? null,
+    isActive: mergedActive,
+    syncPending: false,
+    localVersion: Math.max(local.localVersion ?? 0, incoming.localVersion ?? 0),
+    updatedAt: preferLo ? local.updatedAt : incoming.updatedAt,
+  };
+}
+
+function mergeHouseworkItems(
+  current: HouseworkItem[],
+  incoming: HouseworkItem[],
+  preferLocal: boolean
+): HouseworkItem[] {
+  const byId = new Map<string, HouseworkItem>();
+  for (const item of incoming) {
+    if (item.isActive === false) continue;
+    byId.set(item.id, item);
+  }
+  for (const lo of current) {
+    if (lo.isActive === false) continue;
+    const ex = byId.get(lo.id);
+    if (ex) {
+      byId.set(lo.id, mergeTwoHouseworkItems(lo, ex, preferLocal));
+    } else {
+      byId.set(lo.id, lo);
+    }
+  }
+  const labels = new Set<string>();
+  const out: HouseworkItem[] = [];
+  for (const item of byId.values()) {
+    const key = item.label.trim().toLowerCase();
+    if (!key || labels.has(key)) continue;
+    labels.add(key);
+    out.push(item);
+  }
+  return out;
+}
+
+function mergeTodayAssignmentPreferLocal(
+  local: HouseworkTodayAssignment,
+  incoming: HouseworkTodayAssignment
+): HouseworkTodayAssignment {
+  const selectedTaskIds = local.selectedTaskIds.length
+    ? local.selectedTaskIds
+    : incoming.selectedTaskIds;
+  const assignedAt = local.assignedAt ?? incoming.assignedAt;
+  const choreIds = new Set([
+    ...local.chores.map((c) => c.taskId),
+    ...incoming.chores.map((c) => c.taskId),
+  ]);
+  const chores: HouseworkAssignedChore[] = [];
+  for (const taskId of choreIds) {
+    const loc = local.chores.find((c) => c.taskId === taskId);
+    const inc = incoming.chores.find((c) => c.taskId === taskId);
+    if (loc && inc) {
+      chores.push(mergeTwoAssignedChores(loc, inc, inc.updatedAt ?? '', { preferLocal: true }));
+    } else if (loc) {
+      chores.push(loc);
+    } else if (inc) {
+      chores.push(inc);
+    }
+  }
+  return {
+    date: local.date,
+    selectedTaskIds,
+    assignedAt,
+    chores: assignedAt
+      ? chores.filter((c) => selectedTaskIds.includes(c.taskId) || local.chores.some((x) => x.taskId === c.taskId))
+      : [],
+    updatedAt: local.updatedAt ?? incoming.updatedAt,
+  };
+}
+
+/** Merge remote pull result into current UI state without clobbering optimistic edits. */
+export function mergeHouseworkDataSafe(
+  current: HouseworkData,
+  incoming: HouseworkData,
+  options?: { preferLocal?: boolean }
+): HouseworkData {
+  const preferLocal = options?.preferLocal ?? false;
+  const dateKey = todayKey();
+  const items = mergeHouseworkItems(current.items, incoming.items, preferLocal);
+
+  let todayAssignment = current.todayAssignment;
+  const incTa = incoming.todayAssignment;
+  if (incTa?.date === dateKey) {
+    if (preferLocal && current.todayAssignment?.date === dateKey && current.todayAssignment.assignedAt) {
+      todayAssignment = mergeTodayAssignmentPreferLocal(current.todayAssignment, incTa);
+    } else if (incTa.assignedAt || incTa.chores.length > 0) {
+      todayAssignment = incTa;
+    }
+  }
+
+  const completions =
+    preferLocal && current.completions.length >= incoming.completions.length
+      ? current.completions
+      : incoming.completions.length > current.completions.length
+        ? incoming.completions
+        : current.completions;
+
+  return {
+    ...current,
+    items,
+    todayAssignment,
+    completions,
+    lastExtraAssignee: preferLocal
+      ? current.lastExtraAssignee
+      : incoming.lastExtraAssignee ?? current.lastExtraAssignee,
+    pendingSpin: current.pendingSpin,
+    updatedAt: preferLocal ? current.updatedAt : incoming.updatedAt ?? current.updatedAt,
+    syncRevision: Math.max(current.syncRevision ?? 0, incoming.syncRevision ?? 0),
+  };
+}
+
+/** Apply only remote ids from a push result — keeps assignment/completion UI stable. */
+export function mergeHouseworkRemoteIdsOnly(current: HouseworkData, pushed: HouseworkData): HouseworkData {
+  const items = current.items.map((item) => {
+    const p = pushed.items.find((x) => x.id === item.id);
+    if (!p) return item;
+    return { ...item, remoteId: p.remoteId ?? item.remoteId ?? null, syncPending: false };
+  });
+
+  const curTa = current.todayAssignment;
+  const pushedTa = pushed.todayAssignment;
+  if (!curTa || !pushedTa || curTa.date !== pushedTa.date) {
+    return { ...current, items };
+  }
+
+  const chores = curTa.chores.map((c) => {
+    const p = pushedTa.chores.find((x) => x.taskId === c.taskId);
+    return p ? { ...c, remoteId: p.remoteId ?? c.remoteId ?? null } : c;
+  });
+
+  return {
+    ...current,
+    items,
+    todayAssignment: { ...curTa, chores },
   };
 }
 

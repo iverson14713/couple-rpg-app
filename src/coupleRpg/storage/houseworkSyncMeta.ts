@@ -45,8 +45,10 @@ export function ensureHouseworkStableIds(data: HouseworkData): HouseworkData {
   let todayAssignment = ta;
   if (ta) {
     const chores = ta.chores.map((c) => ({
-      ...touchAssignedChore(c),
+      ...c,
       taskId: c.taskId?.trim() || c.taskId,
+      updatedAt: c.updatedAt ?? nowIso(),
+      localVersion: c.localVersion ?? 0,
     }));
     todayAssignment = {
       ...ta,

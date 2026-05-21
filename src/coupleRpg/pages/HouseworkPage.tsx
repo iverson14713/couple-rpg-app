@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Check, Users } from 'lucide-react';
-import { ChoreSyncStatusLine } from '../components/ChoreSyncStatusLine';
+import { HouseworkLocalHint } from '../components/HouseworkLocalHint';
 import { useLoveQuest } from '../context/LoveQuestContext';
 import { DEFAULT_HOUSEWORK_ITEMS, getTodayAssignment } from '../storage/houseworkStore';
 import { EmptyState } from '../components/EmptyState';
@@ -14,20 +14,26 @@ const DEFAULT_HW_IDS = new Set(DEFAULT_HOUSEWORK_ITEMS.map((i) => i.id));
 
 export function HouseworkPage({ embedded }: { embedded?: boolean } = {}) {
   const game = useLoveQuest();
-  const { pullHouseworkFromCloud, choreSyncStatus, choreSyncError, retryChoreSync } = game;
   const [newLabel, setNewLabel] = useState('');
   const [confirmReassign, setConfirmReassign] = useState(false);
-
-  useEffect(() => {
-    void pullHouseworkFromCloud();
-  }, [pullHouseworkFromCloud]);
 
   const todayAssignment = useMemo(
     () => getTodayAssignment(game.housework),
     [game.housework]
   );
 
-  const isAssigned = Boolean(todayAssignment?.assignedAt && todayAssignment.chores.length > 0);
+  const hasAssignment = Boolean(
+    todayAssignment?.assignedAt &&
+      (todayAssignment.chores.length > 0 || (todayAssignment.selectedTaskIds?.length ?? 0) > 0)
+  );
+
+  const [stickAssignedView, setStickAssignedView] = useState(false);
+  useEffect(() => {
+    if (hasAssignment) setStickAssignedView(true);
+    if (!todayAssignment?.assignedAt) setStickAssignedView(false);
+  }, [hasAssignment, todayAssignment?.assignedAt]);
+
+  const isAssigned = hasAssignment || (stickAssignedView && Boolean(todayAssignment?.assignedAt));
   const selectedIds = todayAssignment?.selectedTaskIds ?? [];
 
   const meName = game.coupleExtended.myNickname.trim() || '我';
@@ -77,11 +83,7 @@ export function HouseworkPage({ embedded }: { embedded?: boolean } = {}) {
         🧹 選好家事後平均分配 · 完成每項 🤝+3 ✨+10 🪙+3
       </p>
 
-      <ChoreSyncStatusLine
-        status={choreSyncStatus}
-        error={choreSyncError}
-        onRetry={retryChoreSync}
-      />
+      <HouseworkLocalHint />
 
       {!isAssigned ? (
         <section className={`mb-3 p-3 ${lq.card}`}>

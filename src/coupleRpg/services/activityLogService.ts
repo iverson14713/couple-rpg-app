@@ -75,7 +75,9 @@ export function formatActivityMessage(item: Pick<
     'complete:reward_card': `${who} 完成了${title}`,
     'create:chore': `${who} 新增了家事${title}`,
     'update:chore': `${who} 更新了家事${title}`,
+    'delete:chore': `${who} 刪除了家事${title}`,
     'complete:chore': `${who} 完成了${title}`,
+    'sync:chore': `${who} 建立了今日家事分配`,
     'create:dinner': `${who} 新增了晚餐選項${title}`,
     'update:dinner': `${who} 更新了晚餐選項${title}`,
     'delete:dinner': `${who} 刪除了晚餐選項${title}`,
@@ -85,7 +87,6 @@ export function formatActivityMessage(item: Pick<
     'complete:love_task': `${who} 完成了今日戀愛任務`,
     'complete:mini_game': `${who} 完成了一次情侶小遊戲`,
     'upgrade:pro_plan': `${who} 開通了 Pro 體驗`,
-    'sync:chore': `${who} 開始了今日家事分配`,
   };
 
   return templates[key] ?? `${who} 進行了一項操作`;
