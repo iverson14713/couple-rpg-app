@@ -102,39 +102,56 @@ export function MiniGamesPage() {
         </p>
       </div>
 
-      <div className="mb-3 grid grid-cols-2 gap-2">
-        {COUPLE_GAME_MODES.map((m) => {
-          const locked = Boolean(m.proOnly && !isPro);
-          return (
-            <button
-              key={m.id}
-              type="button"
-              onClick={() => selectMode(m.id)}
-              className={`relative rounded-2xl border px-2 py-2.5 text-left transition active:scale-[0.98] ${
-                mode === m.id
-                  ? 'border-rose-300 bg-rose-50/90 ring-1 ring-rose-200'
-                  : locked
-                    ? 'border-violet-100 bg-violet-50/40'
-                    : 'border-stone-100 bg-white/90'
-              }`}
-            >
-              {m.proOnly ? (
-                <span className="absolute right-1.5 top-1.5 rounded-full bg-violet-100 px-1.5 py-0.5 text-[9px] font-bold text-violet-700">
-                  ✨ Pro
+      <div className="mb-2">
+        <p className="mb-1.5 px-0.5 text-[11px] font-semibold tracking-wide text-stone-400">模式選擇</p>
+        <div className="grid grid-cols-2 gap-1.5">
+          {COUPLE_GAME_MODES.map((m) => {
+            const selected = mode === m.id;
+            const locked = Boolean(m.proOnly && !isPro);
+            return (
+              <button
+                key={m.id}
+                type="button"
+                onClick={() => selectMode(m.id)}
+                className={`relative flex min-h-0 items-center gap-1.5 rounded-xl border px-2 py-1.5 text-left transition duration-200 active:scale-[0.98] ${
+                  selected
+                    ? 'scale-[1.02] border-rose-300 bg-rose-50/95 shadow-sm shadow-rose-200/50'
+                    : locked
+                      ? 'border-violet-100/80 bg-violet-50/30'
+                      : 'border-stone-200/60 bg-white'
+                }`}
+              >
+                {m.proOnly ? (
+                  <span className="absolute right-1 top-1 rounded bg-violet-100/90 px-1 py-px text-[8px] font-bold leading-none text-violet-700">
+                    Pro
+                  </span>
+                ) : null}
+                <span className="shrink-0 text-base leading-none" aria-hidden>
+                  {m.emoji}
                 </span>
-              ) : null}
-              <span className="text-xl">{m.emoji}</span>
-              <p className="mt-0.5 text-[12px] font-bold text-stone-900">{m.title}</p>
-              <p className="mt-0.5 line-clamp-2 text-[10px] leading-snug text-stone-500">{m.description}</p>
-            </button>
-          );
-        })}
+                <span className="min-w-0 flex-1 pr-4">
+                  <span
+                    className={`block truncate font-extrabold leading-tight tracking-tight text-stone-900 ${
+                      selected ? 'text-[17px]' : 'text-[16px]'
+                    }`}
+                  >
+                    {m.title}
+                  </span>
+                  <span className="mt-px block truncate text-[10px] font-medium text-stone-400/90">
+                    {m.description}
+                  </span>
+                </span>
+              </button>
+            );
+          })}
+        </div>
       </div>
 
-      <section className={`rounded-2xl border border-rose-100/80 p-3.5 ${lq.card}`}>
-        <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-          <h2 className="text-sm font-bold text-stone-900">
-            {modeDef.emoji} {modeDef.title}
+      <section className={`rounded-2xl border border-rose-100/80 p-4 shadow-[0_8px_28px_-10px_rgba(15,23,42,0.08)] ${lq.card}`}>
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+          <h2 className="text-[18px] font-extrabold leading-tight text-stone-900">
+            <span className="mr-1">{modeDef.emoji}</span>
+            {modeDef.title}
           </h2>
           <span className="text-[10px] font-semibold text-stone-400">題庫 {poolSize} 題</span>
         </div>
