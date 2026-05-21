@@ -138,6 +138,11 @@ import {
 } from '../services/foodOptionsSync';
 import { useCoupleSpace } from './CoupleSpaceContext';
 import { loadCoupleExtendedProfile, saveCoupleExtendedProfile } from '../storage/coupleExtendedStore';
+import {
+  loadImportantDateReminders,
+  saveImportantDateReminders,
+} from '../storage/importantDateRemindersStore';
+import type { ImportantDateRemindersData } from '../storage/importantDateReminderTypes';
 import { importantDatesKnowledgeIncreased } from '../lib/coupleProfileImportantReward';
 import { getNicknameSetupStatus, mergeCoupleProfile, type NicknameSetupStatus } from '../lib/coupleDisplayNames';
 
@@ -163,6 +168,10 @@ type LoveQuestContextValue = {
   taskProgress: ReturnType<typeof dailyTaskProgress>;
   coupleExtended: CoupleExtendedProfile;
   setCoupleExtendedProfile: (profile: CoupleExtendedProfile) => void;
+  importantDateReminders: ImportantDateRemindersData;
+  patchImportantDateReminder: (
+    updater: (prev: ImportantDateRemindersData) => ImportantDateRemindersData
+  ) => void;
   rerollLoveTask: (taskId: string) => void;
   flirtGames: FlirtGamesData;
   flirtGameDefs: typeof FLIRT_GAMES;
@@ -274,6 +283,7 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
   const [housework, setHousework] = useState(loadHousework);
   const [tasks, setTasks] = useState(loadTasks);
   const [coupleExtended, setCoupleExtendedState] = useState(loadCoupleExtendedProfile);
+  const [importantDateReminders, setImportantDateReminders] = useState(loadImportantDateReminders);
 
   const couple = useMemo(() => mergeCoupleProfile(coupleBase, coupleExtended), [coupleBase, coupleExtended]);
   const nicknameSetup = useMemo(() => getNicknameSetupStatus(coupleExtended), [coupleExtended]);
@@ -623,6 +633,17 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
     });
     return ok;
   }, []);
+
+  const patchImportantDateReminderFn = useCallback(
+    (updater: (prev: ImportantDateRemindersData) => ImportantDateRemindersData) => {
+      setImportantDateReminders((prev) => {
+        const next = updater(prev);
+        saveImportantDateReminders(next);
+        return next;
+      });
+    },
+    []
+  );
 
   const setCoupleExtendedProfileFn = useCallback((profile: CoupleExtendedProfile) => {
     setCoupleExtendedState((prev) => {
@@ -1019,6 +1040,8 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
       taskProgress,
       coupleExtended,
       setCoupleExtendedProfile: setCoupleExtendedProfileFn,
+      importantDateReminders,
+      patchImportantDateReminder: patchImportantDateReminderFn,
       rerollLoveTask: rerollLoveTaskFn,
       flirtGames,
       flirtGameDefs: FLIRT_GAMES,
@@ -1090,7 +1113,9 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
       tasks,
       taskProgress,
       coupleExtended,
+      importantDateReminders,
       setCoupleExtendedProfileFn,
+      patchImportantDateReminderFn,
       rerollLoveTaskFn,
       flirtGames,
       completionHistory,

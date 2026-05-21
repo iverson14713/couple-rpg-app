@@ -14,6 +14,7 @@ import { RewardsPage } from './pages/RewardsPage';
 import { TasksPage } from './pages/TasksPage';
 import { DatesPage } from './pages/DatesPage';
 import { MiniGamesPage } from './pages/MiniGamesPage';
+import { ImportantDatesRemindersPage } from './pages/ImportantDatesRemindersPage';
 import { TodayPage } from './pages/TodayPage';
 import { lq } from './theme';
 
@@ -77,6 +78,12 @@ function CoupleRpgShell() {
           <>
             <TabPageHeader emoji="🎲" title="情侶小遊戲" subtitle="骰子、真心話、默契問答，讓今天更有趣" />
             <MiniGamesPage />
+          </>
+        )}
+        {tab === 'importantDates' && (
+          <>
+            <TabPageHeader emoji="🔔" title="重要日子提醒" subtitle="提醒設定 · AI 安排 · 禮物靈感" />
+            <ImportantDatesRemindersPage />
           </>
         )}
       </main>

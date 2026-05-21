@@ -9,6 +9,7 @@ import {
   formatHomeCoupleHeaderLine,
 } from '../lib/importantDates';
 import { formatHomeConsoleCompactSummary } from '../lib/homeConsoleSummary';
+import { appendReminderToSummary, getPrimaryHomeDateNudge } from '../lib/importantDateHomeReminder';
 import { loadHomeConsoleExpanded, loadHomeDatesExpanded, saveHomeConsoleExpanded, saveHomeDatesExpanded } from '../lib/homeUiExpanded';
 import { EmptyState } from '../components/EmptyState';
 import { getTogetherDaysInfo } from '../lib/relationshipDays';
@@ -38,6 +39,7 @@ export function TodayPage() {
     dismissAnniversaryReminder,
     todayCoinEarned,
     coupleExtended,
+    importantDateReminders,
   } = useLoveQuest();
 
   const importantPreview = useMemo(() => getUpcomingImportantDates(coupleExtended), [coupleExtended]);
@@ -48,6 +50,7 @@ export function TodayPage() {
   const coupleHeaderLine = useMemo(() => formatHomeCoupleHeaderLine(coupleExtended), [coupleExtended]);
   const goCoupleProfile = () =>
     navigateTo('profile', { profileSection: 'settings', scrollToElementId: 'lq-couple-profile' });
+  const goReminders = () => navigateTo('importantDates');
   const showBindCard = showBindReminder;
 
   const dinnerLabel = todayDinner?.label ?? draftPick;
@@ -74,9 +77,14 @@ export function TodayPage() {
     [coupleHeaderLine, rpgView.heartPoints, rpgView.compatibility, rpgView.level, todayCoinEarned]
   );
 
-  const datesSummary = useMemo(
-    () => getImportantDatesCollapsedSummary(importantPreview, togetherDays),
-    [importantPreview, togetherDays]
+  const datesSummary = useMemo(() => {
+    const base = getImportantDatesCollapsedSummary(importantPreview, togetherDays);
+    return appendReminderToSummary(base, importantPreview.items[0], importantDateReminders);
+  }, [importantPreview, togetherDays, importantDateReminders]);
+
+  const homeDateNudge = useMemo(
+    () => getPrimaryHomeDateNudge(coupleExtended, importantDateReminders),
+    [coupleExtended, importantDateReminders]
   );
 
   return (
@@ -119,7 +127,20 @@ export function TodayPage() {
         preview={importantPreview}
         togetherDays={togetherDays}
         onGoSettings={goCoupleProfile}
+        onGoReminders={goReminders}
       />
+
+      {homeDateNudge ? (
+        <button
+          type="button"
+          onClick={goReminders}
+          className={`mb-2 flex w-full min-h-[44px] items-center gap-2 rounded-xl border border-amber-200/80 bg-amber-50/90 px-3 py-2 text-left text-[12px] font-semibold text-amber-950 active:scale-[0.99]`}
+        >
+          <span aria-hidden>🎁</span>
+          <span className="flex-1 leading-snug">{homeDateNudge}</span>
+          <span className="shrink-0 text-[11px] font-bold text-amber-800">查看 →</span>
+        </button>
+      ) : null}
 
       <DailyPartnerMessageCard />
 
@@ -349,11 +370,13 @@ function ImportantDatesCard({
   preview,
   togetherDays,
   onGoSettings,
+  onGoReminders,
 }: {
   summary: string;
   preview: ImportantDatesPreview;
   togetherDays: TogetherDaysInfo;
   onGoSettings: () => void;
+  onGoReminders: () => void;
 }) {
   const [expanded, setExpanded] = useState(() => loadHomeDatesExpanded());
 
@@ -443,11 +466,16 @@ function ImportantDatesCard({
                   <li className={`py-2 text-[12px] ${lq.textSecondary}`}>請以 YYYY-MM-DD 填寫日期以顯示倒數</li>
                 ) : null}
               </ul>
-              {showViewAll ? (
-                <button type="button" onClick={onGoSettings} className={`mt-1.5 text-[11px] font-semibold ${lq.accent}`}>
-                  查看全部（還有 {hiddenCount} 筆）→
+              <div className="mt-1.5 flex flex-wrap gap-3">
+                {showViewAll ? (
+                  <button type="button" onClick={onGoSettings} className={`text-[11px] font-semibold ${lq.accent}`}>
+                    查看全部（+{hiddenCount}）→
+                  </button>
+                ) : null}
+                <button type="button" onClick={onGoReminders} className={`text-[11px] font-semibold ${lq.accent}`}>
+                  🔔 提醒中心 →
                 </button>
-              ) : null}
+              </div>
             </>
           )}
         </div>

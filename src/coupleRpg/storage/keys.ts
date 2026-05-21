@@ -22,4 +22,6 @@ export const LQ_KEYS = {
   homeConsoleExpanded: 'lovequest-home-console-expanded',
   /** 首頁「重要日子」展開狀態（local only） */
   homeDatesExpanded: 'lovequest-home-dates-expanded',
+  /** 重要日子提醒設定（local only） */
+  importantDateReminders: 'lovequest-important-date-reminders',
 } as const;
