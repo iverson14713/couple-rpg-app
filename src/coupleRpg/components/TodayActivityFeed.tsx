@@ -2,11 +2,13 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ChevronDown, ChevronUp, X } from 'lucide-react';
 import { useLoveQuest } from '../context/LoveQuestContext';
 import { useUserPlan } from '../context/UserPlanContext';
+import { todayKey } from '../lib/dates';
 import {
   getRecentActivityLogsByDay,
   getTodayActivityLogs,
   subscribeActivityLogUpdated,
 } from '../services/activityLogService';
+import type { ActivityLogItem, ActivityTargetType } from '../storage/activityLogTypes';
 import {
   getTodayPartnerMessage,
   shuffleTodayMessage,
@@ -17,6 +19,70 @@ import { lq } from '../theme';
 const HOME_PREVIEW_MAX = 6;
 const ALL_MODAL_DAYS = 7;
 
+const TARGET_ICONS: Record<ActivityTargetType, string> = {
+  chore: '🧹',
+  dinner: '🍽️',
+  reward_card: '🎁',
+  couple_profile: '💑',
+  important_date: '📅',
+  date_idea: '💕',
+  love_task: '💗',
+  mini_game: '🎮',
+  pro_plan: '✨',
+};
+
+function activityLogIcon(item: Pick<ActivityLogItem, 'targetType' | 'actionType'>): string {
+  return TARGET_ICONS[item.targetType] ?? '📝';
+}
+
+function formatDateLabel(dateKey: string): string {
+  const today = todayKey();
+  if (dateKey === today) return '今天';
+
+  const yesterday = new Date();
+  yesterday.setDate(yesterday.getDate() - 1);
+  if (dateKey === todayKey(yesterday)) return '昨天';
+
+  const [y, m, d] = dateKey.split('-').map(Number);
+  if (y && m && d) return `${m} 月 ${d} 日`;
+  return dateKey;
+}
+
+/** 開啟 modal 時鎖定背景捲動，關閉後還原位置 */
+function useBodyScrollLock(active: boolean): void {
+  useEffect(() => {
+    if (!active || typeof document === 'undefined') return;
+
+    const scrollY = window.scrollY;
+    const { style } = document.body;
+    const prev = {
+      overflow: style.overflow,
+      position: style.position,
+      top: style.top,
+      left: style.left,
+      right: style.right,
+      width: style.width,
+    };
+
+    style.overflow = 'hidden';
+    style.position = 'fixed';
+    style.top = `-${scrollY}px`;
+    style.left = '0';
+    style.right = '0';
+    style.width = '100%';
+
+    return () => {
+      style.overflow = prev.overflow;
+      style.position = prev.position;
+      style.top = prev.top;
+      style.left = prev.left;
+      style.right = prev.right;
+      style.width = prev.width;
+      window.scrollTo(0, scrollY);
+    };
+  }, [active]);
+}
+
 export function TodayActivityFeed() {
   const { pullActivityLogsFromCloud } = useLoveQuest();
   const { isPro } = useUserPlan();
@@ -25,6 +91,8 @@ export function TodayActivityFeed() {
   const [tick, setTick] = useState(0);
   const [showQuote, setShowQuote] = useState(false);
   const [quote, setQuote] = useState<DailyMessageRecord>(() => getTodayPartnerMessage());
+
+  useBodyScrollLock(showAll);
 
   useEffect(() => {
     return subscribeActivityLogUpdated(() => setTick((t) => t + 1));
@@ -145,60 +213,106 @@ function ActivityLogModal({
   days,
   onClose,
 }: {
-  days: { dateKey: string; items: { id: string; actorName: string; message: string; createdAt: string }[] }[];
+  days: { dateKey: string; items: ActivityLogItem[] }[];
   onClose: () => void;
 }) {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onClose]);
+
   return (
-    <div
-      className="fixed inset-0 z-[80] flex items-end justify-center bg-stone-900/40 p-3 sm:items-center"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="activity-log-title"
-      onClick={onClose}
-    >
+    <div className="fixed inset-0 z-[80] flex flex-col justify-end" role="presentation">
+      <button
+        type="button"
+        className="absolute inset-0 bg-[rgba(255,245,248,0.65)] backdrop-blur-[6px] transition-opacity"
+        aria-label="關閉最近動態"
+        onClick={onClose}
+      />
+
       <div
-        className="max-h-[min(85vh,32rem)] w-full max-w-md overflow-hidden rounded-3xl bg-white shadow-xl ring-1 ring-stone-200"
+        className="relative mx-auto w-full max-w-md animate-[slideUp_0.28s_ease-out]"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="activity-log-title"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between border-b border-stone-100 px-4 py-3">
-          <h2 id="activity-log-title" className={`text-[16px] font-bold ${lq.text}`}>
-            最近動態
-          </h2>
-          <button
-            type="button"
-            onClick={onClose}
-            className="flex h-9 w-9 items-center justify-center rounded-full bg-stone-100 text-stone-600"
-            aria-label="關閉"
-          >
-            <X className="h-4 w-4" />
-          </button>
-        </div>
-        <div className="overflow-y-auto px-4 py-3" style={{ maxHeight: 'min(70vh, 26rem)' }}>
-          {days.length === 0 ? (
-            <p className="py-8 text-center text-[13px] text-stone-500">最近 7 天沒有動態紀錄</p>
-          ) : (
-            <div className="space-y-4">
-              {days.map((group) => (
-                <section key={group.dateKey}>
-                  <p className="mb-1.5 text-[11px] font-bold uppercase tracking-wide text-stone-400">
-                    {group.dateKey}
-                  </p>
-                  <ul className="space-y-1">
-                    {group.items.map((item) => (
-                      <li
-                        key={item.id}
-                        className="rounded-xl bg-rose-50/40 px-3 py-2 text-[13px] leading-snug text-stone-700"
-                      >
-                        {item.message}
-                      </li>
-                    ))}
-                  </ul>
-                </section>
-              ))}
-            </div>
-          )}
+        <div
+          className="flex max-h-[78vh] flex-col overflow-hidden rounded-t-[24px] border border-b-0 border-[rgba(255,120,160,0.12)] bg-[rgba(255,255,255,0.96)] shadow-[0_-10px_40px_rgba(255,120,160,0.14),0_-2px_12px_rgba(0,0,0,0.04)]"
+          style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}
+        >
+          <div className="flex shrink-0 flex-col items-center pt-2.5 pb-1">
+            <span
+              className="h-1 w-10 rounded-full bg-stone-300/60"
+              aria-hidden
+            />
+          </div>
+
+          <div className="flex shrink-0 items-center justify-between gap-3 border-b border-stone-100/90 px-4 pb-2.5 pt-0.5">
+            <h2 id="activity-log-title" className={`text-[15px] font-bold ${lq.text}`}>
+              最近動態
+            </h2>
+            <button
+              type="button"
+              onClick={onClose}
+              className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-rose-50/90 text-stone-400 ring-1 ring-rose-100/70 transition active:scale-95 active:bg-rose-100/80"
+              aria-label="關閉"
+            >
+              <X className="h-3.5 w-3.5" strokeWidth={2.25} aria-hidden />
+            </button>
+          </div>
+
+          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-3">
+            {days.length === 0 ? (
+              <p className="py-10 text-center text-[13px] text-stone-500">最近 7 天沒有動態紀錄</p>
+            ) : (
+              <div className="space-y-5 pb-1">
+                {days.map((group) => (
+                  <section key={group.dateKey}>
+                    <p className="mb-2 text-[12px] font-semibold text-stone-500">
+                      {formatDateLabel(group.dateKey)}
+                    </p>
+                    <ul className="space-y-2">
+                      {group.items.map((item) => (
+                        <li
+                          key={item.id}
+                          className="flex gap-2.5 rounded-2xl border border-stone-100/90 bg-white px-3 py-2.5 shadow-[0_1px_3px_rgba(0,0,0,0.04)]"
+                        >
+                          <span
+                            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-stone-50 text-[15px] leading-none"
+                            aria-hidden
+                          >
+                            {activityLogIcon(item)}
+                          </span>
+                          <p className="min-w-0 flex-1 pt-0.5 text-[13px] leading-snug text-stone-700">
+                            {item.message}
+                          </p>
+                        </li>
+                      ))}
+                    </ul>
+                  </section>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       </div>
+
+      <style>{`
+        @keyframes slideUp {
+          from {
+            transform: translateY(100%);
+            opacity: 0.6;
+          }
+          to {
+            transform: translateY(0);
+            opacity: 1;
+          }
+        }
+      `}</style>
     </div>
   );
 }
