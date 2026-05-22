@@ -1,3 +1,5 @@
+import { dateItineraryRecordId, importantDateRecordId } from './aiRecordIds';
+import { buildLocalShareRef, type AiShareRef } from './aiShareConfig';
 import type { SavedDateItineraryAi } from '../storage/dateItineraryAiCache';
 import { formatSavedItineraryDate } from '../storage/dateItineraryAiCache';
 import type { SavedImportantDateAi } from '../storage/importantDateAiCache';
@@ -10,6 +12,10 @@ export type AiShareCardPayload = {
   dateLabel: string;
   subtitle: string;
   summaryLines: string[];
+  /** 收藏／紀錄列表用 */
+  recordId?: string;
+  /** Phase 2：公開分享頁、deep link */
+  shareRef?: AiShareRef;
 };
 
 function trimLines(lines: string[], max = 4): string[] {
@@ -34,6 +40,8 @@ export function buildDateItinerarySharePayload(record: SavedDateItineraryAi): Ai
     dateLabel: formatSavedItineraryDate(record),
     subtitle: record.suggestion.title,
     summaryLines: trimLines(lines),
+    recordId: dateItineraryRecordId(record),
+    shareRef: buildLocalShareRef('date_itinerary', record.savedAt),
   };
 }
 
@@ -55,5 +63,7 @@ export function buildImportantDateSharePayload(record: SavedImportantDateAi): Ai
     dateLabel: formatSavedImportantDateLabel(record),
     subtitle: record.event.typeLabel,
     summaryLines: trimLines(lines),
+    recordId: importantDateRecordId(record),
+    shareRef: buildLocalShareRef('important_date', record.savedAt),
   };
 }

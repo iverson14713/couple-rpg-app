@@ -253,7 +253,7 @@ function ProAiMemoriesHub({
         <ProFeatureCard
           icon={<Image className="h-5 w-5 text-rose-500" />}
           title="分享圖片卡"
-          description="粉色戀愛風 · 可截圖分享"
+          description="儲存圖片 · 一鍵分享給另一半"
           onClick={onShareHint}
         />
         <ProFeatureCard
