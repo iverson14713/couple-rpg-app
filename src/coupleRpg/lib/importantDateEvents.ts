@@ -85,6 +85,13 @@ export function formatYmdLabel(ymd: string): string {
   return `${p.m}/${p.d}`;
 }
 
+/** 首頁卡片用：例如 3月14日 */
+export function formatYmdChinese(ymd: string): string {
+  const p = parseYmd(ymd);
+  if (!p) return ymd;
+  return `${p.m}月${p.d}日`;
+}
+
 function resolveStatus(isToday: boolean, daysUntil: number, daysSince: number): ImportantDateStatus {
   if (isToday) return 'today';
   if (daysSince > 0 && daysSince <= 14 && daysUntil > 30) return 'past';

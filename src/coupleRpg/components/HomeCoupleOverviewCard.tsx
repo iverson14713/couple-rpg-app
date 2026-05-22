@@ -4,13 +4,8 @@ import { useCoupleRpgNav } from '../context/CoupleRpgNavContext';
 import { useUserPlan } from '../context/UserPlanContext';
 import { useLoveQuest } from '../context/LoveQuestContext';
 import { formatHomeCoupleHeaderLine } from '../lib/importantDates';
-import { getPrimaryHomeDateNudge } from '../lib/importantDateHomeReminder';
-import { getUpcomingImportantDates } from '../lib/importantDates';
-import { getTogetherDaysInfo } from '../lib/relationshipDays';
 import { todayKey } from '../lib/dates';
 import { lq } from '../theme';
-
-const MAX_DATE_ROWS = 2;
 
 export function HomeCoupleOverviewCard() {
   const { navigateTo } = useCoupleRpgNav();
@@ -20,9 +15,6 @@ export function HomeCoupleOverviewCard() {
     todayCoinEarned,
     coupleExtended,
     couple,
-    importantDateReminders,
-    activeAnniversaryReminders,
-    dismissAnniversaryReminder,
     todayDinner,
     draftPick,
     dinnerHomeStatus,
@@ -31,20 +23,7 @@ export function HomeCoupleOverviewCard() {
     datePlanner,
   } = useLoveQuest();
 
-  const importantPreview = useMemo(() => getUpcomingImportantDates(coupleExtended), [coupleExtended]);
-  const togetherDays = useMemo(
-    () => getTogetherDaysInfo(coupleExtended.relationshipStart),
-    [coupleExtended.relationshipStart]
-  );
   const coupleHeaderLine = useMemo(() => formatHomeCoupleHeaderLine(coupleExtended), [coupleExtended]);
-  const homeDateNudge = useMemo(
-    () => getPrimaryHomeDateNudge(coupleExtended, importantDateReminders),
-    [coupleExtended, importantDateReminders]
-  );
-
-  const goCoupleProfile = () =>
-    navigateTo('profile', { profileSection: 'settings', scrollToElementId: 'lq-couple-profile' });
-  const goReminders = () => navigateTo('importantDates');
 
   const dinnerLabel = todayDinner?.label ?? draftPick;
   const { done, total } = taskProgress;
@@ -61,49 +40,6 @@ export function HomeCoupleOverviewCard() {
     if (datePlanner.current && !datePlanner.current.completed) parts.push('約會提案中');
     return parts.length ? parts.join(' · ') : '今天一起創造小驚喜吧';
   }, [dinnerLabel, dinnerHomeStatus.summaryPart, houseworkHomeStatus.summaryPart, todayDinner?.label, total, done, datePlanner.current]);
-
-  const dateRows = useMemo(() => {
-    const rows: { key: string; icon: string; title: string; suffix: string; highlight?: boolean }[] = [];
-    const showTogether =
-      togetherDays.kind === 'active' || togetherDays.kind === 'future' || togetherDays.kind === 'invalid';
-
-    if (showTogether) {
-      rows.push({
-        key: 'together',
-        icon: '💕',
-        title:
-          togetherDays.kind === 'active'
-            ? '在一起'
-            : togetherDays.kind === 'future'
-              ? '在一起紀念日'
-              : '在一起',
-        suffix:
-          togetherDays.kind === 'active'
-            ? `第 ${togetherDays.days} 天`
-            : togetherDays.kind === 'future'
-              ? '尚未開始'
-              : '請檢查日期',
-        highlight: togetherDays.kind === 'active',
-      });
-    }
-
-    const slots = Math.max(0, MAX_DATE_ROWS - (showTogether ? 1 : 0));
-    for (const it of importantPreview.items.slice(0, slots)) {
-      rows.push({
-        key: it.id,
-        icon: it.icon,
-        title: it.displayTitle,
-        suffix: it.isToday ? '今天' : `${it.daysUntil} 天後`,
-        highlight: it.isToday,
-      });
-    }
-    return rows;
-  }, [togetherDays, importantPreview.items]);
-
-  const hiddenDateCount = Math.max(
-    0,
-    importantPreview.totalCount - dateRows.filter((r) => r.key !== 'together').length
-  );
 
   return (
     <section className="mb-4 overflow-hidden rounded-3xl bg-gradient-to-b from-white via-rose-50/40 to-stone-50/80 shadow-[0_12px_40px_-16px_rgba(15,23,42,0.12)] ring-1 ring-stone-200/50">
@@ -154,80 +90,6 @@ export function HomeCoupleOverviewCard() {
 
         <p className="mt-2.5 truncate text-[12px] font-medium text-stone-500">{todayLine}</p>
       </div>
-
-      {/* 重要日子 + 提醒（內嵌，非獨立 banner） */}
-      {(dateRows.length > 0 || homeDateNudge) && (
-        <div className="border-t border-stone-200/40 px-4 py-3">
-          <div className="mb-1.5 flex items-center justify-between">
-            <p className="text-[11px] font-bold uppercase tracking-wide text-stone-400">重要日子</p>
-            <button
-              type="button"
-              onClick={goReminders}
-              className="text-[11px] font-semibold text-rose-500 active:opacity-70"
-            >
-              提醒中心
-            </button>
-          </div>
-          {dateRows.length > 0 ? (
-            <ul className="space-y-1">
-              {dateRows.map((row) => (
-                <li key={row.key} className="flex items-center gap-2 py-0.5">
-                  <span className="w-5 text-center text-sm" aria-hidden>
-                    {row.icon}
-                  </span>
-                  <span
-                    className={`min-w-0 flex-1 truncate text-[13px] font-semibold ${
-                      row.highlight ? 'text-rose-600' : lq.text
-                    }`}
-                  >
-                    {row.title}
-                  </span>
-                  <span className="shrink-0 text-[12px] text-stone-500">{row.suffix}</span>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <button
-              type="button"
-              onClick={goCoupleProfile}
-              className="text-[12px] font-semibold text-stone-500 underline-offset-2 hover:underline"
-            >
-              設定紀念日與生日 →
-            </button>
-          )}
-          {hiddenDateCount > 0 ? (
-            <button
-              type="button"
-              onClick={goCoupleProfile}
-              className="mt-1 text-[11px] font-semibold text-stone-400 active:text-rose-500"
-            >
-              還有 {hiddenDateCount} 項 →
-            </button>
-          ) : null}
-          {homeDateNudge ? (
-            <p className="mt-2 text-[12px] leading-snug text-amber-800/90">
-              <span className="font-semibold">提醒</span> · {homeDateNudge.replace(/🎁\s*/, '')}
-              <button type="button" onClick={goReminders} className="ml-1 font-bold text-amber-900 underline-offset-2">
-                查看
-              </button>
-            </p>
-          ) : null}
-          {activeAnniversaryReminders.slice(0, 1).map((r) => (
-            <p key={r.id} className="mt-1.5 flex items-center gap-2 text-[12px] text-stone-600">
-              <span className="truncate">
-                {r.emoji} {r.message}
-              </span>
-              <button
-                type="button"
-                onClick={() => dismissAnniversaryReminder(r.id)}
-                className="shrink-0 font-bold text-stone-500"
-              >
-                知道了
-              </button>
-            </p>
-          ))}
-        </div>
-      )}
 
       <TodayActivityFeed />
     </section>

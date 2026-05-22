@@ -1,7 +1,18 @@
 import type { CoupleExtendedProfile } from '../storage/coupleExtendedTypes';
 import { formatEnabledOffsetsLabel, getEventSettings, type ImportantDateRemindersData } from '../storage/importantDateRemindersStore';
 import { buildImportantDateEvents, type ImportantDateEvent } from './importantDateEvents';
-import type { UpcomingImportant } from './importantDates';
+import { hasHomeImportantDatesConfigured, type UpcomingImportant } from './importantDates';
+
+/** 首頁大型提醒卡：下一個最近的重要日子（今天優先，其次即將到來） */
+export function getNextHomeImportantDateEvent(
+  profile: CoupleExtendedProfile,
+  from: Date = new Date()
+): ImportantDateEvent | null {
+  if (!hasHomeImportantDatesConfigured(profile)) return null;
+  const events = buildImportantDateEvents(profile, from);
+  if (events.length === 0) return null;
+  return events.find((e) => e.isToday) ?? events.find((e) => e.status !== 'past') ?? events[0];
+}
 
 /** 首頁收合摘要附加提醒設定（不影響 getUpcomingImportantDates） */
 export function appendReminderToSummary(

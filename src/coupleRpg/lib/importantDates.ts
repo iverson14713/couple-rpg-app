@@ -52,7 +52,7 @@ function daysUntilAnnualDate(ymd: string, from: Date): { daysUntil: number; isTo
 }
 
 /** 首頁「重要日子」：另一半與共同紀念日等（不含「我的生日」）。 */
-function hasHomeImportantDates(p: CoupleExtendedProfile): boolean {
+export function hasHomeImportantDatesConfigured(p: CoupleExtendedProfile): boolean {
   return Boolean(
     p.partnerBirthday.trim() ||
       p.relationshipStart.trim() ||
@@ -78,7 +78,7 @@ export function getUpcomingImportantDates(
   profile: CoupleExtendedProfile,
   from: Date = new Date()
 ): { items: UpcomingImportant[]; hasConfigured: boolean } {
-  if (!hasHomeImportantDates(profile)) {
+  if (!hasHomeImportantDatesConfigured(profile)) {
     return { items: [], totalCount: 0, hasConfigured: false };
   }
 
