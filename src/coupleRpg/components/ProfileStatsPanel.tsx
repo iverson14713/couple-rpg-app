@@ -7,14 +7,14 @@ import { PlanStatusPill } from './ProBadge';
 import { useUserPlan } from '../context/UserPlanContext';
 import { lq } from '../theme';
 
-export function ProfileStatsPanel() {
+export function ProfileStatsPanel({ showcase }: { showcase?: boolean } = {}) {
   const { couple, rpg, rpgView, weeklyTitles, todayCoinEarned, activity } = useLoveQuest();
   const { isPro } = useUserPlan();
 
   return (
     <>
-      <UpgradeCard compact className="mb-3" />
-      <NicknameSetupBanner />
+      {!showcase ? <UpgradeCard compact className="mb-3" /> : null}
+      {!showcase ? <NicknameSetupBanner /> : null}
       <section className={`mb-3 overflow-hidden p-4 ${lq.card}`}>
         <div className="flex items-center gap-3">
           <div className="flex -space-x-1">
@@ -52,7 +52,7 @@ export function ProfileStatsPanel() {
         </div>
       </section>
 
-      <CoupleBindSection />
+      {!showcase ? <CoupleBindSection /> : null}
 
       <RpgMiniStats compact />
 

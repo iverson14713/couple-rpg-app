@@ -2,10 +2,12 @@ import type { LoveQuestShowcaseSlide } from './slides';
 import {
   LQ_SHOWCASE_FONT,
   LQ_SHOWCASE_GRADIENT,
-  PHONE_MOCKUP_TOP,
+  PHONE_MOCKUP_BOTTOM,
   SHOWCASE_DEVICES,
+  getPhoneMockupOuterSize,
   type ShowcaseDeviceId,
 } from './constants';
+import { ShowcaseBottomDecor } from './components/ShowcaseBottomDecor';
 import { ShowcaseOrbs } from './components/ShowcaseOrbs';
 import { ShowcasePhoneFrame } from './components/ShowcasePhoneFrame';
 
@@ -25,6 +27,8 @@ export function LoveQuestShowcaseSlideCanvas({
   const { w, h } = SHOWCASE_DEVICES[device];
   const Screen = slide.Screen;
   const isAppOnly = view === 'app';
+  const phone = getPhoneMockupOuterSize();
+  const phoneBottom = Math.round(PHONE_MOCKUP_BOTTOM * (h / 2796));
 
   if (isAppOnly) {
     return (
@@ -55,21 +59,37 @@ export function LoveQuestShowcaseSlideCanvas({
       }}
     >
       <ShowcaseOrbs />
+      <ShowcaseBottomDecor />
 
-      <header className="absolute left-0 right-0 z-10 px-[56px] pt-[108px] text-center">
-        <p className="text-[24px] font-semibold tracking-wide text-white/90">LoveQuest</p>
+      {/* 緊湊 Hero：主標偏上、留出手機空間 */}
+      <header className="lq-showcase-hero absolute left-0 right-0 z-10 px-[48px] pt-[72px] text-center">
+        <p className="text-[20px] font-semibold tracking-wide text-white/88">LoveQuest</p>
         <h2
-          className="mt-3 text-[62px] font-extrabold leading-[1.06] tracking-tight text-white"
-          style={{ textShadow: '0 2px 28px rgba(190,24,93,0.2)' }}
+          className="mt-2 text-[54px] font-extrabold leading-[1.08] tracking-tight text-white"
+          style={{ textShadow: '0 2px 24px rgba(190,24,93,0.22)' }}
         >
           {slide.headline}
         </h2>
-        <p className="mx-auto mt-5 max-w-[1000px] text-[32px] font-medium leading-snug text-white/92">
+        <p className="mx-auto mt-3 max-w-[920px] text-[28px] font-medium leading-snug text-white/90">
           {slide.subtitle}
         </p>
       </header>
 
-      <section className="absolute left-1/2 z-10 -translate-x-1/2" style={{ top: PHONE_MOCKUP_TOP }}>
+      {/* 手機貼底、大尺寸 */}
+      <span
+        className="lq-showcase-phone-glow pointer-events-none absolute left-1/2 z-[2] -translate-x-1/2"
+        style={{
+          bottom: phoneBottom - 24,
+          width: phone.width * 1.15,
+          height: Math.round(phone.height * 0.12),
+        }}
+        aria-hidden
+      />
+
+      <section
+        className="absolute left-1/2 z-10 -translate-x-1/2"
+        style={{ bottom: phoneBottom, width: phone.width, height: phone.height }}
+      >
         <ShowcasePhoneFrame>
           <Screen />
         </ShowcasePhoneFrame>

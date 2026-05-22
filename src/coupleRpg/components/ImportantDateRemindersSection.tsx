@@ -29,6 +29,8 @@ export const IMPORTANT_DATE_REMINDERS_ANCHOR_ID = 'lq-important-date-reminders';
 type Props = {
   showBack?: boolean;
   compactHero?: boolean;
+  /** 上架截圖：隱藏返回、精簡 chrome */
+  showcase?: boolean;
 };
 
 function copyOffsets(offsets: ReminderOffsetDays[]): ReminderOffsetDays[] {
@@ -142,7 +144,7 @@ export function ImportantDateRemindersSection({ showBack, compactHero }: Props) 
 
   return (
     <section id={IMPORTANT_DATE_REMINDERS_ANCHOR_ID} className={compactHero ? '' : 'mb-4'}>
-      {showBack ? (
+      {showBack && !showcase ? (
         <button
           type="button"
           onClick={() => navigateTo('home')}
@@ -153,7 +155,7 @@ export function ImportantDateRemindersSection({ showBack, compactHero }: Props) 
         </button>
       ) : null}
 
-      {showBack ? (
+      {showBack && !showcase ? (
         <RecentImportantDateAiCard onView={setSavedImportantView} className="mb-3" />
       ) : null}
 

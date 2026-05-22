@@ -116,7 +116,8 @@ export function LoveQuestShowcaseHub() {
 
       <div className="mx-auto max-w-4xl px-4 py-4">
         <p className="text-center text-[13px] leading-relaxed text-[#8a7a84]">
-          App Store 專用展示模式 · 預覽 {device}（{w}×{h}）· 粉白戀愛感 UI
+          手機內為<strong className="font-semibold text-[#5c4d55]">真實 App 元件</strong>（展示用示範資料）·
+          預覽 {device}（{w}×{h}）· 離開此頁會還原你的本機資料
         </p>
 
         <div className="mt-4 flex flex-wrap items-center justify-center gap-2">

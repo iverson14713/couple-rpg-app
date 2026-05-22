@@ -1,9 +1,11 @@
 import type { ComponentType } from 'react';
-import { ShowcaseAiDateScreen } from './screens/ShowcaseAiDateScreen';
-import { ShowcaseGamesScreen } from './screens/ShowcaseGamesScreen';
-import { ShowcaseRemindersScreen } from './screens/ShowcaseRemindersScreen';
-import { ShowcaseRpgScreen } from './screens/ShowcaseRpgScreen';
-import { ShowcaseSyncScreen } from './screens/ShowcaseSyncScreen';
+import {
+  ShowcaseAiDateScreen,
+  ShowcaseGamesScreen,
+  ShowcaseRemindersScreen,
+  ShowcaseRpgScreen,
+  ShowcaseSyncScreen,
+} from './screens/ShowcaseRealScreens';
 
 export type LoveQuestShowcaseSlide = {
   id: string;

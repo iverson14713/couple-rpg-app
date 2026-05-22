@@ -16,7 +16,9 @@ export const DEVICE_LOGICAL_W = 390;
 const BASE_PHONE_SCREEN_W = 612;
 const BASE_PHONE_SCREEN_H = 1328;
 const BASE_PHONE_BEZEL = 44;
-const PHONE_MOCKUP_SCALE = 1.07;
+
+/** 放大 mockup，目標佔 canvas 高度約 75–78%（App Store 常見比例） */
+export const PHONE_MOCKUP_SCALE = 1.5;
 
 export const PHONE_SCREEN_W = Math.round(BASE_PHONE_SCREEN_W * PHONE_MOCKUP_SCALE);
 export const PHONE_SCREEN_H = Math.round(BASE_PHONE_SCREEN_H * PHONE_MOCKUP_SCALE);
@@ -24,7 +26,16 @@ export const PHONE_BEZEL = Math.round(BASE_PHONE_BEZEL * PHONE_MOCKUP_SCALE);
 export const PHONE_FRAME_RADIUS = Math.round(56 * PHONE_MOCKUP_SCALE);
 export const PHONE_SCREEN_RADIUS = Math.round(44 * PHONE_MOCKUP_SCALE);
 export const SCREEN_SCALE = PHONE_SCREEN_W / DEVICE_LOGICAL_W;
-export const PHONE_MOCKUP_TOP = 508;
+
+/** 手機貼近底部，避免下方大片空白 */
+export const PHONE_MOCKUP_BOTTOM = 44;
+
+export function getPhoneMockupOuterSize(): { width: number; height: number } {
+  return {
+    width: PHONE_SCREEN_W + PHONE_BEZEL * 2,
+    height: PHONE_SCREEN_H + PHONE_BEZEL * 2,
+  };
+}
 
 export const LQ_SHOWCASE_GRADIENT =
   'linear-gradient(165deg, #fff5f9 0%, #fce7f3 18%, #fbcfe8 42%, #f9a8d4 68%, #f472b6 100%)';
