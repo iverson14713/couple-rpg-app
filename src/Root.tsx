@@ -2,6 +2,9 @@ import { useEffect, useState } from 'react';
 import { AppLaunchGate } from './AppLaunchGate.tsx';
 import { AuthCallbackPage } from './AuthCallbackPage.tsx';
 import { AppStoreScreenshotMode } from './pages/AppStoreScreenshotMode.tsx';
+import { LoveQuestShowcaseHub } from './showcase/lovequest/LoveQuestShowcaseHub.tsx';
+import { LoveQuestShowcaseSingle } from './showcase/lovequest/LoveQuestShowcaseSingle.tsx';
+import { getShowcaseSlideById } from './showcase/lovequest/slides.ts';
 import { PrivacyPolicyPage } from './pages/PrivacyPolicyPage.tsx';
 import { TermsPage } from './pages/TermsPage.tsx';
 
@@ -37,6 +40,18 @@ export function Root() {
 
   if (path === '/app-store-screenshots') {
     return <AppStoreScreenshotMode />;
+  }
+
+  if (path === '/showcase' || path === '/appstore-preview') {
+    return <LoveQuestShowcaseHub />;
+  }
+
+  const singleMatch = path.match(/^\/showcase\/([a-z0-9-]+)$/);
+  if (singleMatch) {
+    const slideId = singleMatch[1]!;
+    if (getShowcaseSlideById(slideId)) {
+      return <LoveQuestShowcaseSingle slideId={slideId} />;
+    }
   }
 
   return <AppLaunchGate />;

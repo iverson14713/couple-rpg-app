@@ -1,0 +1,33 @@
+/** App Store 6.7" — iPhone 14/15 Pro Max */
+export const DEVICE_67 = { w: 1290, h: 2796, label: '6.7"' } as const;
+
+/** App Store 6.5" — iPhone 11 Pro Max / XS Max */
+export const DEVICE_65 = { w: 1242, h: 2688, label: '6.5"' } as const;
+
+export type ShowcaseDeviceId = '6.7' | '6.5';
+
+export const SHOWCASE_DEVICES: Record<ShowcaseDeviceId, { w: number; h: number; label: string }> = {
+  '6.7': DEVICE_67,
+  '6.5': DEVICE_65,
+};
+
+export const DEVICE_LOGICAL_W = 390;
+
+const BASE_PHONE_SCREEN_W = 612;
+const BASE_PHONE_SCREEN_H = 1328;
+const BASE_PHONE_BEZEL = 44;
+const PHONE_MOCKUP_SCALE = 1.07;
+
+export const PHONE_SCREEN_W = Math.round(BASE_PHONE_SCREEN_W * PHONE_MOCKUP_SCALE);
+export const PHONE_SCREEN_H = Math.round(BASE_PHONE_SCREEN_H * PHONE_MOCKUP_SCALE);
+export const PHONE_BEZEL = Math.round(BASE_PHONE_BEZEL * PHONE_MOCKUP_SCALE);
+export const PHONE_FRAME_RADIUS = Math.round(56 * PHONE_MOCKUP_SCALE);
+export const PHONE_SCREEN_RADIUS = Math.round(44 * PHONE_MOCKUP_SCALE);
+export const SCREEN_SCALE = PHONE_SCREEN_W / DEVICE_LOGICAL_W;
+export const PHONE_MOCKUP_TOP = 508;
+
+export const LQ_SHOWCASE_GRADIENT =
+  'linear-gradient(165deg, #fff5f9 0%, #fce7f3 18%, #fbcfe8 42%, #f9a8d4 68%, #f472b6 100%)';
+
+export const LQ_SHOWCASE_FONT =
+  '-apple-system, BlinkMacSystemFont, "PingFang TC", "Microsoft JhengHei", "Noto Sans TC", "Segoe UI", sans-serif';

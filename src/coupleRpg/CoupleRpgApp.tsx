@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { isScreenshotMode } from '../lib/screenshotMode';
 import { OfflineBanner } from '../components/OfflineBanner';
 import { useOnlineStatus } from '../hooks/useOnlineStatus';
 import { useSupabaseAuth } from '../useSupabaseAuth';
@@ -46,13 +47,18 @@ function CoupleRpgShell() {
   const { tab, navigateTo } = useCoupleRpgNav();
   const isOnline = useOnlineStatus();
   const auth = useSupabaseAuth();
+  const screenshotMode = isScreenshotMode();
 
   const onNavChange = (next: CoupleNavTabId) => navigateTo(next);
 
   return (
-    <AppRoot>
-      {!isOnline ? <OfflineBanner message="目前離線，部分功能可能無法同步。" /> : null}
-      {auth.configured && auth.authReady && auth.user ? <LoggedInStrip auth={auth} /> : null}
+    <AppRoot screenshotMode={screenshotMode}>
+      {!screenshotMode && !isOnline ? (
+        <OfflineBanner message="目前離線，部分功能可能無法同步。" />
+      ) : null}
+      {!screenshotMode && auth.configured && auth.authReady && auth.user ? (
+        <LoggedInStrip auth={auth} />
+      ) : null}
       <main key={tab} className="page-tab-fade">
         {tab === 'home' && <TodayPage />}
         {tab === 'dinner' && (
@@ -107,10 +113,10 @@ function CoupleRpgShell() {
   );
 }
 
-function AppRoot({ children }: { children: ReactNode }) {
+function AppRoot({ children, screenshotMode }: { children: ReactNode; screenshotMode?: boolean }) {
   return (
     <div
-      className={`min-h-screen px-4 py-6 ${lq.mainPadBottom} ${lq.text} ${lq.bg}`}
+      className={`min-h-screen ${screenshotMode ? 'px-4 py-4 pb-6' : `px-4 py-6 ${lq.mainPadBottom}`} ${lq.text} ${lq.bg}`}
     >
       <div className="mx-auto max-w-md">{children}</div>
     </div>
