@@ -2,6 +2,7 @@ import { Cloud } from 'lucide-react';
 import { useOnlineStatus } from '../../hooks/useOnlineStatus';
 import { useSupabaseAuth } from '../../useSupabaseAuth';
 import { useCoupleSpace } from '../context/CoupleSpaceContext';
+import { useLoveQuest } from '../context/LoveQuestContext';
 import { getSyncStatus } from '../services/coupleSyncService';
 import { useProFeature } from '../hooks/useProFeature';
 import { ProBadgeIfNeeded } from './ProBadge';
@@ -11,6 +12,7 @@ export function CloudSyncSection() {
   const auth = useSupabaseAuth();
   const isOnline = useOnlineStatus();
   const { space, loading, isFullyBound } = useCoupleSpace();
+  const { displayNames } = useLoveQuest();
 
   const syncPro = useProFeature('full_sync');
 
@@ -18,6 +20,7 @@ export function CloudSyncSection() {
     isOnline,
     supabaseConfigured: auth.configured,
     userId: auth.user?.id ?? null,
+    userDisplayName: auth.user ? displayNames.me : null,
     coupleSpaceLoading: loading,
     space,
     isFullyBound,

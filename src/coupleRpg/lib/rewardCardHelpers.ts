@@ -2,6 +2,9 @@ import { isCustomRewardCardId } from './customRewardCard';
 import type { OwnedCoupon, RewardShopCategory } from '../storage/rewardTypes';
 import type { RewardCardStatus } from '../storage/rewardTypes';
 
+export { resolveDisplayNameForUserId as displayNameForUserId } from './coupleDisplayNames';
+export type { UserDisplayNameContext } from './coupleDisplayNames';
+
 /** 需由對方標記完成的卡券類型（商城預設） */
 export function needsPartnerCompletion(category: RewardShopCategory, itemId: string): boolean {
   if (isCustomRewardCardId(itemId)) return false;
@@ -12,17 +15,6 @@ export function needsPartnerCompletion(category: RewardShopCategory, itemId: str
 export function couponNeedsPartnerCompletion(coupon: Pick<OwnedCoupon, 'isCustom' | 'needsPartnerComplete' | 'category' | 'itemId'>): boolean {
   if (coupon.isCustom) return Boolean(coupon.needsPartnerComplete);
   return needsPartnerCompletion(coupon.category, coupon.itemId);
-}
-
-export function displayNameForUserId(
-  userId: string | null | undefined,
-  currentUserId: string | null,
-  myNickname: string,
-  partnerNickname: string
-): string {
-  if (!userId) return '某人';
-  if (currentUserId && userId === currentUserId) return myNickname.trim() || '我';
-  return partnerNickname.trim() || '另一半';
 }
 
 export const REWARD_CARD_STATUS_LABEL: Record<RewardCardStatus, string> = {

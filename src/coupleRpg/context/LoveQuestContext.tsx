@@ -140,7 +140,11 @@ import {
 } from '../services/choreSyncService';
 import { createChoreSyncScheduler, type ChoreSyncScheduler } from '../services/choreSyncScheduler';
 import {
-  displayNameForUserId,
+  buildCoupleDisplayNames,
+  resolveDisplayNameForUserId,
+  type UserDisplayNameContext,
+} from '../lib/coupleDisplayNames';
+import {
   formatCompleteFeedLine,
   formatRedeemFeedLine,
   formatUseFeedLine,
@@ -266,6 +270,9 @@ type LoveQuestContextValue = {
   tasks: TasksData;
   taskProgress: ReturnType<typeof dailyTaskProgress>;
   coupleExtended: CoupleExtendedProfile;
+  /** 全站一致：我／另一半顯示名 */
+  displayNames: { me: string; partner: string };
+  displayNameForUser: (userId: string | null | undefined) => string;
   setCoupleExtendedProfile: (profile: CoupleExtendedProfile) => void;
   coupleProfileSyncStatus: CoupleProfileSyncStatus;
   coupleProfileSyncError: string | null;
@@ -453,14 +460,29 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
     return other?.userId ?? null;
   }, [space, currentUserId]);
 
+  const displayNameContext = useMemo<UserDisplayNameContext>(
+    () => ({
+      currentUserId,
+      user: auth.user,
+      profile: auth.profile,
+      coupleExtended,
+    }),
+    [auth.profile, auth.user, coupleExtended, currentUserId]
+  );
+
+  const displayNames = useMemo(
+    () => buildCoupleDisplayNames(displayNameContext),
+    [displayNameContext]
+  );
+
   const choreSyncCtx = useMemo(
     () => ({
       currentUserId,
       partnerUserId,
-      myName: coupleExtended.myNickname.trim() || '我',
-      partnerName: coupleExtended.partnerNickname.trim() || '另一半',
+      myName: displayNames.me,
+      partnerName: displayNames.partner,
     }),
-    [currentUserId, partnerUserId, coupleExtended.myNickname, coupleExtended.partnerNickname]
+    [currentUserId, displayNames.me, displayNames.partner, partnerUserId]
   );
 
   const coupleProfileSyncCtx = useMemo<CoupleProfileSyncContext>(
@@ -472,23 +494,19 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
     (input: Omit<ActivityLogInput, 'actorUserId' | 'coupleId' | 'source'>) => {
       addActivityLog(
         { ...input, actorUserId: currentUserId, coupleId, source: 'local' },
-        { currentUserId, coupleExtended },
+        displayNameContext,
         { isPro }
       );
     },
-    [coupleExtended, coupleId, currentUserId, isPro]
+    [coupleId, currentUserId, displayNameContext, isPro]
   );
 
-  const actorDisplayName = useCallback(
-    (userId: string | null) =>
-      displayNameForUserId(
-        userId,
-        currentUserId,
-        coupleExtended.myNickname,
-        coupleExtended.partnerNickname
-      ),
-    [currentUserId, coupleExtended.myNickname, coupleExtended.partnerNickname]
+  const displayNameForUser = useCallback(
+    (userId: string | null | undefined) => resolveDisplayNameForUserId(userId, displayNameContext),
+    [displayNameContext]
   );
+
+  const actorDisplayName = displayNameForUser;
 
   const choreSchedulerRef = useRef<ChoreSyncScheduler | null>(null);
   const dinnerSchedulerRef = useRef<DinnerSyncScheduler | null>(null);
@@ -1243,10 +1261,9 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
         );
 
         if (granted && doneItem) {
-          const assigneeName =
-            next.todayAssignment?.chores.find((c) => c.taskId === taskId)?.assignee === 'A'
-              ? coupleExtended.myNickname.trim() || '我'
-              : coupleExtended.partnerNickname.trim() || '另一半';
+          const assignee =
+            next.todayAssignment?.chores.find((c) => c.taskId === taskId)?.assignee ?? 'A';
+          const assigneeName = assignee === 'A' ? displayNames.me : displayNames.partner;
           grantReward(
             REWARDS.houseworkChoreComplete,
             `${assigneeName} 完成「${doneItem.label}」`,
@@ -1279,14 +1296,7 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
         houseworkCompleteLocksRef.current.delete(taskId);
       }
     },
-    [
-      coupleExtended.myNickname,
-      coupleExtended.partnerNickname,
-      currentUserId,
-      grantReward,
-      isPro,
-      logTodayActivity,
-    ]
+    [currentUserId, displayNames.me, displayNames.partner, grantReward, isPro, logTodayActivity]
   );
 
   const clearTodayHouseworkFn = useCallback(() => {
@@ -2373,6 +2383,8 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
       tasks,
       taskProgress,
       coupleExtended,
+      displayNames,
+      displayNameForUser,
       setCoupleExtendedProfile: setCoupleExtendedProfileFn,
       coupleProfileSyncStatus,
       coupleProfileSyncError,
@@ -2481,6 +2493,8 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
       tasks,
       taskProgress,
       coupleExtended,
+      displayNames,
+      displayNameForUser,
       importantDateReminders,
       setCoupleExtendedProfileFn,
       coupleProfileSyncStatus,

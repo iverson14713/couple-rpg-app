@@ -10,7 +10,7 @@ export type CoupleSyncStatus = {
   title: string;
   description: string;
   networkLabel: '已連線' | '離線';
-  accountLabel: '已登入' | '未登入' | '未設定';
+  accountLabel: string;
   coupleSpaceLabel: '已綁定' | '未綁定' | '等待另一半' | '讀取中';
   memberCountLabel: string | null;
   supabaseConfigured: boolean;
@@ -26,6 +26,8 @@ type SyncStatusInput = {
   isOnline: boolean;
   supabaseConfigured: boolean;
   userId: string | null;
+  /** 已登入時顯示的使用者名稱 */
+  userDisplayName?: string | null;
   coupleSpaceLoading: boolean;
   space: CoupleSpaceInfo | null;
   isFullyBound: boolean;
@@ -37,10 +39,13 @@ export function getSyncStatus(input: SyncStatusInput): CoupleSyncStatus {
     isOnline,
     supabaseConfigured,
     userId,
+    userDisplayName,
     coupleSpaceLoading,
     space,
     isFullyBound,
   } = input;
+
+  const loggedInLabel = userDisplayName?.trim() || '已登入';
 
   const networkLabel: CoupleSyncStatus['networkLabel'] = isOnline ? '已連線' : '離線';
   const coupleId = space?.coupleId ?? loadJson<string | null>(LQ_KEYS.coupleSpaceId, null);
@@ -79,7 +84,7 @@ export function getSyncStatus(input: SyncStatusInput): CoupleSyncStatus {
       title: '同步功能建置中',
       description: '正在讀取情侶空間狀態…',
       networkLabel,
-      accountLabel: '已登入',
+      accountLabel: loggedInLabel,
       coupleSpaceLabel: '讀取中',
       memberCountLabel: null,
       supabaseConfigured: true,
@@ -93,7 +98,7 @@ export function getSyncStatus(input: SyncStatusInput): CoupleSyncStatus {
       title: '尚未綁定另一半',
       description: '建立或加入情侶空間後，才能開始同步晚餐、家事與約會資料。',
       networkLabel,
-      accountLabel: '已登入',
+      accountLabel: loggedInLabel,
       coupleSpaceLabel: '未綁定',
       memberCountLabel: null,
       supabaseConfigured: true,
@@ -110,7 +115,7 @@ export function getSyncStatus(input: SyncStatusInput): CoupleSyncStatus {
       description:
         '你已完成登入與情侶空間綁定。晚餐、家事、約會與任務紀錄將在下一階段逐步同步。',
       networkLabel,
-      accountLabel: '已登入',
+      accountLabel: loggedInLabel,
       coupleSpaceLabel: '已綁定',
       memberCountLabel,
       supabaseConfigured: true,
@@ -123,7 +128,7 @@ export function getSyncStatus(input: SyncStatusInput): CoupleSyncStatus {
     title: '尚未綁定另一半',
     description: '建立或加入情侶空間後，才能開始同步晚餐、家事與約會資料。',
     networkLabel,
-    accountLabel: '已登入',
+    accountLabel: loggedInLabel,
     coupleSpaceLabel: '等待另一半',
     memberCountLabel,
     supabaseConfigured: true,

@@ -1,9 +1,8 @@
-import { useMemo, type ReactNode } from 'react';
+import { type ReactNode } from 'react';
 import { isScreenshotMode } from '../lib/screenshotMode';
 import { OfflineBanner } from '../components/OfflineBanner';
 import { useOnlineStatus } from '../hooks/useOnlineStatus';
 import { useSupabaseAuth } from '../useSupabaseAuth';
-import { resolveLoggedInUserLabel } from './lib/coupleDisplayNames';
 import { useLoveQuest } from './context/LoveQuestContext';
 import { BottomNav } from './components/BottomNav';
 import { TabPageHeader } from './components/TabPageHeader';
@@ -127,17 +126,8 @@ function AppRoot({ children, screenshotMode }: { children: ReactNode; screenshot
 
 function LoggedInStrip() {
   const auth = useSupabaseAuth();
-  const { coupleExtended } = useLoveQuest();
-  const label = useMemo(
-    () =>
-      resolveLoggedInUserLabel({
-        user: auth.user,
-        profile: auth.profile,
-        myNickname: coupleExtended.myNickname,
-        partnerNickname: coupleExtended.partnerNickname,
-      }),
-    [auth.user, auth.profile, coupleExtended.myNickname, coupleExtended.partnerNickname]
-  );
+  const { displayNames } = useLoveQuest();
+  const label = displayNames.me;
 
   if (!auth.user) return null;
   return (

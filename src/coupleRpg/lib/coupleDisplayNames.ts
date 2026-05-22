@@ -36,36 +36,111 @@ function resolveStoredName(stored: string, fallback: string): string {
   return t;
 }
 
+function isUsableDisplayName(name: string): boolean {
+  const t = name.trim();
+  return Boolean(t) && !LEGACY_DEMO_NAMES.has(t);
+}
+
+export function emailLocalPart(email: string): string {
+  const t = email.trim();
+  const at = t.indexOf('@');
+  return at > 0 ? t.slice(0, at) : t;
+}
+
+function authMetadataDisplayName(user: User): string {
+  const meta = user.user_metadata as Record<string, unknown> | undefined;
+  const full = typeof meta?.full_name === 'string' ? meta.full_name.trim() : '';
+  if (isUsableDisplayName(full)) return full;
+  const name = typeof meta?.name === 'string' ? meta.name.trim() : '';
+  if (isUsableDisplayName(name)) return name;
+  const display = typeof meta?.display_name === 'string' ? meta.display_name.trim() : '';
+  if (isUsableDisplayName(display)) return display;
+  return '';
+}
+
 export type LoggedInUserLabelInput = {
   user: User | null;
   profile: UserProfile | null;
-  /** 已依 auth.uid() 對應的「我的暱稱」（couple profile members[userId]） */
+  /** 情侶資料「我的暱稱」 */
   myNickname?: string;
-  /** 另一半暱稱 — 僅用於排除誤顯示，不可作為登入者名稱 */
   partnerNickname?: string;
 };
 
 /**
- * 頂部「已登入 xxx」：永遠顯示目前登入者，不用 partner / nameB。
- * 優先：profiles.display_name → 我的情侶暱稱 → email → 已登入
+ * 目前登入者顯示名稱（全站一致）：
+ * 1. coupleProfile.myNickname
+ * 2. profiles.display_name
+ * 3. auth user_metadata（full_name / name / display_name）
+ * 4. email 前綴
  */
-export function resolveLoggedInUserLabel(input: LoggedInUserLabelInput): string {
-  const user = input.user;
-  if (!user) return '已登入';
+export function resolveCurrentUserDisplayName(input: LoggedInUserLabelInput): string {
+  const myNick = input.myNickname?.trim() ?? '';
+  if (isUsableDisplayName(myNick)) return myNick;
 
   const profileName = input.profile?.display_name?.trim() ?? '';
-  const myNick = input.myNickname?.trim() ?? '';
-  const partnerNick = input.partnerNickname?.trim() ?? '';
+  if (isUsableDisplayName(profileName)) return profileName;
 
-  const profileIsPartnerNick =
-    Boolean(profileName && partnerNick && profileName === partnerNick && profileName !== myNick);
+  const user = input.user;
+  if (user) {
+    const metaName = authMetadataDisplayName(user);
+    if (metaName) return metaName;
+    const email = user.email?.trim();
+    if (email) return emailLocalPart(email);
+  }
 
-  if (profileName && !profileIsPartnerNick) return profileName;
-  if (myNick) return myNick;
+  return '我';
+}
 
-  const email = user.email?.trim();
-  if (email) return email;
-  return '已登入';
+/** 另一半顯示名稱：以情侶資料 partnerNickname 為主 */
+export function resolvePartnerDisplayName(partnerNickname?: string): string {
+  const nick = partnerNickname?.trim() ?? '';
+  if (isUsableDisplayName(nick)) return nick;
+  return '另一半';
+}
+
+/** 頂部「已登入 xxx」 */
+export function resolveLoggedInUserLabel(input: LoggedInUserLabelInput): string {
+  if (!input.user) return '已登入';
+  return resolveCurrentUserDisplayName(input);
+}
+
+export type UserDisplayNameContext = {
+  currentUserId: string | null;
+  user: User | null;
+  profile: UserProfile | null;
+  coupleExtended: CoupleExtendedProfile;
+};
+
+export function buildCoupleDisplayNames(ctx: UserDisplayNameContext): {
+  me: string;
+  partner: string;
+} {
+  return {
+    me: resolveCurrentUserDisplayName({
+      user: ctx.user,
+      profile: ctx.profile,
+      myNickname: ctx.coupleExtended.myNickname,
+      partnerNickname: ctx.coupleExtended.partnerNickname,
+    }),
+    partner: resolvePartnerDisplayName(ctx.coupleExtended.partnerNickname),
+  };
+}
+
+/** 依 userId 解析顯示名稱（本人走完整優先序，對方走 partnerNickname） */
+export function resolveDisplayNameForUserId(
+  userId: string | null | undefined,
+  ctx: UserDisplayNameContext
+): string {
+  if (!userId) return '某人';
+  if (ctx.currentUserId && userId === ctx.currentUserId) {
+    return resolveCurrentUserDisplayName({
+      user: ctx.user,
+      profile: ctx.profile,
+      myNickname: ctx.coupleExtended.myNickname,
+      partnerNickname: ctx.coupleExtended.partnerNickname,
+    });
+  }
+  return resolvePartnerDisplayName(ctx.coupleExtended.partnerNickname);
 }
 
 /** 以情侶資料暱稱為主；無則顯示「我／另一半」，並忽略舊示範名 */

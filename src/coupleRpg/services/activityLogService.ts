@@ -7,7 +7,7 @@ import {
   ACTIVITY_LOG_RETENTION_DAYS_FREE,
   ACTIVITY_LOG_RETENTION_DAYS_PRO,
 } from '../constants/activityLogRetention';
-import type { CoupleExtendedProfile } from '../storage/coupleExtendedTypes';
+import { resolveDisplayNameForUserId, type UserDisplayNameContext } from '../lib/coupleDisplayNames';
 import type { ActivityLogInput, ActivityLogItem } from '../storage/activityLogTypes';
 import { LQ_KEYS } from '../storage/keys';
 import { loadJson, saveJson } from '../storage/persist';
@@ -25,10 +25,7 @@ export function registerActivityLogSyncScheduler(
   activityLogSyncScheduler = fn;
 }
 
-export type ActivityLogActorContext = {
-  currentUserId: string | null;
-  coupleExtended: CoupleExtendedProfile;
-};
+export type ActivityLogActorContext = UserDisplayNameContext;
 
 export function notifyActivityLogUpdated(): void {
   if (typeof window !== 'undefined') {
@@ -46,17 +43,9 @@ export function resolveActorName(
   actorUserId: string | null | undefined,
   ctx: ActivityLogActorContext
 ): string {
-  const { currentUserId, coupleExtended } = ctx;
-  const myNick = coupleExtended.myNickname.trim();
-  const partnerNick = coupleExtended.partnerNickname.trim();
-
-  if (actorUserId && currentUserId && actorUserId === currentUserId) {
-    return myNick || '我';
-  }
-  if (actorUserId && currentUserId && actorUserId !== currentUserId) {
-    return partnerNick || '另一半';
-  }
-  return '某位成員';
+  if (!actorUserId) return '某位成員';
+  if (!ctx.currentUserId) return '某位成員';
+  return resolveDisplayNameForUserId(actorUserId, ctx);
 }
 
 function quoteTitle(title?: string): string {

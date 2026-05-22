@@ -14,7 +14,6 @@ import { useSupabaseAuth } from '../../useSupabaseAuth';
 import {
   canMarkRewardCardComplete,
   couponNeedsPartnerCompletion,
-  displayNameForUserId,
   formatCompleteFeedLine,
   formatRedeemFeedLine,
   formatUseFeedLine,
@@ -60,7 +59,7 @@ export function RewardsPage({ embedded }: { embedded?: boolean } = {}) {
     todayCoinEarned,
     recentCoinEarns,
     weeklyTitles,
-    coupleExtended,
+    displayNameForUser,
     redeemRewardItem,
     redeemCustomRewardItem,
     useCoupon,
@@ -411,9 +410,7 @@ export function RewardsPage({ embedded }: { embedded?: boolean } = {}) {
               <CouponList
                 coupons={redeemedCoupons}
                 currentUserId={currentUserId}
-                myNickname={coupleExtended.myNickname}
-                partnerNickname={coupleExtended.partnerNickname}
-                highlightCouponId={highlightCouponId}
+                displayNameForUser={displayNameForUser}
                 onUse={useCoupon}
               />
             </CouponSection>
@@ -424,9 +421,7 @@ export function RewardsPage({ embedded }: { embedded?: boolean } = {}) {
               <CouponList
                 coupons={inProgressCoupons}
                 currentUserId={currentUserId}
-                myNickname={coupleExtended.myNickname}
-                partnerNickname={coupleExtended.partnerNickname}
-                highlightCouponId={highlightCouponId}
+                displayNameForUser={displayNameForUser}
                 onComplete={completeRewardCard}
               />
             </CouponSection>
@@ -446,9 +441,7 @@ export function RewardsPage({ embedded }: { embedded?: boolean } = {}) {
                   <CompletedCouponRow
                     key={c.id}
                     coupon={c}
-                    currentUserId={currentUserId}
-                    myNickname={coupleExtended.myNickname}
-                    partnerNickname={coupleExtended.partnerNickname}
+                    displayNameForUser={displayNameForUser}
                   />
                 ))}
               </ul>
@@ -536,18 +529,12 @@ function CompletedRecordsSection({
 
 function CompletedCouponRow({
   coupon: c,
-  currentUserId,
-  myNickname,
-  partnerNickname,
+  displayNameForUser,
 }: {
   coupon: OwnedCoupon;
-  currentUserId: string | null;
-  myNickname: string;
-  partnerNickname: string;
+  displayNameForUser: (userId: string | null | undefined) => string;
 }) {
-  const user = c.usedBy
-    ? displayNameForUserId(c.usedBy, currentUserId, myNickname, partnerNickname)
-    : displayNameForUserId(c.redeemedBy, currentUserId, myNickname, partnerNickname);
+  const user = c.usedBy ? displayNameForUser(c.usedBy) : displayNameForUser(c.redeemedBy);
 
   return (
     <li className="flex items-center justify-between gap-2 rounded-lg border border-stone-100 bg-stone-50/50 px-2.5 py-2 text-[12px]">
@@ -597,17 +584,13 @@ function CouponSection({
 function CouponList({
   coupons,
   currentUserId,
-  myNickname,
-  partnerNickname,
-  highlightCouponId,
+  displayNameForUser,
   onUse,
   onComplete,
 }: {
   coupons: OwnedCoupon[];
   currentUserId: string | null;
-  myNickname: string;
-  partnerNickname: string;
-  highlightCouponId?: string | null;
+  displayNameForUser: (userId: string | null | undefined) => string;
   onUse?: (id: string) => void;
   onComplete?: (id: string) => void;
 }) {
@@ -618,9 +601,7 @@ function CouponList({
           key={c.id}
           coupon={c}
           currentUserId={currentUserId}
-          myNickname={myNickname}
-          partnerNickname={partnerNickname}
-          highlighted={highlightCouponId === c.id}
+          displayNameForUser={displayNameForUser}
           onUse={onUse}
           onComplete={onComplete}
         />
@@ -632,24 +613,18 @@ function CouponList({
 function CouponCard({
   coupon: c,
   currentUserId,
-  myNickname,
-  partnerNickname,
-  highlighted,
+  displayNameForUser,
   onUse,
   onComplete,
 }: {
   coupon: OwnedCoupon;
   currentUserId: string | null;
-  myNickname: string;
-  partnerNickname: string;
-  highlighted?: boolean;
+  displayNameForUser: (userId: string | null | undefined) => string;
   onUse?: (id: string) => void;
   onComplete?: (id: string) => void;
 }) {
-  const redeemer = displayNameForUserId(c.redeemedBy, currentUserId, myNickname, partnerNickname);
-  const user = c.usedBy
-    ? displayNameForUserId(c.usedBy, currentUserId, myNickname, partnerNickname)
-    : null;
+  const redeemer = displayNameForUser(c.redeemedBy);
+  const user = c.usedBy ? displayNameForUser(c.usedBy) : null;
 
   const feedLine = useMemo(() => {
     if (c.status === 'redeemed' && c.redeemedBy) {
@@ -682,14 +657,10 @@ function CouponCard({
     onComplete &&
     canMarkRewardCardComplete(c, currentUserId);
 
-  const highlightClass = highlighted
-    ? 'ring-2 ring-emerald-400/90 shadow-[0_0_20px_rgba(52,211,153,0.45)] animate-pulse'
-    : '';
-
   return (
     <li
       data-coupon-id={c.id}
-      className={`rounded-2xl border border-rose-100 bg-white p-3.5 text-[13px] shadow-sm transition-shadow ${highlightClass}`}
+      className="rounded-2xl border border-rose-100 bg-white p-3.5 text-[13px] shadow-sm"
     >
       <div className="flex items-start justify-between gap-2">
         <span className="text-[15px] font-bold text-stone-900">

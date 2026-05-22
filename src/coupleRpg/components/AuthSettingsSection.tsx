@@ -1,4 +1,4 @@
-import { useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useLayoutEffect, useRef, useState } from 'react';
 import { GoogleSignInButton } from '../../components/GoogleSignInButton';
 import { AppleSignInButton } from '../../components/AppleSignInButton';
 import { SkeletonCard } from '../../components/SkeletonCard';
@@ -9,12 +9,11 @@ import { mapAuthErrorMessage } from '../../services/auth/authErrors';
 import { useLoveQuest } from '../context/LoveQuestContext';
 import { useCoupleRpgNav } from '../context/CoupleRpgNavContext';
 import { AUTH_LOGIN_ANCHOR_ID } from '../lib/authNav';
-import { resolveLoggedInUserLabel } from '../lib/coupleDisplayNames';
 import { lq } from '../theme';
 
 export function AuthSettingsSection() {
   const auth = useSupabaseAuth();
-  const { coupleExtended } = useLoveQuest();
+  const { displayNames } = useLoveQuest();
   const { pendingScrollElementId, acknowledgePendingScroll } = useCoupleRpgNav();
   const sectionRef = useRef<HTMLElement>(null);
   const emailInputRef = useRef<HTMLInputElement>(null);
@@ -46,16 +45,7 @@ export function AuthSettingsSection() {
     return () => window.clearTimeout(focusTimer);
   }, [pendingScrollElementId, acknowledgePendingScroll, auth.authReady, auth.user]);
 
-  const displayLabel = useMemo(
-    () =>
-      resolveLoggedInUserLabel({
-        user: auth.user,
-        profile: auth.profile,
-        myNickname: coupleExtended.myNickname,
-        partnerNickname: coupleExtended.partnerNickname,
-      }),
-    [auth.user, auth.profile, coupleExtended.myNickname, coupleExtended.partnerNickname]
-  );
+  const displayLabel = displayNames.me;
 
   const handleEmailAuth = useCallback(async () => {
     setError(null);

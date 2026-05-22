@@ -69,8 +69,8 @@ export function HouseworkPage({ embedded }: { embedded?: boolean } = {}) {
   const isAssigned = hasAssignment || (stickAssignedView && Boolean(todayAssignment?.assignedAt));
   const selectedIds = todayAssignment?.selectedTaskIds ?? [];
 
-  const meName = game.coupleExtended.myNickname.trim() || '我';
-  const partnerName = game.coupleExtended.partnerNickname.trim() || '另一半';
+  const meName = game.displayNames.me;
+  const partnerName = game.displayNames.partner;
 
   const toggleSelect = useCallback(
     (id: string) => {
