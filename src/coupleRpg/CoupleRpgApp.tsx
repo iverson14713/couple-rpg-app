@@ -1,8 +1,10 @@
-import type { ReactNode } from 'react';
+import { useMemo, type ReactNode } from 'react';
 import { isScreenshotMode } from '../lib/screenshotMode';
 import { OfflineBanner } from '../components/OfflineBanner';
 import { useOnlineStatus } from '../hooks/useOnlineStatus';
 import { useSupabaseAuth } from '../useSupabaseAuth';
+import { resolveLoggedInUserLabel } from './lib/coupleDisplayNames';
+import { useLoveQuest } from './context/LoveQuestContext';
 import { BottomNav } from './components/BottomNav';
 import { TabPageHeader } from './components/TabPageHeader';
 import { OnboardingProvider } from './context/OnboardingContext';
@@ -57,7 +59,7 @@ function CoupleRpgShell() {
         <OfflineBanner message="目前離線，部分功能可能無法同步。" />
       ) : null}
       {!screenshotMode && auth.configured && auth.authReady && auth.user ? (
-        <LoggedInStrip auth={auth} />
+        <LoggedInStrip />
       ) : null}
       <main key={tab} className="page-tab-fade">
         {tab === 'home' && <TodayPage />}
@@ -123,17 +125,28 @@ function AppRoot({ children, screenshotMode }: { children: ReactNode; screenshot
   );
 }
 
-function LoggedInStrip({ auth }: { auth: ReturnType<typeof useSupabaseAuth> }) {
+function LoggedInStrip() {
+  const auth = useSupabaseAuth();
+  const { coupleExtended } = useLoveQuest();
+  const label = useMemo(
+    () =>
+      resolveLoggedInUserLabel({
+        user: auth.user,
+        profile: auth.profile,
+        myNickname: coupleExtended.myNickname,
+        partnerNickname: coupleExtended.partnerNickname,
+      }),
+    [auth.user, auth.profile, coupleExtended.myNickname, coupleExtended.partnerNickname]
+  );
+
   if (!auth.user) return null;
   return (
     <div
       className={`mb-4 flex items-center justify-between gap-2 rounded-2xl border px-3 py-2.5 text-[12px] shadow-sm ${lq.strip}`}
     >
-      <span className="text-stone-700">
+      <span className="min-w-0 text-stone-700">
         <span className="font-bold text-stone-500">已登入</span>{' '}
-        <span className="font-semibold text-rose-700">
-          {auth.profile?.display_name?.trim() || auth.user.email}
-        </span>
+        <span className="font-semibold text-rose-700">{label}</span>
       </span>
     </div>
   );

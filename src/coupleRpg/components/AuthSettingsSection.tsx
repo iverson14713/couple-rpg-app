@@ -6,10 +6,13 @@ import { Spinner } from '../../components/SkeletonCard';
 import { useSupabaseAuth } from '../../useSupabaseAuth';
 import { handleAppleSignIn, isAppleSignInAvailable } from '../../services/auth/appleSignIn';
 import { mapAuthErrorMessage } from '../../services/auth/authErrors';
+import { useLoveQuest } from '../context/LoveQuestContext';
+import { resolveLoggedInUserLabel } from '../lib/coupleDisplayNames';
 import { lq } from '../theme';
 
 export function AuthSettingsSection() {
   const auth = useSupabaseAuth();
+  const { coupleExtended } = useLoveQuest();
   const [authMode, setAuthMode] = useState<'signIn' | 'signUp'>('signIn');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -23,11 +26,16 @@ export function AuthSettingsSection() {
 
   const appleEnabled = isAppleSignInAvailable(auth.supabase);
 
-  const displayLabel = useMemo(() => {
-    const n = auth.profile?.display_name?.trim();
-    if (n) return n;
-    return auth.user?.email ?? '';
-  }, [auth.profile, auth.user]);
+  const displayLabel = useMemo(
+    () =>
+      resolveLoggedInUserLabel({
+        user: auth.user,
+        profile: auth.profile,
+        myNickname: coupleExtended.myNickname,
+        partnerNickname: coupleExtended.partnerNickname,
+      }),
+    [auth.user, auth.profile, coupleExtended.myNickname, coupleExtended.partnerNickname]
+  );
 
   const handleEmailAuth = useCallback(async () => {
     setError(null);
