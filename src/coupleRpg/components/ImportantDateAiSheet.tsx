@@ -14,12 +14,16 @@ import { callImportantDateAssistant } from '../lib/callCoupleAssistant';
 import type { ImportantDatePlan } from '../lib/importantDateAiModel';
 import { ImportantDateAiResult } from './ImportantDateAiResult';
 import type { ImportantDateEvent } from '../lib/importantDateEvents';
+import { buildImportantDateSharePayload } from '../lib/aiShareCardContent';
+import { importantDateRecordId } from '../lib/aiRecordIds';
 import {
   loadLastImportantDateAi,
   saveImportantDateAi,
   snapshotImportantDateEvent,
   type SavedImportantDateAi,
 } from '../storage/importantDateAiCache';
+import { AiRecordProActions } from './AiRecordProActions';
+import { AiShareCardModal } from './AiShareCardModal';
 import { useAiToast } from '../context/AiToastContext';
 import { useAiResultReveal } from '../hooks/useAiResultReveal';
 import { useAiUsage } from '../hooks/useAiUsage';
@@ -106,6 +110,15 @@ export function ImportantDateAiSheet({
   const [error, setError] = useState<string | null>(null);
   const [settingsExpanded, setSettingsExpanded] = useState(!initial.plan);
   const [resultAnimateIn, setResultAnimateIn] = useState(!!initial.plan);
+  const [persistedRecord, setPersistedRecord] = useState<SavedImportantDateAi | null>(() => {
+    if (savedRecord) return savedRecord;
+    if (initial.plan) {
+      const last = loadLastImportantDateAi();
+      if (last && last.event.id === event.id) return last;
+    }
+    return null;
+  });
+  const [shareOpen, setShareOpen] = useState(false);
   const viewingCached = initial.fromCache && plan !== null;
   const inResultMode = plan !== null;
 
@@ -148,7 +161,7 @@ export function ImportantDateAiSheet({
       }
       const nextPlan = result.data.plan;
       setPlan(nextPlan);
-      saveImportantDateAi(
+      const record = saveImportantDateAi(
         {
           event: snapshotImportantDateEvent(event),
           plan: nextPlan,
@@ -156,6 +169,7 @@ export function ImportantDateAiSheet({
         },
         { isPro }
       );
+      setPersistedRecord(record);
       showAiGenerated();
     } catch (e) {
       const msg = e instanceof Error ? e.message : '產生建議時發生錯誤，請再試一次。';
@@ -298,6 +312,13 @@ export function ImportantDateAiSheet({
         </div>
 
         <div className="shrink-0 border-t border-stone-100 bg-white px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3">
+          {inResultMode && persistedRecord ? (
+            <AiRecordProActions
+              recordId={importantDateRecordId(persistedRecord)}
+              onShareCard={() => setShareOpen(true)}
+              className="mb-3"
+            />
+          ) : null}
           <div className="mb-2 flex items-center justify-between gap-2">
             <AiUsageQuotaLabel />
             {!aiUsage.canUseAi && aiUsage.isLoggedIn && !aiUsage.isPro ? (
@@ -337,8 +358,20 @@ export function ImportantDateAiSheet({
     </div>
   );
 
-  if (typeof document === 'undefined') return sheet;
-  return createPortal(sheet, document.body);
+  const portal = (
+    <>
+      {sheet}
+      {shareOpen && persistedRecord ? (
+        <AiShareCardModal
+          payload={buildImportantDateSharePayload(persistedRecord)}
+          onClose={() => setShareOpen(false)}
+        />
+      ) : null}
+    </>
+  );
+
+  if (typeof document === 'undefined') return portal;
+  return createPortal(portal, document.body);
 }
 
 function SettingsFields({

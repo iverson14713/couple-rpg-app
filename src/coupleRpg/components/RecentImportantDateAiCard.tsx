@@ -1,4 +1,6 @@
 import { Sparkles } from 'lucide-react';
+import { AiFavoriteButton } from './AiFavoriteButton';
+import { importantDateRecordId } from '../lib/aiRecordIds';
 import { useLastImportantDateAi } from '../hooks/useLastImportantDateAi';
 import { formatSavedImportantDateLabel, type SavedImportantDateAi } from '../storage/importantDateAiCache';
 import { lq } from '../theme';
@@ -28,6 +30,7 @@ export function RecentImportantDateAiCard({ onView, className = '' }: Props) {
             {formatSavedImportantDateLabel(record)} · {record.event.typeLabel}
           </p>
         </div>
+        <AiFavoriteButton recordId={importantDateRecordId(record)} size="sm" />
         <button
           type="button"
           onClick={() => onView(record)}

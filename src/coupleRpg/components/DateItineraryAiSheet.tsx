@@ -34,6 +34,10 @@ import { useAiResultReveal } from '../hooks/useAiResultReveal';
 import { useAiUsage } from '../hooks/useAiUsage';
 import { useProFeature } from '../hooks/useProFeature';
 import { useUserPlan } from '../context/UserPlanContext';
+import { buildDateItinerarySharePayload } from '../lib/aiShareCardContent';
+import { dateItineraryRecordId } from '../lib/aiRecordIds';
+import { AiRecordProActions } from './AiRecordProActions';
+import { AiShareCardModal } from './AiShareCardModal';
 import { AiUsageQuotaLabel } from './AiUsageQuotaLabel';
 import { ProBadgeIfNeeded } from './ProBadge';
 import { lq } from '../theme';
@@ -106,6 +110,15 @@ export function DateItineraryAiSheet({ suggestion: suggestionProp, onClose, save
   const [error, setError] = useState<string | null>(null);
   const [settingsExpanded, setSettingsExpanded] = useState(!initial.plan);
   const [resultAnimateIn, setResultAnimateIn] = useState(!!initial.plan);
+  const [persistedRecord, setPersistedRecord] = useState<SavedDateItineraryAi | null>(() => {
+    if (savedRecord) return savedRecord;
+    if (initial.plan) {
+      const last = loadLastDateItineraryAi();
+      if (last && last.suggestion.id === suggestionProp.id) return last;
+    }
+    return null;
+  });
+  const [shareOpen, setShareOpen] = useState(false);
   const viewingCached = initial.fromCache && plan !== null;
 
   const tagLabels = useMemo(() => tagLabelsForSuggestion(suggestion.tags), [suggestion.tags]);
@@ -154,7 +167,7 @@ export function DateItineraryAiSheet({ suggestion: suggestionProp, onClose, save
       }
       const nextPlan = result.data.plan;
       setPlan(nextPlan);
-      saveLastDateItineraryAi(
+      const record = saveLastDateItineraryAi(
         {
           suggestion: snapshotDateSuggestion(suggestion),
           plan: nextPlan,
@@ -162,6 +175,7 @@ export function DateItineraryAiSheet({ suggestion: suggestionProp, onClose, save
         },
         { isPro }
       );
+      setPersistedRecord(record);
       showAiGenerated();
     } catch (e) {
       const msg = e instanceof Error ? e.message : '產生行程時發生錯誤，請再試一次。';
@@ -322,6 +336,13 @@ export function DateItineraryAiSheet({ suggestion: suggestionProp, onClose, save
         </div>
 
         <div className="shrink-0 border-t border-stone-100 bg-white px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3">
+          {inResultMode && persistedRecord ? (
+            <AiRecordProActions
+              recordId={dateItineraryRecordId(persistedRecord)}
+              onShareCard={() => setShareOpen(true)}
+              className="mb-3"
+            />
+          ) : null}
           <div className="mb-2 flex items-center justify-between gap-2">
             <AiUsageQuotaLabel />
             {!aiUsage.canUseAi && aiUsage.isLoggedIn && !aiUsage.isPro ? (
@@ -369,8 +390,20 @@ export function DateItineraryAiSheet({ suggestion: suggestionProp, onClose, save
     </div>
   );
 
-  if (typeof document === 'undefined') return sheet;
-  return createPortal(sheet, document.body);
+  const portal = (
+    <>
+      {sheet}
+      {shareOpen && persistedRecord ? (
+        <AiShareCardModal
+          payload={buildDateItinerarySharePayload(persistedRecord)}
+          onClose={() => setShareOpen(false)}
+        />
+      ) : null}
+    </>
+  );
+
+  if (typeof document === 'undefined') return portal;
+  return createPortal(portal, document.body);
 }
 
 type PlanningSettingsFormProps = {

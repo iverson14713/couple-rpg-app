@@ -22,6 +22,8 @@ export const LQ_KEYS = {
   lastImportantDateAi: 'lovequest-last-important-date-ai',
   /** Pro：AI 重要日子歷史（local） */
   importantDateAiHistory: 'lovequest-important-date-ai-history',
+  /** Pro：AI 紀錄收藏 id 列表（local） */
+  aiFavorites: 'lovequest-ai-favorites',
   anniversaries: 'lovequest-anniversaries',
   rewards: 'lovequest-rewards',
   /** Set after Phase 7 couple bind; until then bind reminder shows on home */

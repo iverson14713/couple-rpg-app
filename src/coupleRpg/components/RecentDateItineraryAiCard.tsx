@@ -1,5 +1,7 @@
 import { Sparkles } from 'lucide-react';
+import { AiFavoriteButton } from './AiFavoriteButton';
 import { useCoupleRpgNav } from '../context/CoupleRpgNavContext';
+import { dateItineraryRecordId } from '../lib/aiRecordIds';
 import { formatSavedItineraryDate } from '../storage/dateItineraryAiCache';
 import type { SavedDateItineraryAi } from '../storage/dateItineraryAiCache';
 import { useLastDateItineraryAi } from '../hooks/useLastDateItineraryAi';
@@ -32,6 +34,7 @@ export function RecentDateItineraryAiCard({ onView, className = '' }: Props) {
             {dateLabel} · {record.suggestion.title}
           </p>
         </div>
+        <AiFavoriteButton recordId={dateItineraryRecordId(record)} size="sm" />
         <button
           type="button"
           onClick={() => onView(record)}
