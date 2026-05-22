@@ -709,7 +709,7 @@ select {
   }
 }
 
-/* AI result reveal highlight */
+/* AI result reveal — modal 內捲動後的焦點提示 */
 .ai-result-reveal {
   border-radius: 1rem;
   transition: box-shadow 0.35s ease;
@@ -717,6 +717,44 @@ select {
 
 .ai-result-reveal--highlight {
   animation: ai-result-glow 2.2s ease-out;
+}
+
+.ai-result-enter {
+  animation: ai-result-fade-scale 0.55s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.ai-result-enter-stagger > * {
+  animation: ai-result-fade-scale 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.ai-result-enter-stagger > *:nth-child(1) {
+  animation-delay: 0.04s;
+}
+.ai-result-enter-stagger > *:nth-child(2) {
+  animation-delay: 0.1s;
+}
+.ai-result-enter-stagger > *:nth-child(3) {
+  animation-delay: 0.16s;
+}
+.ai-result-enter-stagger > *:nth-child(4) {
+  animation-delay: 0.22s;
+}
+.ai-result-enter-stagger > *:nth-child(5) {
+  animation-delay: 0.28s;
+}
+.ai-result-enter-stagger > *:nth-child(6) {
+  animation-delay: 0.34s;
+}
+
+@keyframes ai-result-fade-scale {
+  from {
+    opacity: 0;
+    transform: scale(0.97) translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
 }
 
 @keyframes ai-result-glow {
