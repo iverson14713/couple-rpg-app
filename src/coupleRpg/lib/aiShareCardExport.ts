@@ -31,58 +31,45 @@ export async function captureShareCardElement(element: HTMLElement): Promise<Blo
   return blob;
 }
 
-function triggerDownload(blob: Blob, filename: string): void {
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = filename;
-  link.rel = 'noopener';
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-  window.setTimeout(() => URL.revokeObjectURL(url), 2000);
+export function createShareCardPreviewUrl(blob: Blob): string {
+  return URL.createObjectURL(blob);
 }
 
-/** 儲存 PNG（桌面下載；手機盡力觸發下載） */
-export async function saveShareCardImage(
-  element: HTMLElement,
-  payload: AiShareCardPayload
-): Promise<void> {
-  const blob = await captureShareCardElement(element);
-  const filename = shareCardFilename(payload);
-  triggerDownload(blob, filename);
+export function revokeShareCardPreviewUrl(url: string): void {
+  URL.revokeObjectURL(url);
 }
 
 export function canUseNativeShare(): boolean {
   return typeof navigator !== 'undefined' && typeof navigator.share === 'function';
 }
 
-function canSharePngFile(file: File): boolean {
+export function canSharePngFile(blob: Blob, payload: AiShareCardPayload): boolean {
   if (!canUseNativeShare() || !navigator.canShare) return false;
   try {
+    const file = new File([blob], shareCardFilename(payload), { type: 'image/png' });
     return navigator.canShare({ files: [file] });
   } catch {
     return false;
   }
 }
 
+export type ShareCardBlobResult = 'shared' | 'text_only' | 'cancelled' | 'unsupported';
+
 /**
- * 原生分享：圖片 + 文案 + 連結（LINE / IG / Messenger / AirDrop 等系統分享）。
- * 若不支援 files，改分享文字並提示可另存圖片。
+ * 使用已產生的 PNG 分享（Web Share API files）。
+ * 若不支援附檔，改分享文字並由 UI 提示長按儲存。
  */
-export async function shareShareCardToPartner(
-  element: HTMLElement,
+export async function shareShareCardBlob(
+  blob: Blob,
   payload: AiShareCardPayload
-): Promise<'shared' | 'text_only' | 'cancelled' | 'unsupported'> {
+): Promise<ShareCardBlobResult> {
   if (!canUseNativeShare()) return 'unsupported';
 
-  const blob = await captureShareCardElement(element);
   const filename = shareCardFilename(payload);
   const file = new File([blob], filename, { type: 'image/png' });
   const title = buildNativeShareTitle(payload);
   const text = buildNativeShareText(payload);
-
-  const withFiles = canSharePngFile(file);
+  const withFiles = canSharePngFile(blob, payload);
 
   try {
     if (withFiles) {
@@ -96,7 +83,7 @@ export async function shareShareCardToPartner(
 
     await navigator.share({
       title,
-      text: `${text}\n\n（此裝置無法附圖，請先用「儲存圖片」）`,
+      text: `${text}\n\n${LOVEQUEST_APP_URL}`,
       url: LOVEQUEST_APP_URL,
     });
     return 'text_only';
@@ -104,4 +91,17 @@ export async function shareShareCardToPartner(
     if ((e as { name?: string }).name === 'AbortError') return 'cancelled';
     throw e;
   }
+}
+
+/** @deprecated 請改用 App 內預覽 + 長按儲存；保留供桌面極少數環境 */
+export async function downloadShareCardBlob(blob: Blob, payload: AiShareCardPayload): Promise<void> {
+  const url = createShareCardPreviewUrl(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = shareCardFilename(payload);
+  link.rel = 'noopener';
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  window.setTimeout(() => revokeShareCardPreviewUrl(url), 2000);
 }

@@ -360,7 +360,7 @@ function ProAiMemoriesHub({
         <ProFeatureCard
           icon={<Image className="h-5 w-5 text-rose-500" />}
           title="分享圖片卡"
-          description="儲存圖片 · 一鍵分享"
+          description="產生分享圖 · 一鍵分享"
           onClick={onShareHint}
         />
         <ProFeatureCard
@@ -478,7 +478,7 @@ function AiRecordRowInner({
         <button
           type="button"
           onClick={onShare}
-          aria-label="產生分享卡"
+          aria-label="產生分享圖"
           className="flex h-8 w-8 items-center justify-center rounded-full border border-rose-100/80 bg-white/80 text-rose-500 active:scale-95"
         >
           <Image className="h-3.5 w-3.5" aria-hidden />
