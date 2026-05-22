@@ -149,6 +149,8 @@ import {
 } from '../lib/rewardCardHelpers';
 import type { CustomRewardCardInput } from '../storage/rewardTypes';
 import { getMiniGameDailyRewardCap } from '../lib/miniGameRewards';
+import { getShopItem } from '../data/rewardShopCatalog';
+import { normalizeCustomRewardInput } from '../lib/customRewardCard';
 import { useCoupleSpace } from './CoupleSpaceContext';
 import { useUserPlan } from './UserPlanContext';
 import type { CoinEarnMeta, RewardsData, ShopItemId } from '../storage/rewardTypes';
@@ -179,6 +181,26 @@ import type { CoupleExtendedProfile } from '../storage/coupleExtendedTypes';
 import type { WeeklyHouseworkStats } from '../storage/houseworkStore';
 import { makeId } from '../lib/id';
 import { todayKey } from '../lib/dates';
+import {
+  choreCoinKey,
+  dateCompleteCoinKey,
+  flirtGameCoinKey,
+  fallbackEarnCoinKey,
+  miniGameCoinKey,
+  redeemCoinKey,
+} from '../lib/coinIdempotency';
+import {
+  canSyncCoinWallet,
+  coinTransactionsToEarnHistory,
+  getCachedCoinBalance,
+  recordCoinTransaction,
+  type CoinWalletSyncStatus,
+} from '../services/coinWalletSyncService';
+import {
+  createCoinWalletSyncScheduler,
+  type CoinWalletSyncScheduler,
+} from '../services/coinWalletSyncScheduler';
+import { loadCoinWalletCache, saveCoinWalletCache } from '../storage/coinWalletCache';
 import { useOnlineStatus } from '../../hooks/useOnlineStatus';
 import { useSupabaseAuth } from '../../useSupabaseAuth';
 import { ENABLE_DINNER_DECISION_CLOUD_SYNC } from '../constants/dinnerSyncFlags';
@@ -333,8 +355,8 @@ type LoveQuestContextValue = {
   completedCoupons: ReturnType<typeof getCouponsByStatus>;
   rewardCardSyncStatus: RewardCardSyncStatus;
   rewardCardSyncError: string | null;
-  redeemRewardItem: (itemId: ShopItemId) => boolean;
-  redeemCustomRewardItem: (input: CustomRewardCardInput) => boolean;
+  redeemRewardItem: (itemId: ShopItemId) => Promise<boolean>;
+  redeemCustomRewardItem: (input: CustomRewardCardInput) => Promise<boolean>;
   useCoupon: (couponId: string) => void;
   completeRewardCard: (couponId: string) => void;
   pullRewardCardsFromCloud: () => Promise<void>;
@@ -384,6 +406,9 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
   const [coupleProfileSyncStatus, setCoupleProfileSyncStatus] =
     useState<CoupleProfileSyncStatus>('local');
   const [coupleProfileSyncError, setCoupleProfileSyncError] = useState<string | null>(null);
+  const [coinWalletSyncStatus, setCoinWalletSyncStatus] =
+    useState<CoinWalletSyncStatus>('local');
+  const [coinWalletSyncError, setCoinWalletSyncError] = useState<string | null>(null);
 
   const [coupleBase] = useState(loadCouple);
   const [rpg, setRpg] = useState(loadRpg);
@@ -435,6 +460,36 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
   const choreSchedulerRef = useRef<ChoreSyncScheduler | null>(null);
   const dinnerSchedulerRef = useRef<DinnerSyncScheduler | null>(null);
   const activityLogSchedulerRef = useRef<ActivityLogSyncScheduler | null>(null);
+  const coinWalletSchedulerRef = useRef<CoinWalletSyncScheduler | null>(null);
+
+  const canSyncWallet = useMemo(
+    () =>
+      canSyncCoinWallet({
+        configured: auth.configured,
+        userId: currentUserId,
+        coupleId,
+        online: isOnline,
+        isFullyBound,
+      }),
+    [auth.configured, coupleId, currentUserId, isFullyBound, isOnline]
+  );
+
+  const applyWalletBalance = useCallback((balance: number) => {
+    setRpg((prev) => {
+      const next = normalizeRpgState({ ...prev, loveCoins: balance });
+      saveRpg(next);
+      return next;
+    });
+    const cache = loadCoinWalletCache();
+    setRewards((prev) => {
+      const next = {
+        ...prev,
+        earnHistory: coinTransactionsToEarnHistory(cache.transactions),
+      };
+      saveRewards(next);
+      return next;
+    });
+  }, []);
 
   useEffect(() => {
     choreSchedulerRef.current?.dispose();
@@ -609,6 +664,33 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
     isPro,
   ]);
 
+  useEffect(() => {
+    coinWalletSchedulerRef.current?.dispose();
+    const scheduler = createCoinWalletSyncScheduler({
+      canSync: () => canSyncWallet,
+      getSupabase: () => auth.supabase,
+      getCoupleId: () => coupleId,
+      getUserId: () => currentUserId,
+      getLocalRpgBalance: () => loadRpg().loveCoins,
+      onBalanceApplied: applyWalletBalance,
+      onStatusChange: (status, error) => {
+        setCoinWalletSyncStatus(status);
+        setCoinWalletSyncError(error);
+      },
+    });
+    coinWalletSchedulerRef.current = scheduler;
+    return () => {
+      scheduler.dispose();
+      coinWalletSchedulerRef.current = null;
+    };
+  }, [
+    applyWalletBalance,
+    auth.supabase,
+    canSyncWallet,
+    coupleId,
+    currentUserId,
+  ]);
+
   const pullActivityLogsFromCloud = useCallback(async () => {
     await (activityLogSchedulerRef.current?.pullFromRemoteIfIdle() ?? Promise.resolve());
   }, []);
@@ -669,21 +751,63 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
     [auth.configured, coupleId, currentUserId, isFullyBound, isOnline]
   );
 
-  const grantReward = useCallback((reward: RpgReward, log: string, coin?: CoinEarnMeta) => {
-    setRpg((prev) => {
-      const next = applyReward(normalizeRpgState(prev), reward);
-      saveRpg(next);
-      return next;
-    });
-    if (coin && (reward.loveCoins ?? 0) > 0) {
-      setRewards((prev) => {
-        const next = addCoinEarn(prev, reward.loveCoins ?? 0, coin);
-        saveRewards(next);
-        return next;
-      });
-    }
-    setActivity(appendActivity(log));
-  }, []);
+  const grantReward = useCallback(
+    (
+      reward: RpgReward,
+      log: string,
+      coin?: CoinEarnMeta,
+      idempotencyKey?: string,
+      options?: { skipRpg?: boolean }
+    ) => {
+      const coins = reward.loveCoins ?? 0;
+      const rpgReward: RpgReward = { ...reward, loveCoins: 0 };
+
+      if (!options?.skipRpg) {
+        setRpg((prev) => {
+          const next = applyReward(normalizeRpgState(prev), rpgReward);
+          saveRpg(next);
+          return next;
+        });
+      }
+
+      if (coins > 0 && coin) {
+        const key = idempotencyKey ?? fallbackEarnCoinKey(coin.source);
+        if (canSyncWallet && coupleId) {
+          void recordCoinTransaction(auth.supabase, true, {
+            coupleId,
+            userId: currentUserId,
+            amount: coins,
+            txType: 'earn',
+            source: coin.source,
+            idempotencyKey: key,
+            meta: coin,
+          }).then((result) => {
+            if (result.ok) {
+              applyWalletBalance(result.balance);
+              coinWalletSchedulerRef.current?.scheduleSync();
+            }
+          });
+        } else {
+          setRpg((prev) => {
+            const next = normalizeRpgState({
+              ...prev,
+              loveCoins: prev.loveCoins + coins,
+            });
+            saveRpg(next);
+            return next;
+          });
+        }
+        setRewards((prev) => {
+          const next = addCoinEarn(prev, coins, coin);
+          saveRewards(next);
+          return next;
+        });
+      }
+
+      setActivity(appendActivity(log));
+    },
+    [applyWalletBalance, auth.supabase, canSyncWallet, coupleId, currentUserId]
+  );
 
   useEffect(() => {
     setRpg((prev) => {
@@ -708,6 +832,8 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
     (detail?: string): boolean => {
       const cap = getMiniGameDailyRewardCap(isPro);
       let granted = false;
+      let slotNum = 0;
+      const day = todayKey();
       setRpg((prev) => {
         const rolled = rollDailyGuardForToday(normalizeRpgState(prev));
         const g = rolled.dailyGuard ?? defaultDailyGuard();
@@ -716,12 +842,16 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
           return rolled === prev ? prev : rolled;
         }
         granted = true;
-        const after = applyReward(rolled, REWARDS.miniGameComplete);
+        slotNum = count + 1;
+        const after = applyReward(rolled, {
+          ...REWARDS.miniGameComplete,
+          loveCoins: 0,
+        });
         const out: RpgState = {
           ...after,
           dailyGuard: {
             ...g,
-            miniGamesRewardCount: count + 1,
+            miniGamesRewardCount: slotNum,
           },
         };
         saveRpg(out);
@@ -729,19 +859,17 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
       });
 
       if (granted) {
-        const coins = REWARDS.miniGameComplete.loveCoins ?? 0;
-        if (coins > 0) {
-          setRewards((rev) => {
-            const n = addCoinEarn(rev, coins, {
-              source: 'game',
-              title: '情侶小遊戲',
-              emoji: '🎲',
-            });
-            saveRewards(n);
-            return n;
-          });
-        }
-        setActivity(appendActivity('完成情侶小遊戲'));
+        grantReward(
+          REWARDS.miniGameComplete,
+          '完成情侶小遊戲',
+          {
+            source: 'game',
+            title: '情侶小遊戲',
+            emoji: '🎲',
+          },
+          miniGameCoinKey(day, slotNum),
+          { skipRpg: true }
+        );
         addCompletion('game', '情侶小遊戲', '🎲', detail ? { detail } : undefined);
         logTodayActivity({ actionType: 'complete', targetType: 'mini_game' });
       }
@@ -1026,11 +1154,16 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
             next.todayAssignment?.chores.find((c) => c.taskId === taskId)?.assignee === 'A'
               ? coupleExtended.myNickname.trim() || '我'
               : coupleExtended.partnerNickname.trim() || '另一半';
-          grantReward(REWARDS.houseworkChoreComplete, `${assigneeName} 完成「${doneItem.label}」`, {
-            source: 'housework',
-            title: doneItem.label,
-            emoji: doneItem.emoji,
-          });
+          grantReward(
+            REWARDS.houseworkChoreComplete,
+            `${assigneeName} 完成「${doneItem.label}」`,
+            {
+              source: 'housework',
+              title: doneItem.label,
+              emoji: doneItem.emoji,
+            },
+            choreCoinKey(today, taskId)
+          );
         }
 
         saveHousework(next);
@@ -1287,11 +1420,16 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
 
         if (task?.done && !wasDone) {
           if (!claimedToday) {
-            grantReward(REWARDS.loveTaskComplete, `完成戀愛任務「${task.label}」`, {
-              source: 'task',
-              title: task.label,
-              emoji: task.emoji,
-            });
+            grantReward(
+              REWARDS.loveTaskComplete,
+              `完成戀愛任務「${task.label}」`,
+              {
+                source: 'task',
+                title: task.label,
+                emoji: task.emoji,
+              },
+              taskCoinKey(day, id)
+            );
             addCompletion('task', task.label, task.emoji);
             next = { ...nextBase, dailyRewardClaimedDate: day };
           }
@@ -1340,11 +1478,16 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
       saveFlirtGames(next);
 
       if (!alreadyDone) {
-        grantReward(REWARDS.flirtGameComplete, `完成小遊戲「${def?.title ?? gameId}」`, {
-          source: 'game',
-          title: def?.title ?? '曖昧小遊戲',
-          emoji: def?.emoji ?? '🎮',
-        });
+        grantReward(
+          REWARDS.flirtGameComplete,
+          `完成小遊戲「${def?.title ?? gameId}」`,
+          {
+            source: 'game',
+            title: def?.title ?? '曖昧小遊戲',
+            emoji: def?.emoji ?? '🎮',
+          },
+          flirtGameCoinKey(todayKey(), gameId)
+        );
       }
       addCompletion('game', def?.title ?? '曖昧小遊戲', def?.emoji ?? '🎮', {
         gameId,
@@ -1421,7 +1564,10 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
           const g = rolled.dailyGuard ?? defaultDailyGuard();
           if (g.dateRewardClaimed) return rolled;
           grantRpg = true;
-          const after = applyReward(rolled, REWARDS.dateComplete);
+          const after = applyReward(rolled, {
+            ...REWARDS.dateComplete,
+            loveCoins: 0,
+          });
           const out = {
             ...after,
             dailyGuard: { ...g, dateRewardClaimed: true, anchorDate: todayKey() },
@@ -1429,20 +1575,18 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
           saveRpg(out);
           return out;
         });
-        const coins = REWARDS.dateComplete.loveCoins ?? 0;
-        if (grantRpg && coins > 0) {
-          setRewards((rev) => {
-            const n = addCoinEarn(rev, coins, {
+        if (grantRpg) {
+          grantReward(
+            REWARDS.dateComplete,
+            `完成約會「${captured.title}」`,
+            {
               source: 'date',
               title: captured.title,
               emoji: captured.emoji,
-            });
-            saveRewards(n);
-            return n;
-          });
-        }
-        if (grantRpg) {
-          setActivity(appendActivity(`完成約會「${captured.title}」`));
+            },
+            dateCompleteCoinKey(todayKey(), captured.ideaId),
+            { skipRpg: true }
+          );
           addCompletion('date', captured.title, captured.emoji);
           logTodayActivity({
             actionType: 'complete',
@@ -1647,18 +1791,45 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
   );
 
   const redeemRewardItemFn = useCallback(
-    (itemId: ShopItemId): boolean => {
-      const rpgPrev = loadRpg();
+    async (itemId: ShopItemId): Promise<boolean> => {
+      const item = getShopItem(itemId);
+      if (!item) return false;
+
+      const couponId = makeId();
+      let balance = canSyncWallet ? getCachedCoinBalance() : loadRpg().loveCoins;
+
+      if (canSyncWallet && coupleId) {
+        const spend = await recordCoinTransaction(auth.supabase, true, {
+          coupleId,
+          userId: currentUserId,
+          amount: -item.cost,
+          txType: 'spend',
+          source: 'redeem',
+          idempotencyKey: redeemCoinKey(couponId),
+          title: item.title,
+          emoji: item.emoji,
+        });
+        if (!spend.ok) return false;
+        balance = spend.balance;
+        applyWalletBalance(balance);
+      } else if (balance < item.cost) {
+        return false;
+      }
+
       const rewPrev = loadRewards();
-      const result = redeemCoupon(rewPrev, itemId, rpgPrev.loveCoins, currentUserId);
+      const result = redeemCoupon(rewPrev, itemId, balance, currentUserId);
       if (result.error || !result.coupon) return false;
-      const nextRpg = normalizeRpgState({
-        ...rpgPrev,
-        loveCoins: rpgPrev.loveCoins - result.coupon.cost,
-      });
-      saveRpg(nextRpg);
+
+      if (!canSyncWallet) {
+        const nextRpg = normalizeRpgState({
+          ...loadRpg(),
+          loveCoins: balance - item.cost,
+        });
+        saveRpg(nextRpg);
+        setRpg(nextRpg);
+      }
+
       saveRewards(result.rewards);
-      setRpg(nextRpg);
       setRewards(result.rewards);
       const name = actorDisplayName(currentUserId);
       setActivity(appendActivity(formatRedeemFeedLine(name, result.coupon.cardTitle)));
@@ -1668,24 +1839,61 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
         targetTitle: result.coupon.cardTitle,
       });
       pushCouponBackground(result.coupon);
+      coinWalletSchedulerRef.current?.scheduleSync();
       return true;
     },
-    [actorDisplayName, currentUserId, logTodayActivity, pushCouponBackground]
+    [
+      actorDisplayName,
+      applyWalletBalance,
+      auth.supabase,
+      canSyncWallet,
+      coupleId,
+      currentUserId,
+      logTodayActivity,
+      pushCouponBackground,
+    ]
   );
 
   const redeemCustomRewardItemFn = useCallback(
-    (input: CustomRewardCardInput): boolean => {
-      const rpgPrev = loadRpg();
+    async (input: CustomRewardCardInput): Promise<boolean> => {
+      const normalized = normalizeCustomRewardInput(input);
+      if (!normalized) return false;
+
+      const couponId = makeId();
+      let balance = canSyncWallet ? getCachedCoinBalance() : loadRpg().loveCoins;
+
+      if (canSyncWallet && coupleId) {
+        const spend = await recordCoinTransaction(auth.supabase, true, {
+          coupleId,
+          userId: currentUserId,
+          amount: -normalized.cost,
+          txType: 'spend',
+          source: 'redeem',
+          idempotencyKey: redeemCoinKey(couponId),
+          title: normalized.title,
+          emoji: normalized.emoji,
+        });
+        if (!spend.ok) return false;
+        balance = spend.balance;
+        applyWalletBalance(balance);
+      } else if (balance < normalized.cost) {
+        return false;
+      }
+
       const rewPrev = loadRewards();
-      const result = redeemCustomCoupon(rewPrev, input, rpgPrev.loveCoins, currentUserId);
+      const result = redeemCustomCoupon(rewPrev, input, balance, currentUserId);
       if (result.error || !result.coupon) return false;
-      const nextRpg = normalizeRpgState({
-        ...rpgPrev,
-        loveCoins: rpgPrev.loveCoins - result.coupon.cost,
-      });
-      saveRpg(nextRpg);
+
+      if (!canSyncWallet) {
+        const nextRpg = normalizeRpgState({
+          ...loadRpg(),
+          loveCoins: balance - normalized.cost,
+        });
+        saveRpg(nextRpg);
+        setRpg(nextRpg);
+      }
+
       saveRewards(result.rewards);
-      setRpg(nextRpg);
       setRewards(result.rewards);
       const name = actorDisplayName(currentUserId);
       setActivity(appendActivity(formatRedeemFeedLine(name, result.coupon.cardTitle)));
@@ -1697,7 +1905,16 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
       pushCouponBackground(result.coupon);
       return true;
     },
-    [actorDisplayName, currentUserId, logTodayActivity, pushCouponBackground]
+    [
+      actorDisplayName,
+      applyWalletBalance,
+      auth.supabase,
+      canSyncWallet,
+      coupleId,
+      currentUserId,
+      logTodayActivity,
+      pushCouponBackground,
+    ]
   );
 
   const useCouponFn = useCallback(

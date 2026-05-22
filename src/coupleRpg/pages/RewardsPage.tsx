@@ -99,8 +99,8 @@ export function RewardsPage({ embedded }: { embedded?: boolean } = {}) {
     return map;
   }, []);
 
-  const handleRedeem = (itemId: (typeof REWARD_SHOP_ITEMS)[0]['id']) => {
-    const ok = redeemRewardItem(itemId);
+  const handleRedeem = async (itemId: (typeof REWARD_SHOP_ITEMS)[0]['id']) => {
+    const ok = await redeemRewardItem(itemId);
     setRedeemMsg(ok ? '兌換成功！已放入我的卡券' : '愛心幣不足喔～');
     if (ok) setTab('coupons');
     setTimeout(() => setRedeemMsg(null), 2500);

@@ -15,7 +15,7 @@ const CATEGORIES: RewardShopCategory[] = ['massage', 'royal', 'date', 'flirt'];
 
 type Props = {
   loveCoins: number;
-  onRedeem: (input: CustomRewardCardInput) => boolean;
+  onRedeem: (input: CustomRewardCardInput) => Promise<boolean>;
   onSuccess?: () => void;
   compact?: boolean;
 };
@@ -37,7 +37,7 @@ export function CustomRewardCardPanel({ loveCoins, onRedeem, onSuccess, compact 
   const canAfford = costValid && loveCoins >= costNum;
   const canSubmit = title.trim().length > 0 && costValid;
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!isPro) {
       openUpgradeModal();
       return;
@@ -50,7 +50,7 @@ export function CustomRewardCardPanel({ loveCoins, onRedeem, onSuccess, compact 
       setMsg('愛心幣不足喔～');
       return;
     }
-    const ok = onRedeem({
+    const ok = await onRedeem({
       title: title.trim(),
       description: description.trim(),
       emoji: emoji.trim() || '🎫',
