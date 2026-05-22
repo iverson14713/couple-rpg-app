@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { GoogleSignInButton } from '../../components/GoogleSignInButton';
 import { AppleSignInButton } from '../../components/AppleSignInButton';
 import { SkeletonCard } from '../../components/SkeletonCard';
@@ -7,12 +7,17 @@ import { useSupabaseAuth } from '../../useSupabaseAuth';
 import { handleAppleSignIn, isAppleSignInAvailable } from '../../services/auth/appleSignIn';
 import { mapAuthErrorMessage } from '../../services/auth/authErrors';
 import { useLoveQuest } from '../context/LoveQuestContext';
+import { useCoupleRpgNav } from '../context/CoupleRpgNavContext';
+import { AUTH_LOGIN_ANCHOR_ID } from '../lib/authNav';
 import { resolveLoggedInUserLabel } from '../lib/coupleDisplayNames';
 import { lq } from '../theme';
 
 export function AuthSettingsSection() {
   const auth = useSupabaseAuth();
   const { coupleExtended } = useLoveQuest();
+  const { pendingScrollElementId, acknowledgePendingScroll } = useCoupleRpgNav();
+  const sectionRef = useRef<HTMLElement>(null);
+  const emailInputRef = useRef<HTMLInputElement>(null);
   const [authMode, setAuthMode] = useState<'signIn' | 'signUp'>('signIn');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -25,6 +30,21 @@ export function AuthSettingsSection() {
   const [appleNotice, setAppleNotice] = useState<string | null>(null);
 
   const appleEnabled = isAppleSignInAvailable(auth.supabase);
+
+  useLayoutEffect(() => {
+    if (pendingScrollElementId !== AUTH_LOGIN_ANCHOR_ID) return;
+    if (auth.user) {
+      acknowledgePendingScroll();
+      return;
+    }
+    if (!auth.authReady) return;
+    acknowledgePendingScroll();
+    sectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    const focusTimer = window.setTimeout(() => {
+      emailInputRef.current?.focus({ preventScroll: true });
+    }, 420);
+    return () => window.clearTimeout(focusTimer);
+  }, [pendingScrollElementId, acknowledgePendingScroll, auth.authReady, auth.user]);
 
   const displayLabel = useMemo(
     () =>
@@ -133,7 +153,11 @@ export function AuthSettingsSection() {
   }
 
   return (
-    <section className={`mb-4 p-4 ${lq.card}`}>
+    <section
+      id={AUTH_LOGIN_ANCHOR_ID}
+      ref={sectionRef}
+      className={`mb-4 scroll-mt-4 p-4 ${lq.card}`}
+    >
       <h2 className="mb-2 text-base font-bold text-stone-900">🔐 帳號登入</h2>
       <p className="mb-3 text-[11px] leading-relaxed text-stone-500">
         登入後可同步雲端資料；Google / Apple 完成後會自動回到 App 首頁。
@@ -190,6 +214,7 @@ export function AuthSettingsSection() {
         />
       ) : null}
       <input
+        ref={emailInputRef}
         type="email"
         autoComplete="email"
         value={email}

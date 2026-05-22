@@ -1,11 +1,14 @@
-import { useState, type ReactNode } from 'react';
-import { Check, Copy, Loader2, Users } from 'lucide-react';
+import { useCallback, useState, type KeyboardEvent, type ReactNode } from 'react';
+import { Check, Copy, Loader2, LogIn, Users } from 'lucide-react';
 import { useSupabaseAuth } from '../../useSupabaseAuth';
+import { useCoupleRpgNav } from '../context/CoupleRpgNavContext';
 import { useCoupleSpace } from '../context/CoupleSpaceContext';
+import { AUTH_LOGIN_ANCHOR_ID } from '../lib/authNav';
 import { lq } from '../theme';
 
 export function CoupleBindSection() {
   const auth = useSupabaseAuth();
+  const { navigateTo } = useCoupleRpgNav();
   const {
     space,
     loading,
@@ -23,6 +26,13 @@ export function CoupleBindSection() {
   const [coupleName, setCoupleName] = useState('');
   const [inviteInput, setInviteInput] = useState('');
 
+  const goToLogin = useCallback(() => {
+    navigateTo('profile', {
+      profileSection: 'settings',
+      scrollToElementId: AUTH_LOGIN_ANCHOR_ID,
+    });
+  }, [navigateTo]);
+
   if (!auth.configured) {
     return (
       <BindCard title="情侶空間綁定" subtitle="尚未設定 Supabase，無法使用雲端綁定">
@@ -33,10 +43,25 @@ export function CoupleBindSection() {
 
   if (!auth.user) {
     return (
-      <BindCard title="情侶空間綁定" subtitle="登入後可建立或加入情侶空間">
-        <p className="rounded-xl bg-amber-50 px-3 py-2 text-[12px] font-medium text-amber-900">請先登入</p>
-        <p className="mt-2 text-[11px] text-stone-500">
-          請到「設定」分頁登入或註冊；登入後即可建立或加入情侶空間。
+      <BindCard
+        title="登入後即可建立或加入情侶空間"
+        subtitle="同步晚餐、家事、LoveCoin、重要日子與 AI 安排"
+        interactive
+        onActivate={goToLogin}
+      >
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            goToLogin();
+          }}
+          className={`flex w-full items-center justify-center gap-2 rounded-xl py-3 text-[13px] font-bold shadow-sm ring-1 ring-rose-200/80 transition-transform active:scale-[0.98] ${lq.btnPrimary}`}
+        >
+          <LogIn className="h-4 w-4 shrink-0" aria-hidden />
+          請先登入
+        </button>
+        <p className="mt-2 text-center text-[11px] font-medium text-rose-700/90">
+          點擊卡片或按鈕，前往「我的 → 設定」登入／註冊
         </p>
       </BindCard>
     );
@@ -174,16 +199,40 @@ function BindCard({
   title,
   subtitle,
   children,
+  interactive,
+  onActivate,
 }: {
   id?: string;
   title: string;
   subtitle: string;
   children: ReactNode;
+  interactive?: boolean;
+  onActivate?: () => void;
 }) {
+  const interactiveStyles = interactive
+    ? 'cursor-pointer bg-gradient-to-br from-rose-50/95 via-pink-50/90 to-white shadow-sm ring-1 ring-rose-100/90 transition-[transform,box-shadow,filter] duration-200 hover:brightness-[1.03] hover:shadow-md active:scale-[0.99] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose-300'
+    : '';
+
+  const handleKeyDown = (e: KeyboardEvent<HTMLElement>) => {
+    if (!interactive || !onActivate) return;
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      onActivate();
+    }
+  };
+
   return (
-    <section id={id} className={`mb-3 p-3 ${lq.card}`}>
+    <section
+      id={id}
+      role={interactive ? 'button' : undefined}
+      tabIndex={interactive ? 0 : undefined}
+      onClick={interactive ? onActivate : undefined}
+      onKeyDown={interactive ? handleKeyDown : undefined}
+      className={`mb-3 p-3 ${lq.card} ${interactiveStyles}`}
+      aria-label={interactive ? `${title}，點擊前往登入` : undefined}
+    >
       <h2 className="text-sm font-bold text-stone-900">{title}</h2>
-      <p className="mb-3 text-[11px] text-stone-500">{subtitle}</p>
+      <p className="mb-3 text-[11px] leading-relaxed text-stone-500">{subtitle}</p>
       {children}
     </section>
   );
