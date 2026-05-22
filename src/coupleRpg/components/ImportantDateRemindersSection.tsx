@@ -1,26 +1,22 @@
-import { useCallback, useMemo, useState, type ReactNode } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { Bell, ChevronLeft } from 'lucide-react';
 import { useCoupleRpgNav } from '../context/CoupleRpgNavContext';
 import { useLoveQuest } from '../context/LoveQuestContext';
 import { EmptyState } from './EmptyState';
 import { ImportantDateAiSheet } from './ImportantDateAiSheet';
+import { ImportantDateEventCard } from './ImportantDateEventCard';
 import { RecentImportantDateAiCard } from './RecentImportantDateAiCard';
 import {
   savedEventToImportantDateEvent,
   type SavedImportantDateAi,
 } from '../storage/importantDateAiCache';
+import { buildImportantDateEvents, type ImportantDateEvent } from '../lib/importantDateEvents';
 import {
-  buildImportantDateEvents,
-  statusLabel,
-  type ImportantDateEvent,
-} from '../lib/importantDateEvents';
-import {
-  formatEnabledOffsetsLabel,
   getEventSettings,
-  toggleReminderOffset,
+  toggleOffsetsInList,
   updateEventSettings,
 } from '../storage/importantDateRemindersStore';
-import { REMINDER_OFFSET_OPTIONS, type ReminderOffsetDays } from '../storage/importantDateReminderTypes';
+import type { ReminderOffsetDays } from '../storage/importantDateReminderTypes';
 import { ImportantDateReminderList } from './ImportantDateReminderList';
 import { useAiUsage } from '../hooks/useAiUsage';
 import { useProFeature } from '../hooks/useProFeature';
@@ -34,6 +30,10 @@ type Props = {
   showBack?: boolean;
   compactHero?: boolean;
 };
+
+function copyOffsets(offsets: ReminderOffsetDays[]): ReminderOffsetDays[] {
+  return [...offsets];
+}
 
 export function ImportantDateRemindersSection({ showBack, compactHero }: Props) {
   const { navigateTo } = useCoupleRpgNav();
@@ -57,7 +57,17 @@ export function ImportantDateRemindersSection({ showBack, compactHero }: Props) 
       return [];
     }
   }, [coupleExtended]);
+
+  const settingsByEventId = useMemo(() => {
+    const map: Record<string, ReturnType<typeof getEventSettings>> = {};
+    for (const ev of events) {
+      map[ev.id] = getEventSettings(importantDateReminders, ev.id);
+    }
+    return map;
+  }, [events, importantDateReminders]);
+
   const [reminderEditId, setReminderEditId] = useState<string | null>(null);
+  const [offsetDrafts, setOffsetDrafts] = useState<Record<string, ReminderOffsetDays[]>>({});
   const [aiEvent, setAiEvent] = useState<ImportantDateEvent | null>(null);
   const [savedImportantView, setSavedImportantView] = useState<SavedImportantDateAi | null>(null);
   const [savedFlash, setSavedFlash] = useState(false);
@@ -67,21 +77,68 @@ export function ImportantDateRemindersSection({ showBack, compactHero }: Props) 
     window.setTimeout(() => setSavedFlash(false), 2000);
   }, []);
 
-  const onToggleOffset = useCallback(
-    (eventId: string, offset: ReminderOffsetDays) => {
-      patchImportantDateReminder((data) => toggleReminderOffset(data, eventId, offset));
-      flashSaved();
+  const openEdit = useCallback(
+    (eventId: string) => {
+      const saved = getEventSettings(importantDateReminders, eventId);
+      setOffsetDrafts((prev) => ({ ...prev, [eventId]: copyOffsets(saved.offsets) }));
+      setReminderEditId(eventId);
     },
-    [patchImportantDateReminder, flashSaved]
+    [importantDateReminders]
   );
 
-  const onSaveOffsets = useCallback(
+  const closeEdit = useCallback(() => {
+    setReminderEditId(null);
+  }, []);
+
+  const toggleDraftOffset = useCallback((eventId: string, offset: ReminderOffsetDays) => {
+    setOffsetDrafts((prev) => {
+      const cur = copyOffsets(
+        prev[eventId] ?? getEventSettings(importantDateReminders, eventId).offsets
+      );
+      return { ...prev, [eventId]: toggleOffsetsInList(cur, offset) };
+    });
+  }, [importantDateReminders]);
+
+  const toggleGift = useCallback(
     (eventId: string) => {
+      patchImportantDateReminder((d) => {
+        const s = getEventSettings(d, eventId);
+        return updateEventSettings(d, eventId, { giftPrepared: !s.giftPrepared });
+      });
+    },
+    [patchImportantDateReminder]
+  );
+
+  const toggleActivity = useCallback(
+    (eventId: string) => {
+      patchImportantDateReminder((d) => {
+        const s = getEventSettings(d, eventId);
+        return updateEventSettings(d, eventId, { activityPlanned: !s.activityPlanned });
+      });
+    },
+    [patchImportantDateReminder]
+  );
+
+  const openAi = useCallback((eventId: string) => {
+    const ev = events.find((e) => e.id === eventId);
+    if (ev) setAiEvent(ev);
+  }, [events]);
+
+  const saveOffsets = useCallback(
+    (eventId: string) => {
+      const draft = offsetDrafts[eventId];
+      if (!draft) {
+        closeEdit();
+        return;
+      }
+      patchImportantDateReminder((data) => updateEventSettings(data, eventId, { offsets: copyOffsets(draft) }));
       setReminderEditId(null);
       flashSaved();
     },
-    [flashSaved]
+    [offsetDrafts, patchImportantDateReminder, closeEdit, flashSaved]
   );
+
+  const aiButtonLabel = !aiUsage.canUseAi ? 'AI 次數已用完' : 'AI 安排';
 
   return (
     <section id={IMPORTANT_DATE_REMINDERS_ANCHOR_ID} className={compactHero ? '' : 'mb-4'}>
@@ -97,10 +154,7 @@ export function ImportantDateRemindersSection({ showBack, compactHero }: Props) 
       ) : null}
 
       {showBack ? (
-        <RecentImportantDateAiCard
-          onView={setSavedImportantView}
-          className="mb-3"
-        />
+        <RecentImportantDateAiCard onView={setSavedImportantView} className="mb-3" />
       ) : null}
 
       {!compactHero ? (
@@ -178,102 +232,31 @@ export function ImportantDateRemindersSection({ showBack, compactHero }: Props) 
       ) : (
         <ul className="space-y-2.5">
           {events.map((ev) => {
-            const settings = getEventSettings(importantDateReminders, ev.id);
-            const editing = reminderEditId === ev.id;
+            const settings = settingsByEventId[ev.id] ?? getEventSettings(importantDateReminders, ev.id);
+            const isEditing = reminderEditId === ev.id;
+            const draftOffsets =
+              offsetDrafts[ev.id] ?? (isEditing ? copyOffsets(settings.offsets) : settings.offsets);
+
             return (
-              <li key={ev.id} className={`p-3 ${lq.card}`}>
-                <div className="flex gap-2.5">
-                  <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-rose-50/80 text-2xl">
-                    {ev.icon}
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex flex-wrap items-center gap-1.5">
-                      <p className={`text-[15px] font-bold ${lq.text}`}>{ev.name}</p>
-                      <StatusBadge status={ev.status} />
-                    </div>
-                    <p className={`text-[12px] ${lq.textSecondary}`}>
-                      📆 {ev.dateLabel} · {ev.isToday ? '就是今天' : ev.status === 'past' ? `已過 ${ev.daysSince} 天` : `還有 ${ev.daysUntil} 天`}
-                    </p>
-                    <p className="mt-1 text-[11px] text-stone-500">
-                      提醒：{formatEnabledOffsetsLabel(settings.offsets)}
-                    </p>
-                    <div className="mt-2 flex flex-wrap gap-1.5">
-                      <TogglePill
-                        active={settings.giftPrepared}
-                        onClick={() => {
-                          patchImportantDateReminder((d) =>
-                            updateEventSettings(d, ev.id, { giftPrepared: !settings.giftPrepared })
-                          );
-                        }}
-                      >
-                        🎁 {settings.giftPrepared ? '已準備禮物' : '標記禮物'}
-                      </TogglePill>
-                      <TogglePill
-                        active={settings.activityPlanned}
-                        onClick={() => {
-                          patchImportantDateReminder((d) =>
-                            updateEventSettings(d, ev.id, { activityPlanned: !settings.activityPlanned })
-                          );
-                        }}
-                      >
-                        📅 {settings.activityPlanned ? '已安排活動' : '標記活動'}
-                      </TogglePill>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="mt-2.5 flex flex-wrap gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setReminderEditId(editing ? null : ev.id)}
-                    className={`flex-1 rounded-xl border px-3 py-2 text-[12px] font-bold active:scale-[0.98] ${
-                      editing
-                        ? 'border-rose-300 bg-rose-50 text-rose-800'
-                        : 'border-stone-200 bg-white text-stone-700'
-                    }`}
-                  >
-                    🔔 設定提醒
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setAiEvent(ev)}
-                    disabled={!aiUsage.canUseAi}
-                    className={`flex min-h-[44px] flex-1 items-center justify-center gap-1 rounded-xl px-3 py-2 text-[12px] font-bold text-white active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50 ${lq.btnPrimary}`}
-                  >
-                    ✨ {!aiUsage.canUseAi ? 'AI 次數已用完' : 'AI 安排'}
-                    <ProBadgeIfNeeded show={aiPro.showProBadge} feature="ai_in_app" size="sm" />
-                  </button>
-                </div>
-
-                {editing ? (
-                  <div className="mt-2.5 rounded-xl border border-rose-100 bg-rose-50/40 p-2.5">
-                    <p className="mb-2 text-[11px] font-bold text-rose-800">選擇提醒時間</p>
-                    <div className="flex flex-wrap gap-1.5">
-                      {REMINDER_OFFSET_OPTIONS.map((o) => (
-                        <button
-                          key={o.value}
-                          type="button"
-                          onClick={() => onToggleOffset(ev.id, o.value)}
-                          className={`rounded-lg px-2.5 py-1.5 text-[11px] font-semibold ${
-                            settings.offsets.includes(o.value)
-                              ? 'bg-rose-500 text-white'
-                              : 'bg-white text-stone-600 ring-1 ring-stone-200'
-                          }`}
-                        >
-                          {o.label}
-                        </button>
-                      ))}
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => onSaveOffsets(ev.id)}
-                      className={`mt-2 w-full rounded-lg py-2 text-[12px] font-bold ${lq.btnSecondary}`}
-                    >
-                      儲存提醒設定
-                    </button>
-                  </div>
-                ) : null}
-              </li>
+              <ImportantDateEventCard
+                key={ev.id}
+                event={ev}
+                savedOffsets={settings.offsets}
+                giftPrepared={settings.giftPrepared}
+                activityPlanned={settings.activityPlanned}
+                isEditing={isEditing}
+                draftOffsets={draftOffsets}
+                onOpenEdit={openEdit}
+                onCloseEdit={closeEdit}
+                onToggleDraftOffset={toggleDraftOffset}
+                onSaveOffsets={saveOffsets}
+                onToggleGift={toggleGift}
+                onToggleActivity={toggleActivity}
+                onOpenAi={openAi}
+                aiDisabled={!aiUsage.canUseAi}
+                aiButtonLabel={aiButtonLabel}
+                showAiProBadge={aiPro.showProBadge}
+              />
             );
           })}
         </ul>
@@ -300,37 +283,5 @@ export function ImportantDateRemindersSection({ showBack, compactHero }: Props) 
         />
       ) : null}
     </section>
-  );
-}
-
-function StatusBadge({ status }: { status: ImportantDateEvent['status'] }) {
-  const cls =
-    status === 'today'
-      ? 'bg-rose-100 text-rose-800'
-      : status === 'past'
-        ? 'bg-stone-100 text-stone-600'
-        : 'bg-amber-50 text-amber-800';
-  return <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${cls}`}>{statusLabel(status)}</span>;
-}
-
-function TogglePill({
-  children,
-  active,
-  onClick,
-}: {
-  children: ReactNode;
-  active: boolean;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`rounded-full px-2 py-1 text-[10px] font-bold ring-1 active:scale-[0.98] ${
-        active ? 'bg-emerald-50 text-emerald-800 ring-emerald-200' : 'bg-stone-50 text-stone-600 ring-stone-200'
-      }`}
-    >
-      {children}
-    </button>
   );
 }

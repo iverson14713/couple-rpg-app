@@ -76,17 +76,27 @@ export function updateEventSettings(
   };
 }
 
+/** 切換單一 offset（純函數，供 draft UI 使用） */
+export function toggleOffsetsInList(
+  offsets: ReminderOffsetDays[],
+  offset: ReminderOffsetDays
+): ReminderOffsetDays[] {
+  const set = new Set(offsets);
+  if (set.has(offset)) set.delete(offset);
+  else set.add(offset);
+  const next = [...set].sort((a, b) => a - b) as ReminderOffsetDays[];
+  return next.length ? next : [7];
+}
+
 export function toggleReminderOffset(
   data: ImportantDateRemindersData,
   eventId: string,
   offset: ReminderOffsetDays
 ): ImportantDateRemindersData {
   const cur = getEventSettings(data, eventId);
-  const set = new Set(cur.offsets);
-  if (set.has(offset)) set.delete(offset);
-  else set.add(offset);
-  const offsets = [...set].sort((a, b) => a - b) as ReminderOffsetDays[];
-  return updateEventSettings(data, eventId, { offsets: offsets.length ? offsets : [7] });
+  return updateEventSettings(data, eventId, {
+    offsets: toggleOffsetsInList(cur.offsets, offset),
+  });
 }
 
 export function formatEnabledOffsetsLabel(offsets: ReminderOffsetDays[]): string {
