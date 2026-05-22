@@ -1,9 +1,8 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { AppErrorBoundary } from './AppErrorBoundary.tsx';
-import { AuthCallbackPage } from './AuthCallbackPage.tsx';
-import { isAuthCallbackPath } from './authCallbackEntry.ts';
 import { ToastProvider } from './context/ToastContext.tsx';
+import { initAuthDebug } from './services/auth/authDebug.ts';
 import { initCapacitorAuthBridge } from './native/capacitorAuthBridge.ts';
 import { repairCorruptedLocalStorage } from './safeStorage.ts';
 import { Root } from './Root.tsx';
@@ -11,16 +10,14 @@ import './index.css';
 
 repairCorruptedLocalStorage();
 initCapacitorAuthBridge();
+initAuthDebug();
 
 const rootEl = document.getElementById('root');
 if (!rootEl) {
   console.error('[App] #root element missing — cannot mount React');
 } else {
-  const tree = isAuthCallbackPath() ? (
-    <AppErrorBoundary>
-      <AuthCallbackPage />
-    </AppErrorBoundary>
-  ) : (
+  /** 一律經 Root 路由，確保 appUrlOpen → /auth/callback 能切換到 AuthCallbackPage */
+  const tree = (
     <AppErrorBoundary>
       <ToastProvider>
         <Root />

@@ -1,4 +1,4 @@
-import { Capacitor } from '@capacitor/core';
+import { authLog, isAuthNativeClient } from './authDebug';
 
 const RETURN_KEY = 'lq_auth_return';
 
@@ -8,13 +8,26 @@ export const CAPACITOR_AUTH_ORIGIN = 'https://lovequest.app';
 /** Custom URL scheme fallback when OAuth opens system browser (Info.plist URL Types) */
 export const CAPACITOR_AUTH_SCHEME_CALLBACK = 'com.lovequest.app://auth/callback';
 
-/** OAuth / Email 確認信導回此路徑（須列入 Supabase Redirect URLs） */
+/** Email 確認信等導回（WebView / 通用連結，須列入 Supabase Redirect URLs） */
 export function getAuthCallbackUrl(): string {
   if (typeof window === 'undefined') return '/auth/callback';
-  if (Capacitor.isNativePlatform()) {
+  if (isAuthNativeClient()) {
     return `${CAPACITOR_AUTH_ORIGIN}/auth/callback`;
   }
   return `${window.location.origin}/auth/callback`;
+}
+
+/**
+ * OAuth 導回：原生用 custom scheme（外部瀏覽器完成後喚回 App）；
+ * Web 用目前網域 /auth/callback。
+ */
+export function getOAuthRedirectUrl(): string {
+  if (typeof window === 'undefined') return '/auth/callback';
+  const url = isAuthNativeClient()
+    ? CAPACITOR_AUTH_SCHEME_CALLBACK
+    : `${window.location.origin}/auth/callback`;
+  authLog('getOAuthRedirectUrl', { url, isNative: isAuthNativeClient() });
+  return url;
 }
 
 /** 登入前儲存路徑，callback 成功後導回（預設首頁） */

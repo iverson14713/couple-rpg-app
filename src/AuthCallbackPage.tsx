@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
+import { AuthDebugPanel } from './components/AuthDebugPanel';
 import { completeAuthCallback, type AuthCallbackFlow } from './services/auth/completeAuthCallback';
+import { authLog, isAuthNativeClient } from './services/auth/authDebug';
 import { redirectAfterAuthSuccess, scrubAuthCallbackUrl } from './services/auth/authRedirect';
 import { getSupabaseClient } from './supabaseClient';
 
@@ -51,6 +53,11 @@ export function AuthCallbackPage() {
   const [flow, setFlow] = useState<AuthCallbackFlow>('unknown');
   const lang = detectLang();
   const t = copy[lang];
+  const showDebug = isAuthNativeClient();
+
+  useEffect(() => {
+    authLog('AuthCallbackPage.mount', { href: window.location.href });
+  }, []);
 
   useEffect(() => {
     const sb = getSupabaseClient();
@@ -72,21 +79,19 @@ export function AuthCallbackPage() {
         if (!outcome.ok) {
           setFailMessage(outcome.message);
           setStatus('fail');
+          authLog('AuthCallbackPage.fail', { message: outcome.message });
           return;
         }
 
         setFlow(outcome.flow);
         setStatus('ok');
+        authLog('AuthCallbackPage.success', { flow: outcome.flow });
         redirectAfterAuthSuccess(1400);
       } catch (err) {
         if (cancelled) return;
-        console.error('[auth/callback]', err);
         const msg = err instanceof Error ? err.message : String(err);
-        setFailMessage(
-          lang === 'zh'
-            ? `登入處理失敗：${msg}`
-            : `Sign-in failed: ${msg}`
-        );
+        authLog('AuthCallbackPage.exception', { message: msg });
+        setFailMessage(lang === 'zh' ? `登入處理失敗：${msg}` : `Sign-in failed: ${msg}`);
         setStatus('fail');
       }
     };
@@ -120,7 +125,7 @@ export function AuthCallbackPage() {
         ) : (
           <>
             <h1 className="text-lg font-bold text-[#3a2e34]">{t.failTitle}</h1>
-            <p className="mt-3 text-[14px] leading-relaxed text-[#8a7a84]">
+            <p className="mt-3 whitespace-pre-wrap text-left text-[13px] leading-relaxed text-red-800">
               {failMessage ?? (getSupabaseClient() ? t.failTitle : t.noClient)}
             </p>
             <button
@@ -134,6 +139,7 @@ export function AuthCallbackPage() {
             </button>
           </>
         )}
+        {showDebug ? <AuthDebugPanel /> : null}
       </div>
     </div>
   );

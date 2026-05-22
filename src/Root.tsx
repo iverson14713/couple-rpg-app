@@ -5,7 +5,7 @@ import { PrivacyPolicyPage } from './pages/PrivacyPolicyPage.tsx';
 import { TermsPage } from './pages/TermsPage.tsx';
 import { getShowcaseSlideById } from './showcase/lovequest/slides.ts';
 
-/** Heavy routes — not loaded on /auth/callback (see main.tsx early entry). */
+/** Heavy routes — not loaded on /auth/callback. */
 const AppLaunchGate = lazy(() =>
   import('./AppLaunchGate.tsx').then((m) => ({ default: m.AppLaunchGate }))
 );

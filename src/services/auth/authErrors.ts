@@ -56,25 +56,43 @@ export function mapAuthErrorMessage(
     if (low.includes('expired') || low.includes('otp_expired')) return d.link_expired;
     if (low.includes('access_denied') || low.includes('user cancelled')) return d.oauth_cancelled;
     if (low.includes('invalid') && low.includes('link')) return d.link_invalid;
-    return `${d.generic}`;
+    if (err.message.trim()) return err.message;
+    return d.generic;
   }
   if (typeof err === 'string') return mapAuthErrorMessage(new Error(err), lang);
   return d.generic;
 }
 
+function decodeOAuthDescription(raw: string | null): string {
+  if (!raw?.trim()) return '';
+  try {
+    return decodeURIComponent(raw.replace(/\+/g, ' ')).trim();
+  } catch {
+    return raw.trim();
+  }
+}
+
+/** Prefer full error_description on screen (do not hide behind generic copy). */
 export function mapOAuthCallbackError(
   errorCode: string | null,
   description: string | null,
   lang: AuthLang = 'zh'
 ): string {
   const d = dict(lang);
-  const code = (errorCode ?? '').toLowerCase();
-  const desc = (description ?? '').toLowerCase();
+  const decoded = decodeOAuthDescription(description);
+  const code = (errorCode ?? '').trim();
 
-  if (code === 'access_denied' || desc.includes('access_denied')) return d.oauth_cancelled;
-  if (code.includes('expired') || desc.includes('expired') || desc.includes('otp_expired')) {
+  const parts: string[] = [];
+  if (decoded) parts.push(decoded);
+  if (code) parts.push(lang === 'zh' ? `錯誤代碼：${code}` : `error_code: ${code}`);
+
+  if (parts.length > 0) return parts.join('\n\n');
+
+  const descLow = decoded.toLowerCase();
+  const codeLow = code.toLowerCase();
+  if (codeLow === 'access_denied' || descLow.includes('access_denied')) return d.oauth_cancelled;
+  if (codeLow.includes('expired') || descLow.includes('expired') || descLow.includes('otp_expired')) {
     return d.link_expired;
   }
-  if (code.includes('invalid') || desc.includes('invalid')) return d.link_invalid;
   return d.link_invalid;
 }

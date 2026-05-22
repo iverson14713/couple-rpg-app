@@ -1,5 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { getAuthCallbackUrl, saveAuthReturnPath } from './authRedirect';
+import { getOAuthRedirectUrl, saveAuthReturnPath } from './authRedirect';
+import { authLog, isAuthNativeClient } from './authDebug';
+import { openOAuthInExternalBrowser } from './oauthNative';
 
 export type AppleSignInResult = {
   ok: boolean;
@@ -20,10 +22,28 @@ export async function signInWithAppleOAuth(
   supabase: SupabaseClient
 ): Promise<{ error: Error | null }> {
   saveAuthReturnPath();
+  const redirectTo = getOAuthRedirectUrl();
+  const isNative = isAuthNativeClient();
+  authLog('apple.oauth', { isNative, redirectTo, skipBrowserRedirect: isNative });
+  if (isNative) {
+    const { data, error } = await supabase.auth.signInWithOAuth({
+      provider: 'apple',
+      options: {
+        redirectTo,
+        skipBrowserRedirect: true,
+        scopes: 'name email',
+      },
+    });
+    if (error) return { error: new Error(error.message) };
+    if (!data?.url) return { error: new Error('no_oauth_url') };
+    authLog('apple.oauth.url', { oauthUrl: data.url });
+    await openOAuthInExternalBrowser(data.url);
+    return { error: null };
+  }
   const { error } = await supabase.auth.signInWithOAuth({
     provider: 'apple',
     options: {
-      redirectTo: getAuthCallbackUrl(),
+      redirectTo,
       scopes: 'name email',
     },
   });

@@ -1,5 +1,9 @@
-import { useCallback, useLayoutEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { AuthDebugPanel } from '../../components/AuthDebugPanel';
 import { GoogleSignInButton } from '../../components/GoogleSignInButton';
+import { authLog, isAuthNativeClient } from '../../services/auth/authDebug';
+import { GOOGLE_CONSENT_SCREEN_HINT, logGoogleAuthSetupChecklist } from '../../services/auth/googleSignIn';
+import { CAPACITOR_AUTH_SCHEME_CALLBACK } from '../../services/auth/authRedirect';
 import { AppleSignInButton } from '../../components/AppleSignInButton';
 import { SkeletonCard } from '../../components/SkeletonCard';
 import { Spinner } from '../../components/SkeletonCard';
@@ -29,6 +33,11 @@ export function AuthSettingsSection() {
   const [appleNotice, setAppleNotice] = useState<string | null>(null);
 
   const appleEnabled = isAppleSignInAvailable(auth.supabase);
+  const showAuthDebug = isAuthNativeClient();
+
+  useEffect(() => {
+    if (showAuthDebug) logGoogleAuthSetupChecklist();
+  }, [showAuthDebug]);
 
   useLayoutEffect(() => {
     if (pendingScrollElementId !== AUTH_LOGIN_ANCHOR_ID) return;
@@ -75,8 +84,12 @@ export function AuthSettingsSection() {
     setError(null);
     setMessage(null);
     setGoogleBusy(true);
+    authLog('google.ui.click', { href: window.location.href });
     const { error: err } = await auth.signInWithGoogle();
-    if (err) setError(mapAuthErrorMessage(err));
+    if (err) {
+      authLog('google.ui.error', { message: err.message });
+      setError(err.message || mapAuthErrorMessage(err));
+    }
     setGoogleBusy(false);
   }, [auth]);
 
@@ -235,9 +248,13 @@ export function AuthSettingsSection() {
       </button>
 
       <p className="mt-3 text-[10px] leading-relaxed text-stone-400">
-        Supabase 請將 Site URL 設為正式網域，Redirect URLs 需包含{' '}
-        <span className="font-mono text-stone-500">/auth/callback</span>（本機與正式環境各一筆）。
+        Supabase Redirect URLs 需包含{' '}
+        <span className="font-mono text-stone-500">/auth/callback</span> 與{' '}
+        <span className="font-mono text-stone-500">{CAPACITOR_AUTH_SCHEME_CALLBACK}</span>
+        。iOS 版 Google 登入會以外部瀏覽器開啟，完成後自動回到 App。
       </p>
+      <p className="mt-2 text-[10px] leading-relaxed text-amber-800/90">{GOOGLE_CONSENT_SCREEN_HINT}</p>
+      {showAuthDebug ? <AuthDebugPanel title="Google 登入 Debug（Xcode: [LQ_AUTH]）" /> : null}
     </section>
   );
 }

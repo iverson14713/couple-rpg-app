@@ -1,7 +1,10 @@
 import type { Session } from '@supabase/supabase-js';
 import { useCallback, useEffect, useState } from 'react';
-import { getAuthCallbackUrl, saveAuthReturnPath } from './services/auth/authRedirect';
+import { getAuthCallbackUrl, getOAuthRedirectUrl, saveAuthReturnPath } from './services/auth/authRedirect';
 import { isAppleOAuthEnabled } from './services/auth/appleSignIn';
+import { signInWithGoogleOAuth } from './services/auth/googleSignIn';
+import { authLog, isAuthNativeClient } from './services/auth/authDebug';
+import { openOAuthInExternalBrowser } from './services/auth/oauthNative';
 import { getSupabaseClient } from './supabaseClient';
 
 export type UserProfile = {
@@ -118,31 +121,44 @@ export function useSupabaseAuth() {
     return supabase.auth.signOut();
   }, [supabase]);
 
-  const signInWithGoogle = useCallback(() => {
-    if (!supabase) return Promise.resolve({ data: null, error: new Error('not_configured') });
-    saveAuthReturnPath();
-    return supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: {
-        redirectTo: getAuthCallbackUrl(),
-        queryParams: {
-          access_type: 'offline',
-          prompt: 'consent',
-        },
-      },
-    });
+  const signInWithGoogle = useCallback(async () => {
+    if (!supabase) return { data: null, error: new Error('not_configured') };
+    const { error } = await signInWithGoogleOAuth(supabase);
+    return { data: null, error };
   }, [supabase]);
 
-  const signInWithApple = useCallback(() => {
-    if (!supabase) return Promise.resolve({ data: null, error: new Error('not_configured') });
+  const signInWithApple = useCallback(async () => {
+    if (!supabase) return { data: null, error: new Error('not_configured') };
     if (!isAppleOAuthEnabled()) {
-      return Promise.resolve({ data: null, error: new Error('apple_not_enabled') });
+      return { data: null, error: new Error('apple_not_enabled') };
     }
     saveAuthReturnPath();
+    const redirectTo = getOAuthRedirectUrl();
+    const isNative = isAuthNativeClient();
+    authLog('apple.click', { isNative, redirectTo, skipBrowserRedirect: isNative });
+    if (isNative) {
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: 'apple',
+        options: {
+          redirectTo,
+          skipBrowserRedirect: true,
+          scopes: 'name email',
+        },
+      });
+      if (error) return { data: null, error };
+      if (!data?.url) return { data: null, error: new Error('no_oauth_url') };
+      authLog('apple.signInWithOAuth.response', { oauthUrl: data.url });
+      try {
+        await openOAuthInExternalBrowser(data.url);
+      } catch (e) {
+        return { data: null, error: e instanceof Error ? e : new Error(String(e)) };
+      }
+      return { data: null, error: null };
+    }
     return supabase.auth.signInWithOAuth({
       provider: 'apple',
       options: {
-        redirectTo: getAuthCallbackUrl(),
+        redirectTo,
         scopes: 'name email',
       },
     });
