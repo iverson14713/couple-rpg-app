@@ -1,38 +1,53 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { getAuthCallbackUrl, saveAuthReturnPath } from './authRedirect';
 
 export type AppleSignInResult = {
   ok: boolean;
-  /** True when native / OAuth flow completed (future). */
   signedIn: boolean;
   message?: string;
 };
 
-/**
- * Whether Apple Sign In can run on this platform (native / configured OAuth).
- * Web/PWA returns false until Supabase Apple provider + iOS shell are wired.
- */
-export function isAppleSignInAvailable(): boolean {
-  if (typeof window === 'undefined') return false;
-  // Future: Capacitor.getPlatform() === 'ios' && has native plugin
-  return false;
+/** `VITE_APPLE_OAUTH_ENABLED=true` 且 Supabase 已設定 Apple Provider 時啟用 */
+export function isAppleOAuthEnabled(): boolean {
+  return import.meta.env.VITE_APPLE_OAUTH_ENABLED === 'true';
+}
+
+export function isAppleSignInAvailable(supabase?: SupabaseClient | null): boolean {
+  return isAppleOAuthEnabled() && Boolean(supabase);
+}
+
+export async function signInWithAppleOAuth(
+  supabase: SupabaseClient
+): Promise<{ error: Error | null }> {
+  saveAuthReturnPath();
+  const { error } = await supabase.auth.signInWithOAuth({
+    provider: 'apple',
+    options: {
+      redirectTo: getAuthCallbackUrl(),
+      scopes: 'name email',
+    },
+  });
+  if (error) return { error: new Error(error.message) };
+  return { error: null };
 }
 
 /**
- * Apple Sign In entry — reserved for Supabase `signInWithOAuth({ provider: 'apple' })`
- * or Capacitor Sign in with Apple on iOS.
+ * Apple Sign In — Supabase OAuth when enabled; otherwise「即將開放」不拋錯。
  */
 export async function handleAppleSignIn(
-  _supabase?: SupabaseClient | null
+  supabase?: SupabaseClient | null
 ): Promise<AppleSignInResult> {
-  if (isAppleSignInAvailable() && _supabase) {
-    // Future implementation:
-    // const { error } = await _supabase.auth.signInWithOAuth({ provider: 'apple', ... });
-    return { ok: false, signedIn: false, message: 'not_implemented' };
+  if (!isAppleSignInAvailable(supabase) || !supabase) {
+    return {
+      ok: true,
+      signedIn: false,
+      message: 'coming_soon',
+    };
   }
 
-  return {
-    ok: true,
-    signedIn: false,
-    message: 'coming_soon',
-  };
+  const { error } = await signInWithAppleOAuth(supabase);
+  if (error) {
+    return { ok: false, signedIn: false, message: error.message };
+  }
+  return { ok: true, signedIn: false, message: 'redirecting' };
 }

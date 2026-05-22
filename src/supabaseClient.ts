@@ -17,7 +17,9 @@ export function getSupabaseClient(): SupabaseClient | null {
     auth: {
       persistSession: true,
       autoRefreshToken: true,
-      detectSessionInUrl: true,
+      /** Session 僅在 `/auth/callback` 手動兌換，避免主 App 誤解析或空白頁 */
+      detectSessionInUrl: false,
+      flowType: 'pkce',
     },
   });
   return cached;

@@ -1,9 +1,8 @@
 import type { Session } from '@supabase/supabase-js';
 import { useCallback, useEffect, useState } from 'react';
+import { getAuthCallbackUrl, saveAuthReturnPath } from './services/auth/authRedirect';
+import { isAppleOAuthEnabled } from './services/auth/appleSignIn';
 import { getSupabaseClient } from './supabaseClient';
-
-/** Email 驗證信導向（須與 Supabase Dashboard → Redirect URLs 白名單一致） */
-const EMAIL_AUTH_REDIRECT = 'https://cat-care-app2.vercel.app/auth/callback';
 
 export type UserProfile = {
   id: string;
@@ -66,6 +65,7 @@ export function useSupabaseAuth() {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, s) => {
       setSession(s);
+      setReady(true);
     });
 
     return () => {
@@ -103,7 +103,7 @@ export function useSupabaseAuth() {
         email,
         password,
         options: {
-          emailRedirectTo: EMAIL_AUTH_REDIRECT,
+          emailRedirectTo: getAuthCallbackUrl(),
           data: {
             display_name: displayName?.trim() || undefined,
           },
@@ -118,14 +118,32 @@ export function useSupabaseAuth() {
     return supabase.auth.signOut();
   }, [supabase]);
 
-  /** Google OAuth — enable provider in Supabase (Auth → Providers → Google) and set OAuth Client ID / Secret. */
   const signInWithGoogle = useCallback(() => {
     if (!supabase) return Promise.resolve({ data: null, error: new Error('not_configured') });
-    const origin = typeof window !== 'undefined' ? window.location.origin : '';
+    saveAuthReturnPath();
     return supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: `${origin}/auth/callback`,
+        redirectTo: getAuthCallbackUrl(),
+        queryParams: {
+          access_type: 'offline',
+          prompt: 'consent',
+        },
+      },
+    });
+  }, [supabase]);
+
+  const signInWithApple = useCallback(() => {
+    if (!supabase) return Promise.resolve({ data: null, error: new Error('not_configured') });
+    if (!isAppleOAuthEnabled()) {
+      return Promise.resolve({ data: null, error: new Error('apple_not_enabled') });
+    }
+    saveAuthReturnPath();
+    return supabase.auth.signInWithOAuth({
+      provider: 'apple',
+      options: {
+        redirectTo: getAuthCallbackUrl(),
+        scopes: 'name email',
       },
     });
   }, [supabase]);
@@ -153,11 +171,13 @@ export function useSupabaseAuth() {
     user: session?.user ?? null,
     profile,
     authReady: ready,
+    appleOAuthEnabled: isAppleOAuthEnabled(),
     loadProfile,
     updateDisplayName,
     signInWithEmail,
     signUpWithEmail,
     signInWithGoogle,
+    signInWithApple,
     signOut,
   };
 }
