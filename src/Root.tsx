@@ -1,12 +1,39 @@
-import { useEffect, useState } from 'react';
-import { AppLaunchGate } from './AppLaunchGate.tsx';
+import { lazy, Suspense, useEffect, useState, type ReactNode } from 'react';
 import { AuthCallbackPage } from './AuthCallbackPage.tsx';
-import { AppStoreScreenshotMode } from './pages/AppStoreScreenshotMode.tsx';
-import { LoveQuestShowcaseHub } from './showcase/lovequest/LoveQuestShowcaseHub.tsx';
-import { LoveQuestShowcaseSingle } from './showcase/lovequest/LoveQuestShowcaseSingle.tsx';
-import { getShowcaseSlideById } from './showcase/lovequest/slides.ts';
+import { isAuthCallbackPath } from './authCallbackEntry.ts';
 import { PrivacyPolicyPage } from './pages/PrivacyPolicyPage.tsx';
 import { TermsPage } from './pages/TermsPage.tsx';
+import { getShowcaseSlideById } from './showcase/lovequest/slides.ts';
+
+/** Heavy routes — not loaded on /auth/callback (see main.tsx early entry). */
+const AppLaunchGate = lazy(() =>
+  import('./AppLaunchGate.tsx').then((m) => ({ default: m.AppLaunchGate }))
+);
+const AppStoreScreenshotMode = lazy(() =>
+  import('./pages/AppStoreScreenshotMode.tsx').then((m) => ({ default: m.AppStoreScreenshotMode }))
+);
+const LoveQuestShowcaseHub = lazy(() =>
+  import('./showcase/lovequest/LoveQuestShowcaseHub.tsx').then((m) => ({
+    default: m.LoveQuestShowcaseHub,
+  }))
+);
+const LoveQuestShowcaseSingle = lazy(() =>
+  import('./showcase/lovequest/LoveQuestShowcaseSingle.tsx').then((m) => ({
+    default: m.LoveQuestShowcaseSingle,
+  }))
+);
+
+function RouteLoadingFallback() {
+  return (
+    <div className="flex min-h-[100dvh] items-center justify-center bg-gradient-to-b from-rose-50/95 to-pink-50/90 text-[14px] font-semibold text-[#8a7a84]">
+      載入中…
+    </div>
+  );
+}
+
+function LazyRoute({ children }: { children: ReactNode }) {
+  return <Suspense fallback={<RouteLoadingFallback />}>{children}</Suspense>;
+}
 
 function normalizePath(pathname: string): string {
   const p = pathname.replace(/\/+$/, '') || '/';
@@ -26,7 +53,7 @@ export function Root() {
     return () => window.removeEventListener('popstate', sync);
   }, []);
 
-  if (path === '/auth/callback') {
+  if (path === '/auth/callback' || isAuthCallbackPath(window.location.pathname)) {
     return <AuthCallbackPage />;
   }
 
@@ -39,20 +66,36 @@ export function Root() {
   }
 
   if (path === '/app-store-screenshots') {
-    return <AppStoreScreenshotMode />;
+    return (
+      <LazyRoute>
+        <AppStoreScreenshotMode />
+      </LazyRoute>
+    );
   }
 
   if (path === '/showcase' || path === '/appstore-preview') {
-    return <LoveQuestShowcaseHub />;
+    return (
+      <LazyRoute>
+        <LoveQuestShowcaseHub />
+      </LazyRoute>
+    );
   }
 
   const singleMatch = path.match(/^\/showcase\/([a-z0-9-]+)$/);
   if (singleMatch) {
     const slideId = singleMatch[1]!;
     if (getShowcaseSlideById(slideId)) {
-      return <LoveQuestShowcaseSingle slideId={slideId} />;
+      return (
+        <LazyRoute>
+          <LoveQuestShowcaseSingle slideId={slideId} />
+        </LazyRoute>
+      );
     }
   }
 
-  return <AppLaunchGate />;
+  return (
+    <LazyRoute>
+      <AppLaunchGate />
+    </LazyRoute>
+  );
 }

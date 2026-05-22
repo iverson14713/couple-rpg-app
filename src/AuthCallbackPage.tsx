@@ -1,9 +1,7 @@
 import { useEffect, useState } from 'react';
-import { trackEvent } from './services/analytics';
 import { completeAuthCallback, type AuthCallbackFlow } from './services/auth/completeAuthCallback';
 import { redirectAfterAuthSuccess, scrubAuthCallbackUrl } from './services/auth/authRedirect';
 import { getSupabaseClient } from './supabaseClient';
-import { Spinner } from './components/SkeletonCard';
 
 type Status = 'pending' | 'ok' | 'fail';
 
@@ -38,6 +36,15 @@ function okTitle(flow: AuthCallbackFlow, lang: keyof typeof copy): string {
   return flow === 'email' ? t.okEmail : t.okOauth;
 }
 
+function CallbackSpinner() {
+  return (
+    <span
+      className="inline-block h-10 w-10 shrink-0 animate-spin rounded-full border-[3px] border-rose-200 border-t-rose-500"
+      aria-hidden
+    />
+  );
+}
+
 export function AuthCallbackPage() {
   const [status, setStatus] = useState<Status>('pending');
   const [failMessage, setFailMessage] = useState<string | null>(null);
@@ -56,28 +63,39 @@ export function AuthCallbackPage() {
     let cancelled = false;
 
     const run = async () => {
-      const outcome = await completeAuthCallback(sb);
-      if (cancelled) return;
+      try {
+        const outcome = await completeAuthCallback(sb);
+        if (cancelled) return;
 
-      scrubAuthCallbackUrl();
+        scrubAuthCallbackUrl();
 
-      if (!outcome.ok) {
-        setFailMessage(outcome.message);
+        if (!outcome.ok) {
+          setFailMessage(outcome.message);
+          setStatus('fail');
+          return;
+        }
+
+        setFlow(outcome.flow);
+        setStatus('ok');
+        redirectAfterAuthSuccess(1400);
+      } catch (err) {
+        if (cancelled) return;
+        console.error('[auth/callback]', err);
+        const msg = err instanceof Error ? err.message : String(err);
+        setFailMessage(
+          lang === 'zh'
+            ? `登入處理失敗：${msg}`
+            : `Sign-in failed: ${msg}`
+        );
         setStatus('fail');
-        return;
       }
-
-      setFlow(outcome.flow);
-      setStatus('ok');
-      trackEvent('login', { mode: outcome.flow === 'email' ? 'email_verify' : 'oauth' });
-      redirectAfterAuthSuccess(1400);
     };
 
     void run();
     return () => {
       cancelled = true;
     };
-  }, [t.noClient]);
+  }, [lang, t.noClient]);
 
   return (
     <div className="flex min-h-[100dvh] flex-col items-center justify-center bg-gradient-to-b from-rose-50/95 via-[#fef8fa] to-pink-50/90 px-6 py-12 text-[#3a2e34]">
@@ -85,7 +103,7 @@ export function AuthCallbackPage() {
         {status === 'pending' ? (
           <>
             <div className="mb-6 flex justify-center">
-              <Spinner className="h-10 w-10 border-[3px] border-rose-200 border-t-rose-500" />
+              <CallbackSpinner />
             </div>
             <p className="text-[15px] font-semibold text-[#3a2e34]">{t.pending}</p>
           </>
