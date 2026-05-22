@@ -51,6 +51,7 @@ export function ImportantDateRemindersSection({ showBack, compactHero }: Props) 
   }, [coupleExtended]);
   const [reminderEditId, setReminderEditId] = useState<string | null>(null);
   const [aiEvent, setAiEvent] = useState<ImportantDateEvent | null>(null);
+  const [savedImportantView, setSavedImportantView] = useState<SavedImportantDateAi | null>(null);
   const [savedFlash, setSavedFlash] = useState(false);
 
   const flashSaved = useCallback(() => {
