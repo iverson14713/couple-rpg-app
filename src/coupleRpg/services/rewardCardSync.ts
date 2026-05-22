@@ -5,7 +5,8 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { COMPLETED_REWARD_CARD_RETENTION_DAYS } from '../constants/rewardCardRetention';
 import { isCustomRewardCardId } from '../lib/customRewardCard';
-import { pickPreferredStatus, STATUS_PROGRESS } from '../lib/rewardCardHelpers';
+import { normalizeOwnedCoupon } from '../lib/rewardCardModel';
+import { pickPreferredStatus } from '../lib/rewardCardHelpers';
 import type { OwnedCoupon, RewardCardStatus, RewardsData } from '../storage/rewardTypes';
 import { loadRewards, saveRewards } from '../storage/rewardsStore';
 
@@ -14,7 +15,7 @@ export { COMPLETED_REWARD_CARD_RETENTION_DAYS };
 const LOG = '[reward-card-sync]';
 
 const SELECT_COLS =
-  'id, couple_id, local_id, card_id, card_title, card_type, status, redeemed_by, used_by, target_user, redeemed_at, used_at, completed_at, note, cost, emoji, created_at, updated_at';
+  'id, couple_id, local_id, card_id, card_title, card_type, status, redeemed_by, owner_user_id, used_by, completed_by, target_user, redeemed_at, used_at, completed_at, note, cost, emoji, created_at, updated_at';
 
 export type RewardCardSyncStatus = 'local' | 'syncing' | 'synced' | 'error';
 
@@ -27,7 +28,9 @@ export type RewardCardRecordRow = {
   card_type: string | null;
   status: RewardCardStatus;
   redeemed_by: string | null;
+  owner_user_id: string | null;
   used_by: string | null;
+  completed_by: string | null;
   target_user: string | null;
   redeemed_at: string;
   used_at: string | null;
@@ -156,7 +159,7 @@ export function rowToCoupon(row: RewardCardRecordRow): OwnedCoupon {
   const localId = rowLocalId(row);
   const itemId = row.card_id;
   const category = (row.card_type ?? 'date') as OwnedCoupon['category'];
-  return {
+  return normalizeOwnedCoupon({
     id: localId,
     remoteId: row.id,
     itemId,
@@ -168,7 +171,9 @@ export function rowToCoupon(row: RewardCardRecordRow): OwnedCoupon {
     category,
     cost: row.cost ?? 0,
     redeemedBy: row.redeemed_by,
+    ownerUserId: row.owner_user_id ?? row.redeemed_by,
     usedBy: row.used_by,
+    completedByUserId: row.completed_by,
     targetUser: row.target_user,
     redeemedAt: row.redeemed_at,
     usedAt: row.used_at,
@@ -178,71 +183,47 @@ export function rowToCoupon(row: RewardCardRecordRow): OwnedCoupon {
     syncPending: false,
     remoteUpdatedAt: row.updated_at,
     isCustom: isCustomRewardCardId(itemId),
-  };
+  });
 }
 
 export function couponToRowPayload(coupon: OwnedCoupon, coupleId: string) {
+  const c = normalizeOwnedCoupon(coupon);
   return {
     couple_id: coupleId,
-    local_id: coupon.id,
-    card_id: coupon.cardId,
-    card_title: coupon.cardTitle,
-    card_type: coupon.cardType,
-    status: coupon.status,
-    redeemed_by: coupon.redeemedBy,
-    used_by: coupon.usedBy,
-    target_user: coupon.targetUser,
-    redeemed_at: coupon.redeemedAt,
-    used_at: coupon.usedAt,
-    completed_at: coupon.completedAt,
-    note: coupon.note,
-    cost: coupon.cost,
-    emoji: coupon.emoji,
+    local_id: c.id,
+    card_id: c.cardId,
+    card_title: c.cardTitle,
+    card_type: c.cardType,
+    status: c.status,
+    redeemed_by: c.redeemedBy,
+    owner_user_id: c.ownerUserId ?? c.redeemedBy,
+    used_by: c.usedBy,
+    completed_by: c.completedByUserId,
+    target_user: c.targetUser,
+    redeemed_at: c.redeemedAt,
+    used_at: c.usedAt,
+    completed_at: c.completedAt,
+    note: c.note,
+    cost: c.cost,
+    emoji: c.emoji,
   };
 }
 
+/** 雲端列為單一真相；僅保留尚未上傳的 optimistic 本機卡券 */
 function mergeTwoCoupons(local: OwnedCoupon, remote: OwnedCoupon): OwnedCoupon {
-  if (local.syncPending) {
-    const localScore = STATUS_PROGRESS[local.status];
-    const remoteScore = STATUS_PROGRESS[remote.status];
-    if (remoteScore <= localScore) {
-      return {
-        ...local,
-        remoteId: remote.remoteId ?? local.remoteId ?? null,
-        remoteUpdatedAt: remote.remoteUpdatedAt ?? local.remoteUpdatedAt,
-        syncPending: !remote.remoteId,
-        syncError: remote.remoteId ? null : local.syncError,
-      };
-    }
+  const L = normalizeOwnedCoupon(local);
+  const R = normalizeOwnedCoupon(remote);
+
+  if (R.remoteId) {
+    return { ...R, syncPending: false, syncError: null };
   }
 
-  const status = pickPreferredStatus(local.status, remote.status);
-  const localScore = STATUS_PROGRESS[local.status];
-  const remoteScore = STATUS_PROGRESS[remote.status];
-  const preferRemote =
-    remoteScore > localScore ||
-    (remoteScore === localScore && parseTs(remote.remoteUpdatedAt) >= couponLocalUpdatedAt(local));
-  const primary = preferRemote ? remote : local;
-  const secondary = preferRemote ? local : remote;
+  if (L.syncPending) {
+    return { ...L, remoteId: R.remoteId ?? L.remoteId ?? null };
+  }
 
-  return {
-    ...primary,
-    status,
-    remoteId: remote.remoteId ?? local.remoteId ?? null,
-    redeemedBy: primary.redeemedBy ?? secondary.redeemedBy,
-    usedBy: status !== 'redeemed' ? primary.usedBy ?? secondary.usedBy : null,
-    targetUser: primary.targetUser ?? secondary.targetUser,
-    redeemedAt: primary.redeemedAt || secondary.redeemedAt,
-    usedAt: primary.usedAt ?? secondary.usedAt,
-    completedAt: primary.completedAt ?? secondary.completedAt,
-    note: primary.note ?? secondary.note,
-    description: primary.description ?? secondary.description,
-    needsPartnerComplete: primary.needsPartnerComplete ?? secondary.needsPartnerComplete,
-    isCustom: primary.isCustom ?? secondary.isCustom,
-    syncPending: false,
-    syncError: null,
-    remoteUpdatedAt: preferRemote ? remote.remoteUpdatedAt : local.remoteUpdatedAt,
-  };
+  const status = pickPreferredStatus(L.status, R.status);
+  return normalizeOwnedCoupon({ ...L, ...R, status, syncPending: false, syncError: null });
 }
 
 /** 將遠端列合併進現有 RewardsData（保留本機 optimistic 卡券） */
@@ -259,19 +240,27 @@ export function mergeRewardCards(local: OwnedCoupon[], remoteRows: RewardCardRec
 }
 
 export function mergeRemoteRewardCards(local: OwnedCoupon[], remoteRows: RewardCardRecordRow[]): OwnedCoupon[] {
-  const remoteCoupons = remoteRows.map(rowToCoupon).filter((c) => c.id);
   const byId = new Map<string, OwnedCoupon>();
 
-  for (const r of remoteCoupons) {
-    byId.set(r.id, r);
+  for (const row of remoteRows) {
+    const r = rowToCoupon(row);
+    if (r.id) byId.set(r.id, r);
   }
 
   for (const lo of local) {
-    const existing = byId.get(lo.id);
-    if (existing) {
-      byId.set(lo.id, mergeTwoCoupons(lo, existing));
-    } else {
-      byId.set(lo.id, { ...lo, syncPending: !lo.remoteId });
+    const L = normalizeOwnedCoupon(lo);
+    if (!L.id) continue;
+
+    const remote = byId.get(L.id);
+    if (remote?.remoteId) {
+      if (L.syncPending && !L.remoteId) {
+        byId.set(L.id, mergeTwoCoupons(L, remote));
+      }
+      continue;
+    }
+
+    if (L.syncPending) {
+      byId.set(L.id, L);
     }
   }
 
@@ -360,9 +349,10 @@ export async function pushRewardCardToRemote(
   coupon: OwnedCoupon
 ): Promise<OwnedCoupon> {
   const remoteId = await upsertRewardCard(supabase, coupleId, coupon);
+  const c = normalizeOwnedCoupon(coupon);
   return {
-    ...coupon,
-    remoteId: remoteId ?? coupon.remoteId ?? null,
+    ...c,
+    remoteId: remoteId ?? c.remoteId ?? null,
     syncPending: false,
     syncError: null,
     remoteUpdatedAt: new Date().toISOString(),

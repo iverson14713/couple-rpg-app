@@ -106,6 +106,8 @@ export function resolveLoggedInUserLabel(input: LoggedInUserLabelInput): string 
 
 export type UserDisplayNameContext = {
   currentUserId: string | null;
+  /** 情侶空間另一位成員的 auth user id */
+  partnerUserId?: string | null;
   user: User | null;
   profile: UserProfile | null;
   coupleExtended: CoupleExtendedProfile;
@@ -126,12 +128,17 @@ export function buildCoupleDisplayNames(ctx: UserDisplayNameContext): {
   };
 }
 
-/** 依 userId 解析顯示名稱（本人走完整優先序，對方走 partnerNickname） */
+/**
+ * 依 user_id 解析顯示名稱（不用「非本人即另一半暱稱」推斷，避免錯名）
+ * 1. 本人 → myNickname / profile / metadata / email
+ * 2. 伴侶 user id → partnerNickname
+ * 3. 其他 →「使用者」
+ */
 export function resolveDisplayNameForUserId(
   userId: string | null | undefined,
   ctx: UserDisplayNameContext
 ): string {
-  if (!userId) return '某人';
+  if (!userId) return '使用者';
   if (ctx.currentUserId && userId === ctx.currentUserId) {
     return resolveCurrentUserDisplayName({
       user: ctx.user,
@@ -140,7 +147,10 @@ export function resolveDisplayNameForUserId(
       partnerNickname: ctx.coupleExtended.partnerNickname,
     });
   }
-  return resolvePartnerDisplayName(ctx.coupleExtended.partnerNickname);
+  if (ctx.partnerUserId && userId === ctx.partnerUserId) {
+    return resolvePartnerDisplayName(ctx.coupleExtended.partnerNickname);
+  }
+  return '使用者';
 }
 
 /** 以情侶資料暱稱為主；無則顯示「我／另一半」，並忽略舊示範名 */

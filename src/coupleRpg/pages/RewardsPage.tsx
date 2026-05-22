@@ -11,14 +11,8 @@ import { PageHero } from '../components/ui';
 import { useLoveQuest } from '../context/LoveQuestContext';
 import { useToast } from '../../context/ToastContext';
 import { useSupabaseAuth } from '../../useSupabaseAuth';
-import {
-  canMarkRewardCardComplete,
-  couponNeedsPartnerCompletion,
-  formatCompleteFeedLine,
-  formatRedeemFeedLine,
-  formatUseFeedLine,
-  REWARD_CARD_STATUS_LABEL,
-} from '../lib/rewardCardHelpers';
+import { canMarkRewardCardComplete, REWARD_CARD_STATUS_LABEL } from '../lib/rewardCardHelpers';
+import { couponActorIds } from '../lib/rewardCardModel';
 import type { OwnedCoupon, RewardShopCategory } from '../storage/rewardTypes';
 import { lq } from '../theme';
 
@@ -406,7 +400,7 @@ export function RewardsPage({ embedded }: { embedded?: boolean } = {}) {
           ) : null}
 
           {redeemedCoupons.length > 0 ? (
-            <CouponSection title="待使用" count={redeemedCoupons.length} accent="emerald">
+            <CouponSection title="可使用" count={redeemedCoupons.length} accent="emerald">
               <CouponList
                 coupons={redeemedCoupons}
                 currentUserId={currentUserId}
@@ -534,7 +528,12 @@ function CompletedCouponRow({
   coupon: OwnedCoupon;
   displayNameForUser: (userId: string | null | undefined) => string;
 }) {
-  const user = c.usedBy ? displayNameForUser(c.usedBy) : displayNameForUser(c.redeemedBy);
+  const actors = couponActorIds(c);
+  const user = actors.usedBy
+    ? displayNameForUser(actors.usedBy)
+    : actors.redeemedBy
+      ? displayNameForUser(actors.redeemedBy)
+      : '—';
 
   return (
     <li className="flex items-center justify-between gap-2 rounded-lg border border-stone-100 bg-stone-50/50 px-2.5 py-2 text-[12px]">
@@ -623,24 +622,10 @@ function CouponCard({
   onUse?: (id: string) => void;
   onComplete?: (id: string) => void;
 }) {
-  const redeemer = displayNameForUser(c.redeemedBy);
-  const user = c.usedBy ? displayNameForUser(c.usedBy) : null;
-
-  const feedLine = useMemo(() => {
-    if (c.status === 'redeemed' && c.redeemedBy) {
-      return formatRedeemFeedLine(redeemer, c.cardTitle);
-    }
-    if (c.status === 'used' && c.usedBy) {
-      const towardPartner =
-        couponNeedsPartnerCompletion(c) &&
-        Boolean(currentUserId && c.targetUser === currentUserId);
-      return formatUseFeedLine(user ?? redeemer, c.cardTitle, towardPartner);
-    }
-    if (c.status === 'completed' && c.usedBy) {
-      return formatCompleteFeedLine(user ?? redeemer, c.cardTitle);
-    }
-    return null;
-  }, [c, redeemer, user]);
+  const actors = couponActorIds(c);
+  const redeemerName = actors.redeemedBy ? displayNameForUser(actors.redeemedBy) : null;
+  const usedName = actors.usedBy ? displayNameForUser(actors.usedBy) : null;
+  const completedName = actors.completedBy ? displayNameForUser(actors.completedBy) : null;
 
   const badgeClass =
     c.status === 'redeemed'
@@ -680,12 +665,6 @@ function CouponCard({
         <p className="mt-1.5 text-[12px] leading-snug text-stone-500">{c.description}</p>
       ) : null}
 
-      {feedLine ? (
-        <p className="mt-2 rounded-lg bg-rose-50/80 px-2.5 py-1.5 text-[12px] font-semibold text-rose-800">
-          {feedLine}
-        </p>
-      ) : null}
-
       <dl className="mt-2 space-y-0.5 text-[12px] text-stone-500">
         <div>
           <dt className="inline font-semibold text-stone-600">點數：</dt>
@@ -694,21 +673,28 @@ function CouponCard({
         <div>
           <dt className="inline font-semibold text-stone-600">兌換：</dt>
           <dd className="inline">
-            {redeemer} · {formatIso(c.redeemedAt)}
+            {redeemerName ?? '—'} · {formatIso(c.redeemedAt)}
           </dd>
         </div>
-        {c.usedAt ? (
+        {c.status !== 'redeemed' && c.usedAt && actors.usedBy ? (
           <div>
             <dt className="inline font-semibold text-stone-600">使用：</dt>
             <dd className="inline">
-              {user ?? '—'} · {formatIso(c.usedAt)}
+              {usedName ?? '—'} · {formatIso(c.usedAt)}
             </dd>
           </div>
+        ) : c.status === 'redeemed' ? (
+          <div>
+            <dt className="inline font-semibold text-stone-500">使用：</dt>
+            <dd className="inline text-stone-400">尚未使用</dd>
+          </div>
         ) : null}
-        {c.completedAt ? (
+        {c.status === 'completed' && c.completedAt && actors.completedBy ? (
           <div>
             <dt className="inline font-semibold text-stone-600">完成：</dt>
-            <dd className="inline">{formatIso(c.completedAt)}</dd>
+            <dd className="inline">
+              {completedName ?? '—'} · {formatIso(c.completedAt)}
+            </dd>
           </div>
         ) : null}
       </dl>

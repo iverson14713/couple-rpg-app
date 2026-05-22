@@ -5,6 +5,7 @@ import { LQ_KEYS } from './keys';
 import { loadJson, saveJson } from './persist';
 import { makeCustomRewardItemId, normalizeCustomRewardInput } from '../lib/customRewardCard';
 import { couponNeedsPartnerCompletion } from '../lib/rewardCardHelpers';
+import { normalizeOwnedCoupon, statusToStoreStatus } from '../lib/rewardCardModel';
 import type {
   CoinEarnMeta,
   CustomRewardCardInput,
@@ -28,21 +29,19 @@ function migrateCoupon(raw: Partial<OwnedCoupon> & Record<string, unknown>): Own
   const category = (raw.category ?? 'date') as OwnedCoupon['category'];
   const cost = Number(raw.cost ?? 0);
 
-  let status: RewardCardStatus;
-  const legacy = raw.status as string | undefined;
-  if (legacy === 'active') status = 'redeemed';
-  else if (legacy === 'used' && !raw.completedAt) status = 'used';
-  else if (legacy === 'redeemed' || legacy === 'used' || legacy === 'completed' || legacy === 'cancelled') {
-    status = legacy as RewardCardStatus;
-  } else {
-    status = 'redeemed';
-  }
-
+  const status = statusToStoreStatus(raw.status as string);
   const redeemedAt = String(raw.redeemedAt ?? raw.acquiredAt ?? new Date().toISOString());
+  const redeemedBy =
+    raw.redeemedBy != null
+      ? String(raw.redeemedBy)
+      : raw.redeemed_by_user_id != null
+        ? String(raw.redeemed_by_user_id)
+        : null;
 
-  return {
+  return normalizeOwnedCoupon({
     id,
     remoteId: raw.remoteId != null ? String(raw.remoteId) : null,
+    remoteUpdatedAt: raw.remoteUpdatedAt != null ? String(raw.remoteUpdatedAt) : undefined,
     itemId,
     cardId: itemId,
     cardTitle: String(raw.cardTitle ?? title),
@@ -51,8 +50,20 @@ function migrateCoupon(raw: Partial<OwnedCoupon> & Record<string, unknown>): Own
     emoji,
     category,
     cost,
-    redeemedBy: raw.redeemedBy != null ? String(raw.redeemedBy) : null,
+    redeemedBy,
+    ownerUserId:
+      raw.ownerUserId != null
+        ? String(raw.ownerUserId)
+        : raw.owner_user_id != null
+          ? String(raw.owner_user_id)
+          : redeemedBy,
     usedBy: raw.usedBy != null ? String(raw.usedBy) : null,
+    completedByUserId:
+      raw.completedByUserId != null
+        ? String(raw.completedByUserId)
+        : raw.completed_by_user_id != null
+          ? String(raw.completed_by_user_id)
+          : null,
     targetUser: raw.targetUser != null ? String(raw.targetUser) : null,
     redeemedAt,
     usedAt: raw.usedAt != null ? String(raw.usedAt) : null,
@@ -60,11 +71,12 @@ function migrateCoupon(raw: Partial<OwnedCoupon> & Record<string, unknown>): Own
     note: raw.note != null ? String(raw.note) : null,
     status,
     syncPending: Boolean(raw.syncPending),
+    syncError: raw.syncError != null ? String(raw.syncError) : null,
     isCustom: Boolean(raw.isCustom) || itemId.startsWith('custom:'),
     description: raw.description != null ? String(raw.description) : undefined,
     needsPartnerComplete:
       raw.needsPartnerComplete != null ? Boolean(raw.needsPartnerComplete) : undefined,
-  };
+  });
 }
 
 export function loadRewards(): RewardsData {
@@ -147,7 +159,7 @@ export function redeemCoupon(
   if (balance < item.cost) return { rewards, coupon: null, error: 'insufficient_coins' };
 
   const now = new Date().toISOString();
-  const coupon: OwnedCoupon = {
+  const coupon = normalizeOwnedCoupon({
     id: makeId(),
     remoteId: null,
     itemId: item.id,
@@ -159,7 +171,9 @@ export function redeemCoupon(
     category: item.category,
     cost: item.cost,
     redeemedBy,
+    ownerUserId: redeemedBy,
     usedBy: null,
+    completedByUserId: null,
     targetUser: null,
     redeemedAt: now,
     usedAt: null,
@@ -167,7 +181,7 @@ export function redeemCoupon(
     note: null,
     status: 'redeemed',
     syncPending: true,
-  };
+  });
 
   return {
     rewards: {
@@ -191,7 +205,7 @@ export function redeemCustomCoupon(
 
   const now = new Date().toISOString();
   const itemId = makeCustomRewardItemId();
-  const coupon: OwnedCoupon = {
+  const coupon = normalizeOwnedCoupon({
     id: makeId(),
     remoteId: null,
     itemId,
@@ -206,7 +220,9 @@ export function redeemCustomCoupon(
     description: input.description,
     needsPartnerComplete: input.needsPartnerComplete,
     redeemedBy,
+    ownerUserId: redeemedBy,
     usedBy: null,
+    completedByUserId: null,
     targetUser: null,
     redeemedAt: now,
     usedAt: null,
@@ -214,7 +230,7 @@ export function redeemCustomCoupon(
     note: null,
     status: 'redeemed',
     syncPending: true,
-  };
+  });
 
   return {
     rewards: {
@@ -237,15 +253,16 @@ export function useRewardCardLocal(
 
   const now = new Date().toISOString();
   const autoComplete = !couponNeedsPartnerCompletion(cur);
-  const updated: OwnedCoupon = {
+  const updated = normalizeOwnedCoupon({
     ...cur,
     status: autoComplete ? 'completed' : 'used',
     usedBy,
     targetUser,
     usedAt: now,
     completedAt: autoComplete ? now : null,
+    completedByUserId: autoComplete ? usedBy : null,
     syncPending: true,
-  };
+  });
 
   return {
     rewards: {
@@ -258,19 +275,22 @@ export function useRewardCardLocal(
 
 export function completeRewardCardLocal(
   rewards: RewardsData,
-  couponId: string
+  couponId: string,
+  completedBy: string | null
 ): { rewards: RewardsData; coupon: OwnedCoupon | null; error?: string } {
   const cur = findCoupon(rewards, couponId);
   if (!cur) return { rewards, coupon: null, error: 'not_found' };
   if (cur.status !== 'used') return { rewards, coupon: null, error: 'invalid_status' };
 
   const now = new Date().toISOString();
-  const updated: OwnedCoupon = {
+  const updated = normalizeOwnedCoupon({
     ...cur,
     status: 'completed',
+    completedByUserId: completedBy,
+    targetUser: completedBy ?? cur.targetUser,
     completedAt: now,
     syncPending: true,
-  };
+  });
 
   return {
     rewards: {

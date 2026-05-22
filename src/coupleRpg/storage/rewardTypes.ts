@@ -75,8 +75,15 @@ export type OwnedCoupon = {
   isCustom?: boolean;
   description?: string;
   needsPartnerComplete?: boolean;
+  /** 兌換者 user id */
   redeemedBy: string | null;
+  /** 持有者（通常 = 兌換者） */
+  ownerUserId?: string | null;
+  /** 按下「使用」者 */
   usedBy: string | null;
+  /** 確認「完成」者 */
+  completedByUserId?: string | null;
+  /** @deprecated 伴侶完成流程的目標 user；新資料請用 completedByUserId */
   targetUser: string | null;
   redeemedAt: string;
   usedAt: string | null;

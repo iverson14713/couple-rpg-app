@@ -18,7 +18,7 @@ export function couponNeedsPartnerCompletion(coupon: Pick<OwnedCoupon, 'isCustom
 }
 
 export const REWARD_CARD_STATUS_LABEL: Record<RewardCardStatus, string> = {
-  redeemed: '待使用',
+  redeemed: '可使用',
   used: '使用中',
   completed: '已完成',
   cancelled: '已取消',

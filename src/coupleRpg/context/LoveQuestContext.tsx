@@ -144,6 +144,7 @@ import {
   resolveDisplayNameForUserId,
   type UserDisplayNameContext,
 } from '../lib/coupleDisplayNames';
+import { normalizeOwnedCoupon } from '../lib/rewardCardModel';
 import {
   formatCompleteFeedLine,
   formatRedeemFeedLine,
@@ -463,11 +464,12 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
   const displayNameContext = useMemo<UserDisplayNameContext>(
     () => ({
       currentUserId,
+      partnerUserId,
       user: auth.user,
       profile: auth.profile,
       coupleExtended,
     }),
-    [auth.profile, auth.user, coupleExtended, currentUserId]
+    [auth.profile, auth.user, coupleExtended, currentUserId, partnerUserId]
   );
 
   const displayNames = useMemo(
@@ -1869,7 +1871,9 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
           setRewards((prev) => {
             const next = {
               ...prev,
-              coupons: prev.coupons.map((c) => (c.id === synced.id ? synced : c)),
+              coupons: prev.coupons.map((c) =>
+                c.id === synced.id ? normalizeOwnedCoupon(synced) : c
+              ),
             };
             saveRewards(next);
             return next;
@@ -2066,7 +2070,9 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
               setRewards((p) => {
                 const n = {
                   ...p,
-                  coupons: p.coupons.map((c) => (c.id === synced.id ? synced : c)),
+                  coupons: p.coupons.map((c) =>
+                    c.id === synced.id ? normalizeOwnedCoupon(synced) : c
+                  ),
                 };
                 saveRewards(n);
                 return n;
@@ -2100,10 +2106,10 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
   const completeRewardCardFn = useCallback(
     (couponId: string) => {
       setRewards((prev) => {
-        const r = completeRewardCardLocal(prev, couponId);
+        const r = completeRewardCardLocal(prev, couponId, currentUserId);
         if (r.error || !r.coupon) return prev;
         saveRewards(r.rewards);
-        const name = actorDisplayName(currentUserId);
+        const name = displayNameForUser(currentUserId);
         setActivity(appendActivity(formatCompleteFeedLine(name, r.coupon.cardTitle)));
         logTodayActivity({
           actionType: 'complete',
@@ -2127,7 +2133,9 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
               setRewards((p) => {
                 const n = {
                   ...p,
-                  coupons: p.coupons.map((c) => (c.id === synced.id ? synced : c)),
+                  coupons: p.coupons.map((c) =>
+                    c.id === synced.id ? normalizeOwnedCoupon(synced) : c
+                  ),
                 };
                 saveRewards(n);
                 return n;
