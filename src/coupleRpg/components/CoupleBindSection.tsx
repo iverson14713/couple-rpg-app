@@ -101,7 +101,7 @@ export function CoupleBindSection() {
             成員（{space.memberCount}/2）
           </div>
           <ul className="space-y-1.5">
-            {space.members.map((m) => (
+            {(space.members ?? []).map((m) => (
               <li
                 key={m.userId}
                 className="flex items-center justify-between rounded-lg bg-white/80 px-2.5 py-1.5 text-[12px]"

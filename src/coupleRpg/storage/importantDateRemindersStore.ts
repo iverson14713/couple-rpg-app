@@ -12,23 +12,50 @@ export function defaultImportantDateReminders(): ImportantDateRemindersData {
 }
 
 export function loadImportantDateReminders(): ImportantDateRemindersData {
-  const raw = loadJson<ImportantDateRemindersData | null>(LQ_KEYS.importantDateReminders, null);
-  if (!raw || raw.version !== 1) return defaultImportantDateReminders();
-  return {
-    version: 1,
-    byEventId: raw.byEventId ?? {},
-  };
+  try {
+    const raw = loadJson<ImportantDateRemindersData | null>(LQ_KEYS.importantDateReminders, null);
+    if (!raw || raw.version !== 1) return defaultImportantDateReminders();
+    const byEventId: ImportantDateRemindersData['byEventId'] = {};
+    if (raw.byEventId && typeof raw.byEventId === 'object') {
+      for (const [id, settings] of Object.entries(raw.byEventId)) {
+        if (typeof id === 'string' && id.length > 0) {
+          byEventId[id] = sanitizeEventSettings(settings);
+        }
+      }
+    }
+    return { version: 1, byEventId };
+  } catch (e) {
+    console.error('[important-date-reminders] load failed, using defaults:', e);
+    return defaultImportantDateReminders();
+  }
 }
 
 export function saveImportantDateReminders(data: ImportantDateRemindersData): void {
   saveJson(LQ_KEYS.importantDateReminders, data);
 }
 
+function sanitizeEventSettings(raw: unknown): ImportantDateEventSettings {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
+    return { ...DEFAULT_EVENT_SETTINGS };
+  }
+  const r = raw as Partial<ImportantDateEventSettings>;
+  const offsets = Array.isArray(r.offsets)
+    ? r.offsets.filter((o): o is ReminderOffsetDays => typeof o === 'number')
+    : DEFAULT_EVENT_SETTINGS.offsets;
+  return {
+    offsets: offsets.length ? offsets : DEFAULT_EVENT_SETTINGS.offsets,
+    giftPrepared: Boolean(r.giftPrepared),
+    activityPlanned: Boolean(r.activityPlanned),
+    partnerPrefs: typeof r.partnerPrefs === 'string' ? r.partnerPrefs : '',
+  };
+}
+
 export function getEventSettings(
-  data: ImportantDateRemindersData,
+  data: ImportantDateRemindersData | null | undefined,
   eventId: string
 ): ImportantDateEventSettings {
-  return data.byEventId[eventId] ?? { ...DEFAULT_EVENT_SETTINGS };
+  if (!data?.byEventId) return { ...DEFAULT_EVENT_SETTINGS };
+  return sanitizeEventSettings(data.byEventId[eventId]);
 }
 
 export function updateEventSettings(

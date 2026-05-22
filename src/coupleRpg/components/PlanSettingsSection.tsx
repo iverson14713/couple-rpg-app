@@ -14,13 +14,13 @@ export function PlanSettingsSection() {
   const { navigateTo } = useCoupleRpgNav();
 
   const billingLabel = (() => {
-    const owner = planSnapshot.subscription?.billing_owner;
+    const owner = planSnapshot?.subscription?.billing_owner;
     if (!owner) return null;
     if (auth.user?.id && owner === auth.user.id) return '由你開通';
     return '由其中一位成員開通';
   })();
 
-  const usesCoupleCloud = planSnapshot.isShared && isFullyBound;
+  const usesCoupleCloud = Boolean(planSnapshot?.isShared && isFullyBound);
 
   return (
     <section className={`mb-4 p-4 ${lq.card}`}>

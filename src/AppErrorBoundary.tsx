@@ -2,15 +2,23 @@ import { Component, type ErrorInfo, type ReactNode } from 'react';
 
 type Props = { children: ReactNode };
 
-type State = { hasError: boolean; message: string };
+type State = {
+  hasError: boolean;
+  message: string;
+  stack: string;
+};
 
 const isDev = import.meta.env.DEV;
 
 export class AppErrorBoundary extends Component<Props, State> {
-  state: State = { hasError: false, message: '' };
+  state: State = { hasError: false, message: '', stack: '' };
 
   static getDerivedStateFromError(error: Error): State {
-    return { hasError: true, message: error?.message || 'Unknown error' };
+    return {
+      hasError: true,
+      message: error?.message || 'Unknown error',
+      stack: error?.stack || '',
+    };
   }
 
   componentDidCatch(error: Error, info: ErrorInfo): void {
@@ -26,11 +34,17 @@ export class AppErrorBoundary extends Component<Props, State> {
       const keys: string[] = [];
       for (let i = 0; i < localStorage.length; i++) {
         const k = localStorage.key(i);
-        if (k?.startsWith('cat-calendar-') || k?.startsWith('cat-ai-') || k?.startsWith('weekly-ai-')) {
+        if (
+          k?.startsWith('cat-calendar-') ||
+          k?.startsWith('cat-ai-') ||
+          k?.startsWith('weekly-ai-') ||
+          k?.startsWith('lovequest-')
+        ) {
           keys.push(k);
         }
       }
       keys.forEach((k) => localStorage.removeItem(k));
+      console.warn('[App] cleared local keys:', keys);
     } catch (e) {
       console.error('[App] reset storage failed', e);
     }
@@ -54,10 +68,15 @@ export class AppErrorBoundary extends Component<Props, State> {
           請重新整理，若仍失敗可清除本機快取後再試。
         </p>
         {isDev ? (
-          <p className="mt-3 max-w-md break-all rounded-lg bg-white/80 px-3 py-2 font-mono text-[11px] text-red-800">
+          <pre className="mt-3 max-h-48 w-full max-w-md overflow-auto rounded-lg bg-white/90 px-3 py-2 text-left font-mono text-[10px] leading-snug text-red-900">
+            {this.state.message}
+            {this.state.stack ? `\n\n${this.state.stack}` : ''}
+          </pre>
+        ) : (
+          <p className="mt-3 max-w-md break-all rounded-lg bg-white/80 px-3 py-2 text-[11px] text-stone-500">
             {this.state.message}
           </p>
-        ) : null}
+        )}
         <div className="mt-6 flex flex-wrap justify-center gap-3">
           <button
             type="button"
@@ -71,7 +90,7 @@ export class AppErrorBoundary extends Component<Props, State> {
             onClick={this.handleResetStorage}
             className="rounded-full border border-orange-300 bg-white px-5 py-2.5 text-sm font-semibold text-orange-800"
           >
-            清除本機資料並重試
+            清除 LoveQuest 本機資料並重試
           </button>
         </div>
       </div>

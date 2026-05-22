@@ -34,8 +34,16 @@ export function ImportantDateRemindersSection({ showBack, compactHero }: Props) 
   const { coupleExtended, importantDateReminders, patchImportantDateReminder } = useLoveQuest();
   const datesPro = useProFeature('important_dates_unlimited');
   const aiPro = useProFeature('ai_in_app');
+  const aiUsage = useAiUsage();
 
-  const events = useMemo(() => buildImportantDateEvents(coupleExtended), [coupleExtended]);
+  const events = useMemo(() => {
+    try {
+      return buildImportantDateEvents(coupleExtended);
+    } catch (e) {
+      console.error('[important-dates] build events failed:', e);
+      return [];
+    }
+  }, [coupleExtended]);
   const [reminderEditId, setReminderEditId] = useState<string | null>(null);
   const [aiEvent, setAiEvent] = useState<ImportantDateEvent | null>(null);
   const [savedFlash, setSavedFlash] = useState(false);

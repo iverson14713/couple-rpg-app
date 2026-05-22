@@ -27,7 +27,11 @@ export function CoupleDetailsSection() {
   } = useLoveQuest();
   const { isFullyBound } = useCoupleSpace();
   const { pendingScrollElementId, acknowledgePendingScroll } = useCoupleRpgNav();
-  const [draft, setDraft] = useState<CoupleExtendedProfile>(coupleExtended);
+  const [draft, setDraft] = useState<CoupleExtendedProfile>(() => ({
+    ...defaultCoupleExtendedProfile(),
+    ...coupleExtended,
+    customDates: Array.isArray(coupleExtended?.customDates) ? coupleExtended.customDates : [],
+  }));
   const [savedFlash, setSavedFlash] = useState(false);
   const [syncingManual, setSyncingManual] = useState(false);
   const sectionRef = useRef<HTMLElement>(null);
@@ -36,7 +40,9 @@ export function CoupleDetailsSection() {
     ? '你們的情侶空間將一起同步這些資料'
     : '綁定另一半後，對方也能看到這些資料';
 
-  const statusLabel = SYNC_STATUS_LABEL[coupleProfileSyncStatus];
+  const statusLabel =
+    SYNC_STATUS_LABEL[coupleProfileSyncStatus as keyof typeof SYNC_STATUS_LABEL] ??
+    SYNC_STATUS_LABEL.local;
   const showSyncing = coupleProfileSyncStatus === 'syncing' || syncingManual;
 
   const handleManualSync = useCallback(async () => {
@@ -49,7 +55,11 @@ export function CoupleDetailsSection() {
   }, [syncCoupleProfile]);
 
   useEffect(() => {
-    setDraft(coupleExtended);
+    setDraft({
+      ...defaultCoupleExtendedProfile(),
+      ...coupleExtended,
+      customDates: Array.isArray(coupleExtended?.customDates) ? coupleExtended.customDates : [],
+    });
   }, [coupleExtended]);
 
   useLayoutEffect(() => {
