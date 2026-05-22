@@ -499,7 +499,7 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
     setRewards((prev) => {
       const next = {
         ...prev,
-        earnHistory: growthTransactionsToEarnHistory(cache.transactions),
+        earnHistory: growthTransactionsToEarnHistory(cache.userCoinTransactions),
       };
       saveRewards(next);
       return next;
@@ -774,6 +774,16 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
     [auth.configured, coupleId, currentUserId, isFullyBound, isOnline]
   );
 
+  const formatLoveCoinActivityMessage = useCallback(
+    (delta: number, title?: string) => {
+      const who = actorDisplayName(currentUserId);
+      const label = title?.trim() || '互動';
+      if (delta > 0) return `${who} ${label} +${delta} LoveCoin`;
+      return `${who} 兌換了${label} ${delta} LoveCoin`;
+    },
+    [actorDisplayName, currentUserId]
+  );
+
   const grantReward = useCallback(
     (
       reward: RpgReward,
@@ -847,12 +857,26 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
             saveRewards(next);
             return next;
           });
+          logTodayActivity({
+            actionType: 'complete',
+            targetType: 'love_task',
+            targetTitle: coin.title,
+            message: formatLoveCoinActivityMessage(deltas.loveCoinDelta, coin.title),
+          });
         }
       }
 
       setActivity(appendActivity(log));
     },
-    [applyGrowthSnapshot, auth.supabase, canSyncWallet, coupleId, currentUserId]
+    [
+      applyGrowthSnapshot,
+      auth.supabase,
+      canSyncWallet,
+      coupleId,
+      currentUserId,
+      formatLoveCoinActivityMessage,
+      logTodayActivity,
+    ]
   );
 
   useEffect(() => {
@@ -1892,6 +1916,7 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
         actionType: 'redeem',
         targetType: 'reward_card',
         targetTitle: result.coupon.cardTitle,
+        message: formatLoveCoinActivityMessage(-item.cost, result.coupon.cardTitle),
       });
       pushCouponBackground(result.coupon);
       coinWalletSchedulerRef.current?.scheduleSync();
@@ -1904,6 +1929,7 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
       canSyncWallet,
       coupleId,
       currentUserId,
+      formatLoveCoinActivityMessage,
       logTodayActivity,
       pushCouponBackground,
     ]
@@ -1956,6 +1982,7 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
         actionType: 'redeem',
         targetType: 'reward_card',
         targetTitle: result.coupon.cardTitle,
+        message: formatLoveCoinActivityMessage(-normalized.cost, result.coupon.cardTitle),
       });
       pushCouponBackground(result.coupon);
       return true;
@@ -1967,6 +1994,7 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
       canSyncWallet,
       coupleId,
       currentUserId,
+      formatLoveCoinActivityMessage,
       logTodayActivity,
       pushCouponBackground,
     ]

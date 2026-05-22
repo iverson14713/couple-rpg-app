@@ -207,7 +207,7 @@ export function RewardsPage({ embedded }: { embedded?: boolean } = {}) {
           <section className={`overflow-hidden p-4 ${lq.card}`}>
             <div className="flex items-center justify-between gap-3">
               <div>
-                <p className="text-[12px] font-bold uppercase tracking-wide text-rose-500">LoveCoin 餘額</p>
+                <p className="text-[12px] font-bold uppercase tracking-wide text-rose-500">我的 LoveCoin</p>
                 <p className="mt-0.5 text-4xl font-extrabold tabular-nums text-rose-700">{rpg.loveCoins}</p>
                 <p className="mt-1 text-[13px] font-semibold text-emerald-600">今日獲得 +{todayCoinEarned}</p>
               </div>
@@ -265,7 +265,7 @@ export function RewardsPage({ embedded }: { embedded?: boolean } = {}) {
             <ProBadgeIfNeeded show={customCardPro.showProBadge} feature="custom_reward_cards" />
           </p>
           <section className={`flex items-center justify-between gap-2 px-1 ${lq.cardSoft} !p-3`}>
-            <p className="text-[13px] font-semibold text-stone-700">目前餘額</p>
+            <p className="text-[13px] font-semibold text-stone-700">我的餘額</p>
             <p className="text-xl font-extrabold text-rose-700">🪙 {rpg.loveCoins}</p>
           </section>
           {Array.from(shopByCategory.entries()).map(([cat, items]) => {

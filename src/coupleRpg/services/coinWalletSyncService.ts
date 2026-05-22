@@ -1,6 +1,6 @@
 /**
- * Couple growth stats — Supabase ledger as source of truth.
- * LoveCoin, heart, bond, EXP, level + transaction log.
+ * LoveCoin: per-user wallet (user_wallets + user_coin_transactions).
+ * Couple growth: heart, bond, exp, level on couple_wallets (unchanged Phase 1).
  */
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { ENABLE_COIN_WALLET_CLOUD_SYNC } from '../constants/coinWalletSyncFlags';
@@ -9,20 +9,21 @@ import { makeId } from '../lib/id';
 import type { CoinEarnMeta } from '../storage/rewardTypes';
 import {
   applyGrowthSnapshotToCache,
-  getPendingGrowthTransactions,
+  getPendingUserCoinTransactions,
   isCoinWalletMigrationDone,
   loadCoinWalletCache,
-  markGrowthTransactionSynced,
+  markUserCoinTransactionSynced,
   setCoinWalletMigrationDone,
-  upsertPendingGrowthTransaction,
+  upsertPendingUserCoinTransaction,
 } from '../storage/coinWalletCache';
 import type {
   CoinTransactionRecord,
   CoinTxType,
   GrowthSnapshot,
   GrowthTransactionRecord,
+  UserCoinTransactionRecord,
 } from '../storage/coinWalletTypes';
-import { growthTxToCoinRecord } from '../storage/coinWalletTypes';
+import { userCoinTxToCoinRecord } from '../storage/coinWalletTypes';
 import type { RpgReward } from '../storage/rpgLogic';
 import type { RpgState } from '../storage/types';
 
@@ -31,7 +32,7 @@ const TX_LIMIT = 100;
 
 export type CoinWalletSyncStatus = 'local' | 'syncing' | 'synced' | 'error';
 
-type WalletRow = {
+type CoupleWalletRow = {
   couple_id: string;
   balance?: number;
   love_coin_balance?: number;
@@ -42,24 +43,34 @@ type WalletRow = {
   updated_at: string;
 };
 
-type GrowthTxRow = {
+type UserWalletRow = {
+  user_id: string;
+  love_coin_balance: number;
+  updated_at: string;
+};
+
+type UserCoinTxRow = {
   id: string;
+  user_id: string;
   couple_id: string;
-  user_id: string | null;
+  amount: number;
   tx_type: CoinTxType;
   source: string;
   note: string | null;
   idempotency_key: string;
-  love_coin_delta: number;
-  heart_delta: number;
-  bond_delta: number;
-  exp_delta: number;
   created_at: string;
+  metadata?: { emoji?: string };
+};
+
+type RpcUserCoinPayload = {
+  wallet: UserWalletRow;
+  transaction: UserCoinTxRow;
+  duplicate?: boolean;
 };
 
 type RpcGrowthPayload = {
-  wallet: WalletRow;
-  transaction: GrowthTxRow;
+  wallet: CoupleWalletRow;
+  transaction: GrowthTransactionRecord;
   duplicate?: boolean;
 };
 
@@ -76,15 +87,22 @@ export function canSyncCoinWallet(input: {
   );
 }
 
-export function walletRowToSnapshot(row: WalletRow | null): GrowthSnapshot {
-  if (!row) return loadCoinWalletCache().snapshot;
-  const love =
-    row.love_coin_balance != null
-      ? Number(row.love_coin_balance)
-      : Number(row.balance) || 0;
+export function walletRowToCoupleGrowth(row: CoupleWalletRow | null): Pick<
+  GrowthSnapshot,
+  'heartValue' | 'bondValue' | 'exp' | 'level' | 'updatedAt'
+> {
+  if (!row) {
+    const d = loadCoinWalletCache().snapshot;
+    return {
+      heartValue: d.heartValue,
+      bondValue: d.bondValue,
+      exp: d.exp,
+      level: d.level,
+      updatedAt: d.updatedAt,
+    };
+  }
   const exp = Number(row.exp) || 0;
   return {
-    loveCoinBalance: Math.max(0, Math.floor(love)),
     heartValue: Math.min(100, Math.max(0, Number(row.heart_value) || 50)),
     bondValue: Math.min(100, Math.max(0, Number(row.bond_value) || 60)),
     exp: Math.max(0, Math.floor(exp)),
@@ -93,22 +111,24 @@ export function walletRowToSnapshot(row: WalletRow | null): GrowthSnapshot {
   };
 }
 
-function rowToGrowthRecord(row: GrowthTxRow, emoji?: string | null): GrowthTransactionRecord {
+function rowToUserCoinRecord(row: UserCoinTxRow, emoji?: string | null): UserCoinTransactionRecord {
+  const metaEmoji =
+    emoji ??
+    (row.metadata && typeof row.metadata === 'object' && 'emoji' in row.metadata
+      ? String((row.metadata as { emoji?: string }).emoji ?? '')
+      : null);
   return {
     id: row.id,
-    coupleId: row.couple_id,
     userId: row.user_id,
+    coupleId: row.couple_id,
+    amount: row.amount,
     txType: row.tx_type,
     source: row.source,
     note: row.note,
     idempotencyKey: row.idempotency_key,
-    loveCoinDelta: row.love_coin_delta,
-    heartDelta: row.heart_delta,
-    bondDelta: row.bond_delta,
-    expDelta: row.exp_delta,
     createdAt: row.created_at,
     syncPending: false,
-    emoji: emoji ?? null,
+    emoji: metaEmoji || null,
   };
 }
 
@@ -152,47 +172,129 @@ export function hasGrowthDeltas(deltas: {
   );
 }
 
-export async function pullGrowthFromRemote(
+export async function pullUserCoinFromRemote(
   supabase: SupabaseClient,
+  userId: string,
   coupleId: string
-): Promise<{ snapshot: GrowthSnapshot; transactions: GrowthTransactionRecord[] }> {
+): Promise<{ balance: number; transactions: UserCoinTransactionRecord[] }> {
   const { data: wallet, error: wErr } = await supabase
-    .from('couple_wallets')
-    .select(
-      'couple_id, balance, love_coin_balance, heart_value, bond_value, exp, level, updated_at'
-    )
-    .eq('couple_id', coupleId)
+    .from('user_wallets')
+    .select('user_id, love_coin_balance, updated_at')
+    .eq('user_id', userId)
     .maybeSingle();
 
   if (wErr) throw wErr;
 
   const { data: txs, error: tErr } = await supabase
-    .from('couple_growth_transactions')
+    .from('user_coin_transactions')
     .select(
-      'id, couple_id, user_id, tx_type, source, note, idempotency_key, love_coin_delta, heart_delta, bond_delta, exp_delta, created_at'
+      'id, user_id, couple_id, amount, tx_type, source, note, idempotency_key, created_at, metadata'
     )
+    .eq('user_id', userId)
     .eq('couple_id', coupleId)
     .order('created_at', { ascending: false })
     .limit(TX_LIMIT);
 
   if (tErr) throw tErr;
 
-  const snapshot = walletRowToSnapshot(wallet as WalletRow | null);
-  const transactions = ((txs ?? []) as GrowthTxRow[]).map((r) => rowToGrowthRecord(r));
+  const balance = wallet
+    ? Math.max(0, Math.floor(Number((wallet as UserWalletRow).love_coin_balance) || 0))
+    : 0;
+  const transactions = ((txs ?? []) as UserCoinTxRow[]).map((r) => rowToUserCoinRecord(r));
 
-  applyGrowthSnapshotToCache(coupleId, snapshot, transactions);
-  return { snapshot, transactions };
+  return { balance, transactions };
 }
 
-/** @deprecated use pullGrowthFromRemote */
-export async function pullCoinWalletFromRemote(
+export async function pullCoupleGrowthFromRemote(
   supabase: SupabaseClient,
   coupleId: string
+): Promise<Pick<GrowthSnapshot, 'heartValue' | 'bondValue' | 'exp' | 'level' | 'updatedAt'>> {
+  const { data: wallet, error } = await supabase
+    .from('couple_wallets')
+    .select('couple_id, heart_value, bond_value, exp, level, updated_at')
+    .eq('couple_id', coupleId)
+    .maybeSingle();
+
+  if (error) throw error;
+  return walletRowToCoupleGrowth(wallet as CoupleWalletRow | null);
+}
+
+export async function pullGrowthFromRemote(
+  supabase: SupabaseClient,
+  userId: string,
+  coupleId: string
+): Promise<{ snapshot: GrowthSnapshot; transactions: UserCoinTransactionRecord[] }> {
+  const [coin, coupleGrowth] = await Promise.all([
+    pullUserCoinFromRemote(supabase, userId, coupleId),
+    pullCoupleGrowthFromRemote(supabase, coupleId),
+  ]);
+
+  const snapshot: GrowthSnapshot = {
+    loveCoinBalance: coin.balance,
+    ...coupleGrowth,
+    updatedAt: coin.transactions[0]?.createdAt ?? coupleGrowth.updatedAt,
+  };
+
+  applyGrowthSnapshotToCache(userId, coupleId, snapshot, coin.transactions);
+  return { snapshot, transactions: coin.transactions };
+}
+
+/** @deprecated */
+export async function pullCoinWalletFromRemote(
+  supabase: SupabaseClient,
+  coupleId: string,
+  userId?: string | null
 ): Promise<{ balance: number; transactions: CoinTransactionRecord[] }> {
-  const { snapshot, transactions } = await pullGrowthFromRemote(supabase, coupleId);
+  const uid = userId ?? '';
+  if (!uid) {
+    return { balance: 0, transactions: [] };
+  }
+  const { snapshot, transactions } = await pullGrowthFromRemote(supabase, uid, coupleId);
   return {
     balance: snapshot.loveCoinBalance,
-    transactions: transactions.map(growthTxToCoinRecord),
+    transactions: transactions.map(userCoinTxToCoinRecord),
+  };
+}
+
+export type PostUserCoinInput = {
+  userId: string;
+  coupleId: string;
+  amount: number;
+  txType: CoinTxType;
+  source: string;
+  idempotencyKey: string;
+  note?: string;
+  emoji?: string;
+};
+
+export async function postUserCoinTransactionRemote(
+  supabase: SupabaseClient,
+  input: PostUserCoinInput
+): Promise<{ balance: number; transaction: UserCoinTransactionRecord }> {
+  const { data, error } = await supabase.rpc('lovequest_post_user_coin_transaction', {
+    p_user_id: input.userId,
+    p_couple_id: input.coupleId,
+    p_amount: input.amount,
+    p_tx_type: input.txType,
+    p_source: input.source,
+    p_idempotency_key: input.idempotencyKey,
+    p_note: input.note ?? null,
+    p_metadata: input.emoji ? { emoji: input.emoji } : {},
+  });
+
+  if (error) {
+    if (error.message?.includes('insufficient_balance')) {
+      throw new Error('insufficient_balance');
+    }
+    throw error;
+  }
+
+  const payload = data as RpcUserCoinPayload;
+  const wallet = payload.wallet;
+  const transaction = rowToUserCoinRecord(payload.transaction, input.emoji);
+  return {
+    balance: Math.max(0, Math.floor(Number(wallet.love_coin_balance) || 0)),
+    transaction,
   };
 }
 
@@ -210,10 +312,10 @@ export type PostGrowthEventInput = {
   emoji?: string;
 };
 
-export async function postGrowthEventRemote(
+export async function postCoupleGrowthEventRemote(
   supabase: SupabaseClient,
   input: PostGrowthEventInput
-): Promise<{ snapshot: GrowthSnapshot; transaction: GrowthTransactionRecord }> {
+): Promise<Pick<GrowthSnapshot, 'heartValue' | 'bondValue' | 'exp' | 'level' | 'updatedAt'>> {
   const { data, error } = await supabase.rpc('lovequest_post_growth_event', {
     p_couple_id: input.coupleId,
     p_user_id: input.userId,
@@ -221,57 +323,48 @@ export async function postGrowthEventRemote(
     p_source: input.source,
     p_idempotency_key: input.idempotencyKey,
     p_note: input.note ?? null,
-    p_love_coin_delta: input.loveCoinDelta ?? 0,
+    p_love_coin_delta: 0,
     p_heart_delta: input.heartDelta ?? 0,
     p_bond_delta: input.bondDelta ?? 0,
     p_exp_delta: input.expDelta ?? 0,
     p_metadata: {},
   });
 
-  if (error) {
-    if (error.message?.includes('insufficient_love_coin')) {
-      throw new Error('insufficient_balance');
-    }
-    throw error;
-  }
+  if (error) throw error;
 
   const payload = data as RpcGrowthPayload;
-  const snapshot = walletRowToSnapshot(payload.wallet);
-  const transaction = rowToGrowthRecord(payload.transaction, input.emoji);
-  return { snapshot, transaction };
+  return walletRowToCoupleGrowth(payload.wallet);
 }
 
-export async function pushPendingGrowthTransactions(
+export async function pushPendingUserCoinTransactions(
   supabase: SupabaseClient,
   coupleId: string,
-  userId: string | null
+  userId: string
 ): Promise<void> {
-  const pending = getPendingGrowthTransactions();
+  const pending = getPendingUserCoinTransactions();
   for (const tx of pending) {
+    if (tx.userId && tx.userId !== userId) continue;
     try {
-      const { transaction } = await postGrowthEventRemote(supabase, {
+      const { transaction } = await postUserCoinTransactionRemote(supabase, {
+        userId,
         coupleId,
-        userId: tx.userId ?? userId,
+        amount: tx.amount,
         txType: tx.txType,
         source: tx.source,
         idempotencyKey: tx.idempotencyKey,
         note: tx.note ?? undefined,
-        loveCoinDelta: tx.loveCoinDelta,
-        heartDelta: tx.heartDelta,
-        bondDelta: tx.bondDelta,
-        expDelta: tx.expDelta,
         emoji: tx.emoji ?? undefined,
       });
-      markGrowthTransactionSynced(tx.idempotencyKey, transaction.id);
+      markUserCoinTransactionSynced(tx.idempotencyKey, transaction.id);
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
-      console.warn(`${LOG} push pending failed ${tx.idempotencyKey}:`, msg);
+      console.warn(`${LOG} push user coin failed ${tx.idempotencyKey}:`, msg);
     }
   }
 }
 
 /** @deprecated */
-export const pushPendingCoinTransactions = pushPendingGrowthTransactions;
+export const pushPendingGrowthTransactions = pushPendingUserCoinTransactions;
 
 export async function migrateLocalGrowthIfNeeded(
   supabase: SupabaseClient,
@@ -279,38 +372,64 @@ export async function migrateLocalGrowthIfNeeded(
   userId: string | null,
   localRpg: Pick<RpgState, 'loveCoins' | 'heartPoints' | 'compatibility' | 'xp'>
 ): Promise<void> {
-  if (isCoinWalletMigrationDone(coupleId)) return;
+  if (!userId) return;
+  if (isCoinWalletMigrationDone(userId, coupleId)) return;
 
-  const { snapshot, transactions } = await pullGrowthFromRemote(supabase, coupleId);
-  if (transactions.length > 0 || snapshot.exp > 0 || snapshot.loveCoinBalance > 0) {
-    setCoinWalletMigrationDone(coupleId);
+  const { balance: remoteCoin, transactions } = await pullUserCoinFromRemote(
+    supabase,
+    userId,
+    coupleId
+  );
+  const coupleGrowth = await pullCoupleGrowthFromRemote(supabase, coupleId);
+
+  const hasCloudCoin = transactions.length > 0 || remoteCoin > 0;
+  const hasCloudGrowth =
+    coupleGrowth.exp > 0 ||
+    coupleGrowth.heartValue !== 50 ||
+    coupleGrowth.bondValue !== 60;
+
+  if (hasCloudCoin && hasCloudGrowth) {
+    setCoinWalletMigrationDone(userId, coupleId);
     return;
   }
 
-  const hasLocal =
-    localRpg.loveCoins > 0 ||
+  const hasLocalCoin = localRpg.loveCoins > 0;
+  const hasLocalGrowth =
     localRpg.heartPoints !== 50 ||
     localRpg.compatibility !== 60 ||
     localRpg.xp > 0;
-  if (!hasLocal) {
-    setCoinWalletMigrationDone(coupleId);
+
+  if (!hasLocalCoin && !hasLocalGrowth) {
+    setCoinWalletMigrationDone(userId, coupleId);
     return;
   }
 
-  const key = localMigrationGrowthKey(coupleId);
+  const key = localMigrationGrowthKey(userId, coupleId);
   try {
-    const { error } = await supabase.rpc('lovequest_init_growth_from_local', {
-      p_couple_id: coupleId,
-      p_user_id: userId,
-      p_love_coin: Math.max(0, Math.floor(localRpg.loveCoins)),
-      p_heart: Math.min(100, Math.max(0, Math.floor(localRpg.heartPoints))),
-      p_bond: Math.min(100, Math.max(0, Math.floor(localRpg.compatibility))),
-      p_exp: Math.max(0, Math.floor(localRpg.xp)),
-      p_idempotency_key: key,
-    });
-    if (error) throw error;
-    setCoinWalletMigrationDone(coupleId);
-    await pullGrowthFromRemote(supabase, coupleId);
+    if (!hasCloudCoin && hasLocalCoin) {
+      await supabase.rpc('lovequest_init_user_coin_from_local', {
+        p_user_id: userId,
+        p_couple_id: coupleId,
+        p_love_coin: Math.max(0, Math.floor(localRpg.loveCoins)),
+        p_idempotency_key: `${key}:coin`,
+      });
+    }
+
+    if (!hasCloudGrowth && hasLocalGrowth) {
+      const { error } = await supabase.rpc('lovequest_init_growth_from_local', {
+        p_couple_id: coupleId,
+        p_user_id: userId,
+        p_love_coin: 0,
+        p_heart: Math.min(100, Math.max(0, Math.floor(localRpg.heartPoints))),
+        p_bond: Math.min(100, Math.max(0, Math.floor(localRpg.compatibility))),
+        p_exp: Math.max(0, Math.floor(localRpg.xp)),
+        p_idempotency_key: `${key}:growth`,
+      });
+      if (error) throw error;
+    }
+
+    setCoinWalletMigrationDone(userId, coupleId);
+    await pullGrowthFromRemote(supabase, userId, coupleId);
   } catch (e) {
     console.warn(`${LOG} migration failed:`, e);
   }
@@ -342,35 +461,90 @@ export async function recordGrowthEvent(
 ): Promise<RecordGrowthResult> {
   const note = input.note ?? input.meta?.title ?? input.source;
   const emoji = input.emoji ?? input.meta?.emoji;
+  const loveCoinDelta = input.loveCoinDelta ?? 0;
+  const heartDelta = input.heartDelta ?? 0;
+  const bondDelta = input.bondDelta ?? 0;
+  const expDelta = input.expDelta ?? 0;
+  const userId = input.userId;
 
-  const pending: GrowthTransactionRecord = {
-    id: makeId(),
-    coupleId: input.coupleId,
-    userId: input.userId,
-    txType: input.txType,
-    source: input.source,
-    note: note ?? null,
-    idempotencyKey: input.idempotencyKey,
-    loveCoinDelta: input.loveCoinDelta ?? 0,
-    heartDelta: input.heartDelta ?? 0,
-    bondDelta: input.bondDelta ?? 0,
-    expDelta: input.expDelta ?? 0,
-    createdAt: new Date().toISOString(),
-    syncPending: true,
-    emoji: emoji ?? null,
-  };
+  const cache = loadCoinWalletCache();
+  let snapshot = { ...cache.snapshot };
 
-  upsertPendingGrowthTransaction(pending);
+  const coinKey =
+    loveCoinDelta !== 0 ? `${input.idempotencyKey}:coin` : input.idempotencyKey;
 
-  if (!canSync || !supabase) {
-    return { ok: true, snapshot: loadCoinWalletCache().snapshot, synced: false };
+  if (loveCoinDelta !== 0 && userId) {
+    const pending: UserCoinTransactionRecord = {
+      id: makeId(),
+      userId,
+      coupleId: input.coupleId,
+      amount: loveCoinDelta,
+      txType: input.txType,
+      source: input.source,
+      note: note ?? null,
+      idempotencyKey: coinKey,
+      createdAt: new Date().toISOString(),
+      syncPending: true,
+      emoji: emoji ?? null,
+    };
+    const updated = upsertPendingUserCoinTransaction(pending);
+    snapshot = updated.snapshot;
   }
 
+  const hasCoupleGrowth = heartDelta !== 0 || bondDelta !== 0 || expDelta !== 0;
+
+  if (!canSync || !supabase) {
+    if (hasCoupleGrowth) {
+      snapshot = {
+        ...snapshot,
+        heartValue: Math.min(100, Math.max(0, snapshot.heartValue + heartDelta)),
+        bondValue: Math.min(100, Math.max(0, snapshot.bondValue + bondDelta)),
+        exp: Math.max(0, snapshot.exp + expDelta),
+      };
+      snapshot.level = Math.max(1, Math.floor(snapshot.exp / 100) + 1);
+    }
+    return { ok: true, snapshot, synced: false };
+  }
+
+  if (!userId && loveCoinDelta !== 0) {
+    return { ok: false, error: 'missing_user_id' };
+  }
+
+  const growthKey =
+    hasCoupleGrowth ? `${input.idempotencyKey}:growth` : input.idempotencyKey;
+
   try {
-    await postGrowthEventRemote(supabase, { ...input, note, emoji });
-    markGrowthTransactionSynced(input.idempotencyKey, pending.id);
-    const { snapshot } = await pullGrowthFromRemote(supabase, input.coupleId);
-    return { ok: true, snapshot, synced: true };
+    if (loveCoinDelta !== 0 && userId) {
+      const { balance, transaction } = await postUserCoinTransactionRemote(supabase, {
+        userId,
+        coupleId: input.coupleId,
+        amount: loveCoinDelta,
+        txType: input.txType,
+        source: input.source,
+        idempotencyKey: coinKey,
+        note,
+        emoji,
+      });
+      markUserCoinTransactionSynced(coinKey, transaction.id);
+      snapshot.loveCoinBalance = balance;
+    }
+
+    if (hasCoupleGrowth) {
+      const couplePart = await postCoupleGrowthEventRemote(supabase, {
+        ...input,
+        idempotencyKey: growthKey,
+        loveCoinDelta: 0,
+        heartDelta,
+        bondDelta,
+        expDelta,
+        note,
+        emoji,
+      });
+      snapshot = { ...snapshot, ...couplePart };
+    }
+
+    const pulled = await pullGrowthFromRemote(supabase, userId!, input.coupleId);
+    return { ok: true, snapshot: pulled.snapshot, synced: true };
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     if (msg === 'insufficient_balance') {
@@ -445,7 +619,7 @@ export function coinTransactionsToEarnHistory(
 }
 
 export function growthTransactionsToEarnHistory(
-  transactions: GrowthTransactionRecord[]
+  transactions: UserCoinTransactionRecord[]
 ): import('../storage/rewardTypes').LoveCoinEarnRecord[] {
-  return coinTransactionsToEarnHistory(transactions.map(growthTxToCoinRecord));
+  return coinTransactionsToEarnHistory(transactions.map(userCoinTxToCoinRecord));
 }

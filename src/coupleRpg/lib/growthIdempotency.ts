@@ -10,6 +10,6 @@ export {
 
 import { localMigrationCoinKey } from './coinIdempotency';
 
-export function localMigrationGrowthKey(coupleId: string): string {
-  return localMigrationCoinKey(coupleId);
+export function localMigrationGrowthKey(userId: string, coupleId: string): string {
+  return localMigrationCoinKey(userId, coupleId);
 }

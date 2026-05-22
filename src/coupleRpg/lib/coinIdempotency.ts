@@ -25,8 +25,8 @@ export function redeemCoinKey(couponId: string): string {
   return `spend:redeem:${couponId}`;
 }
 
-export function localMigrationCoinKey(coupleId: string): string {
-  return `migration:local:${coupleId}`;
+export function localMigrationCoinKey(userId: string, coupleId: string): string {
+  return `migration:local:${userId}:${coupleId}`;
 }
 
 /** 無法推斷時仍給唯一 key（僅離線 fallback） */

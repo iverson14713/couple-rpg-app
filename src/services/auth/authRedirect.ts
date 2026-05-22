@@ -1,8 +1,19 @@
+import { Capacitor } from '@capacitor/core';
+
 const RETURN_KEY = 'lq_auth_return';
+
+/** Must match capacitor.config.ts `server.hostname` */
+export const CAPACITOR_AUTH_ORIGIN = 'https://lovequest.app';
+
+/** Custom URL scheme fallback when OAuth opens system browser (Info.plist URL Types) */
+export const CAPACITOR_AUTH_SCHEME_CALLBACK = 'com.lovequest.app://auth/callback';
 
 /** OAuth / Email 確認信導回此路徑（須列入 Supabase Redirect URLs） */
 export function getAuthCallbackUrl(): string {
   if (typeof window === 'undefined') return '/auth/callback';
+  if (Capacitor.isNativePlatform()) {
+    return `${CAPACITOR_AUTH_ORIGIN}/auth/callback`;
+  }
   return `${window.location.origin}/auth/callback`;
 }
 

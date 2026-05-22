@@ -47,7 +47,7 @@ export function createCoinWalletSyncScheduler(
     const supabase = options.getSupabase();
     const coupleId = options.getCoupleId();
     const userId = options.getUserId();
-    if (!options.canSync() || !supabase || !coupleId) {
+    if (!options.canSync() || !supabase || !coupleId || !userId) {
       setStatus('local', null);
       return;
     }
@@ -59,7 +59,7 @@ export function createCoinWalletSyncScheduler(
       const local = options.getLocalRpg();
       await migrateLocalGrowthIfNeeded(supabase, coupleId, userId, local);
       await pushPendingGrowthTransactions(supabase, coupleId, userId);
-      const { snapshot } = await pullGrowthFromRemote(supabase, coupleId);
+      const { snapshot } = await pullGrowthFromRemote(supabase, userId, coupleId);
       options.onGrowthApplied(snapshot);
       setStatus('synced', null);
     } catch (e) {
