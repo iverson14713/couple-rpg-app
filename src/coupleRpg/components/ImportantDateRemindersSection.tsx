@@ -21,6 +21,7 @@ import {
   updateEventSettings,
 } from '../storage/importantDateRemindersStore';
 import { REMINDER_OFFSET_OPTIONS, type ReminderOffsetDays } from '../storage/importantDateReminderTypes';
+import { ImportantDateReminderList } from './ImportantDateReminderList';
 import { useAiUsage } from '../hooks/useAiUsage';
 import { useProFeature } from '../hooks/useProFeature';
 import { AiUsageQuotaLabel } from './AiUsageQuotaLabel';
@@ -36,7 +37,14 @@ type Props = {
 
 export function ImportantDateRemindersSection({ showBack, compactHero }: Props) {
   const { navigateTo } = useCoupleRpgNav();
-  const { coupleExtended, importantDateReminders, patchImportantDateReminder } = useLoveQuest();
+  const {
+    coupleExtended,
+    importantDateReminders,
+    patchImportantDateReminder,
+    todayImportantDateReminders,
+    futureImportantDateReminders,
+    dismissImportantDateReminder,
+  } = useLoveQuest();
   const datesPro = useProFeature('important_dates_unlimited');
   const aiPro = useProFeature('ai_in_app');
   const aiUsage = useAiUsage();
@@ -104,7 +112,9 @@ export function ImportantDateRemindersSection({ showBack, compactHero }: Props) 
             重要日子提醒
             <ProBadgeIfNeeded show={datesPro.showProBadge} feature="important_dates_unlimited" />
           </h1>
-          <p className={`mt-0.5 text-[13px] ${lq.textSecondary}`}>記住生日與紀念日，提前準備驚喜。</p>
+          <p className={`mt-0.5 text-[13px] ${lq.textSecondary}`}>
+            記住生日與紀念日 · 打開 App 時提醒
+          </p>
           <div className="mt-2">
             <AiUsageQuotaLabel variant="badge" />
           </div>
@@ -117,15 +127,45 @@ export function ImportantDateRemindersSection({ showBack, compactHero }: Props) 
               重要日子提醒
               <ProBadgeIfNeeded show={datesPro.showProBadge} feature="important_dates_unlimited" size="sm" />
             </h2>
-            <p className={`text-[12px] ${lq.textSecondary}`}>記住生日與紀念日，提前準備驚喜</p>
+            <p className={`text-[12px] ${lq.textSecondary}`}>打開 App 時提醒 · 推播將於後續加入</p>
           </div>
         </div>
       )}
 
       {savedFlash ? (
         <p className="mb-2 rounded-xl bg-emerald-50 px-3 py-2 text-center text-[12px] font-semibold text-emerald-800 ring-1 ring-emerald-100">
-          提醒設定已儲存，正式推播會在下一階段加入。
+          提醒設定已儲存 · 打開 App 時會依設定顯示提醒
         </p>
+      ) : null}
+
+      {events.length > 0 ? (
+        <div className="mb-4 space-y-3">
+          <div className={`p-3 ${lq.cardSoft}`}>
+            <h3 className={`mb-2 text-[13px] font-bold ${lq.text}`}>今日提醒</h3>
+            {todayImportantDateReminders.length > 0 ? (
+              <ImportantDateReminderList
+                items={todayImportantDateReminders}
+                variant="today"
+                onDismiss={dismissImportantDateReminder}
+              />
+            ) : (
+              <p className={`text-[12px] ${lq.textSecondary}`}>今天沒有待處理提醒</p>
+            )}
+          </div>
+          <div className={`p-3 ${lq.cardSoft}`}>
+            <h3 className={`mb-2 text-[13px] font-bold ${lq.text}`}>未來提醒</h3>
+            {futureImportantDateReminders.length > 0 ? (
+              <ImportantDateReminderList items={futureImportantDateReminders} variant="future" />
+            ) : (
+              <p className={`text-[12px] ${lq.textSecondary}`}>
+                尚未排程未來提醒，請在下方為各日子設定提前天數
+              </p>
+            )}
+          </div>
+          <p className="text-center text-[10px] leading-relaxed text-stone-400">
+            正式推播通知將於後續版本加入 · 目前僅在 App 內提醒
+          </p>
+        </div>
       ) : null}
 
       {events.length === 0 ? (

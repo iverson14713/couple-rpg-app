@@ -76,11 +76,9 @@ import {
 import type { DateFilterKey, DatePlannerData } from '../storage/dateTypes';
 import { DEFAULT_DATE_FILTERS } from '../storage/dateTypes';
 import {
-  acknowledgeReminder,
   addAnniversaryEvent,
   canRewardCelebrate,
   canRewardPlan,
-  getActiveReminders,
   getNextImportant,
   getNextOccurrence,
   getUpcomingEvents,
@@ -229,9 +227,14 @@ import {
   type CoupleProfileSyncStatus,
 } from '../services/coupleProfileSyncService';
 import {
+  acknowledgeImportantDateReminder,
   loadImportantDateReminders,
   saveImportantDateReminders,
 } from '../storage/importantDateRemindersStore';
+import {
+  computeImportantDateReminderBuckets,
+  type ImportantDateScheduledReminder,
+} from '../lib/importantDateReminderEngine';
 import type { ImportantDateRemindersData } from '../storage/importantDateReminderTypes';
 import { importantDatesKnowledgeIncreased } from '../lib/coupleProfileImportantReward';
 import { getNicknameSetupStatus, mergeCoupleProfile, type NicknameSetupStatus } from '../lib/coupleDisplayNames';
@@ -324,7 +327,11 @@ type LoveQuestContextValue = {
   anniversaries: AnniversaryData;
   upcomingAnniversaries: ReturnType<typeof getUpcomingEvents>;
   nextAnniversary: ReturnType<typeof getNextImportant>;
-  activeAnniversaryReminders: ReturnType<typeof getActiveReminders>;
+  /** 依 offsets 計算：今天應顯示的 App 內提醒 */
+  todayImportantDateReminders: ImportantDateScheduledReminder[];
+  futureImportantDateReminders: ImportantDateScheduledReminder[];
+  /** @deprecated 請用 todayImportantDateReminders */
+  activeAnniversaryReminders: ImportantDateScheduledReminder[];
   addAnniversary: (input: {
     name: string;
     date: string;
@@ -348,6 +355,8 @@ type LoveQuestContextValue = {
   markAnniversaryCelebrated: (eventId: string) => void;
   updateGiftPrefs: (prefs: GiftPreferences) => void;
   generateGiftSuggestions: () => void;
+  dismissImportantDateReminder: (reminderId: string) => void;
+  /** @deprecated 請用 dismissImportantDateReminder */
   dismissAnniversaryReminder: (reminderId: string) => void;
   rewards: RewardsData;
   todayCoinEarned: number;
@@ -1771,10 +1780,15 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
-  const dismissAnniversaryReminderFn = useCallback((reminderId: string) => {
-    setAnniversaries((prev) => {
-      const next = acknowledgeReminder(prev, reminderId);
-      saveAnniversaries(next);
+  const importantDateReminderBuckets = useMemo(
+    () => computeImportantDateReminderBuckets(coupleExtended, importantDateReminders),
+    [coupleExtended, importantDateReminders]
+  );
+
+  const dismissImportantDateReminderFn = useCallback((reminderId: string) => {
+    setImportantDateReminders((prev) => {
+      const next = acknowledgeImportantDateReminder(prev, reminderId);
+      saveImportantDateReminders(next);
       return next;
     });
   }, []);
@@ -2359,7 +2373,9 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
       anniversaries,
       upcomingAnniversaries: getUpcomingEvents(anniversaries.events, 20),
       nextAnniversary: getNextImportant(anniversaries.events),
-      activeAnniversaryReminders: getActiveReminders(anniversaries),
+      todayImportantDateReminders: importantDateReminderBuckets.today,
+      futureImportantDateReminders: importantDateReminderBuckets.future,
+      activeAnniversaryReminders: importantDateReminderBuckets.today,
       addAnniversary: addAnniversaryFn,
       updateAnniversary: updateAnniversaryFn,
       removeAnniversary: removeAnniversaryFn,
@@ -2368,7 +2384,8 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
       markAnniversaryCelebrated: markAnniversaryCelebratedFn,
       updateGiftPrefs: updateGiftPrefsFn,
       generateGiftSuggestions: generateGiftSuggestionsFn,
-      dismissAnniversaryReminder: dismissAnniversaryReminderFn,
+      dismissImportantDateReminder: dismissImportantDateReminderFn,
+      dismissAnniversaryReminder: dismissImportantDateReminderFn,
       rewards,
       todayCoinEarned: rewards.todayEarnedDate === todayKey() ? rewards.todayEarnedCoins : 0,
       recentCoinEarns: getRecentEarns(rewards),
@@ -2467,7 +2484,7 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
       markAnniversaryCelebratedFn,
       updateGiftPrefsFn,
       generateGiftSuggestionsFn,
-      dismissAnniversaryReminderFn,
+      dismissImportantDateReminderFn,
       redeemRewardItemFn,
       redeemCustomRewardItemFn,
       useCouponFn,

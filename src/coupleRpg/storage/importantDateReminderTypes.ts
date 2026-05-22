@@ -12,6 +12,8 @@ export type ImportantDateEventSettings = {
 export type ImportantDateRemindersData = {
   version: 1;
   byEventId: Record<string, ImportantDateEventSettings>;
+  /** reminderId → 使用者點「知道了」的日期 YYYY-MM-DD */
+  dismissedAck?: Record<string, string>;
 };
 
 export const DEFAULT_EVENT_SETTINGS: ImportantDateEventSettings = {

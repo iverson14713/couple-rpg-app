@@ -1,3 +1,4 @@
+import { todayKey } from '../lib/dates';
 import { LQ_KEYS } from './keys';
 import { loadJson, saveJson } from './persist';
 import {
@@ -23,7 +24,9 @@ export function loadImportantDateReminders(): ImportantDateRemindersData {
         }
       }
     }
-    return { version: 1, byEventId };
+    const dismissedAck =
+      raw.dismissedAck && typeof raw.dismissedAck === 'object' ? { ...raw.dismissedAck } : {};
+    return { version: 1, byEventId, dismissedAck };
   } catch (e) {
     console.error('[important-date-reminders] load failed, using defaults:', e);
     return defaultImportantDateReminders();
@@ -89,6 +92,17 @@ export function toggleReminderOffset(
 export function formatEnabledOffsetsLabel(offsets: ReminderOffsetDays[]): string {
   if (offsets.length === 0) return '未設定';
   return offsets
-    .map((o) => (o === 0 ? '當天' : `前${o}天`))
+    .map((o) => (o === 0 ? '當天' : `前 ${o} 天`))
     .join('、');
+}
+
+export function acknowledgeImportantDateReminder(
+  data: ImportantDateRemindersData,
+  reminderId: string,
+  day: string = todayKey()
+): ImportantDateRemindersData {
+  return {
+    ...data,
+    dismissedAck: { ...data.dismissedAck, [reminderId]: day },
+  };
 }
