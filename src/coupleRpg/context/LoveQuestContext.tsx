@@ -158,6 +158,7 @@ import {
   applyReward,
   defaultDailyGuard,
   defaultRpgState,
+  localOnlyRewardFields,
   normalizeRpgState,
   REWARDS,
   rpgSnapshot,
@@ -191,10 +192,14 @@ import {
 } from '../lib/coinIdempotency';
 import {
   canSyncCoinWallet,
-  coinTransactionsToEarnHistory,
   getCachedCoinBalance,
-  recordCoinTransaction,
+  growthSnapshotToRpgFields,
+  growthTransactionsToEarnHistory,
+  hasGrowthDeltas,
+  recordGrowthEvent,
+  rewardToGrowthDeltas,
   type CoinWalletSyncStatus,
+  type GrowthSnapshot,
 } from '../services/coinWalletSyncService';
 import {
   createCoinWalletSyncScheduler,
@@ -474,9 +479,10 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
     [auth.configured, coupleId, currentUserId, isFullyBound, isOnline]
   );
 
-  const applyWalletBalance = useCallback((balance: number) => {
+  const applyGrowthSnapshot = useCallback((snapshot: GrowthSnapshot) => {
+    const cloudFields = growthSnapshotToRpgFields(snapshot);
     setRpg((prev) => {
-      const next = normalizeRpgState({ ...prev, loveCoins: balance });
+      const next = normalizeRpgState({ ...prev, ...cloudFields });
       saveRpg(next);
       return next;
     });
@@ -484,7 +490,7 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
     setRewards((prev) => {
       const next = {
         ...prev,
-        earnHistory: coinTransactionsToEarnHistory(cache.transactions),
+        earnHistory: growthTransactionsToEarnHistory(cache.transactions),
       };
       saveRewards(next);
       return next;
@@ -671,8 +677,16 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
       getSupabase: () => auth.supabase,
       getCoupleId: () => coupleId,
       getUserId: () => currentUserId,
-      getLocalRpgBalance: () => loadRpg().loveCoins,
-      onBalanceApplied: applyWalletBalance,
+      getLocalRpg: () => {
+        const r = loadRpg();
+        return {
+          loveCoins: r.loveCoins,
+          heartPoints: r.heartPoints,
+          compatibility: r.compatibility,
+          xp: r.xp,
+        };
+      },
+      onGrowthApplied: applyGrowthSnapshot,
       onStatusChange: (status, error) => {
         setCoinWalletSyncStatus(status);
         setCoinWalletSyncError(error);
@@ -684,7 +698,7 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
       coinWalletSchedulerRef.current = null;
     };
   }, [
-    applyWalletBalance,
+    applyGrowthSnapshot,
     auth.supabase,
     canSyncWallet,
     coupleId,
@@ -759,54 +773,77 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
       idempotencyKey?: string,
       options?: { skipRpg?: boolean }
     ) => {
-      const coins = reward.loveCoins ?? 0;
-      const rpgReward: RpgReward = { ...reward, loveCoins: 0 };
+      const deltas = rewardToGrowthDeltas(reward);
+      const useCloud = canSyncWallet && coupleId && hasGrowthDeltas(deltas);
+      const localFields = localOnlyRewardFields(reward);
+      const hasLocalFields =
+        localFields.houseworkPoints > 0 ||
+        (localFields.dateAchievements ?? 0) > 0 ||
+        (localFields.anniversaryAchievements ?? 0) > 0;
 
       if (!options?.skipRpg) {
-        setRpg((prev) => {
-          const next = applyReward(normalizeRpgState(prev), rpgReward);
-          saveRpg(next);
-          return next;
-        });
-      }
-
-      if (coins > 0 && coin) {
-        const key = idempotencyKey ?? fallbackEarnCoinKey(coin.source);
-        if (canSyncWallet && coupleId) {
-          void recordCoinTransaction(auth.supabase, true, {
-            coupleId,
-            userId: currentUserId,
-            amount: coins,
-            txType: 'earn',
-            source: coin.source,
-            idempotencyKey: key,
-            meta: coin,
-          }).then((result) => {
-            if (result.ok) {
-              applyWalletBalance(result.balance);
-              coinWalletSchedulerRef.current?.scheduleSync();
-            }
-          });
+        if (useCloud) {
+          if (hasLocalFields) {
+            setRpg((prev) => {
+              const next = applyReward(normalizeRpgState(prev), localFields);
+              saveRpg(next);
+              return next;
+            });
+          }
         } else {
           setRpg((prev) => {
-            const next = normalizeRpgState({
-              ...prev,
-              loveCoins: prev.loveCoins + coins,
-            });
+            const next = applyReward(normalizeRpgState(prev), reward);
             saveRpg(next);
             return next;
           });
         }
-        setRewards((prev) => {
-          const next = addCoinEarn(prev, coins, coin);
-          saveRewards(next);
-          return next;
-        });
+      }
+
+      if (hasGrowthDeltas(deltas)) {
+        if (useCloud) {
+          const key =
+            idempotencyKey ?? fallbackEarnCoinKey(coin?.source ?? 'growth');
+          void recordGrowthEvent(auth.supabase, true, {
+            coupleId,
+            userId: currentUserId,
+            txType: 'earn',
+            source: coin?.source ?? 'task',
+            idempotencyKey: key,
+            note: coin?.title,
+            emoji: coin?.emoji,
+            loveCoinDelta: deltas.loveCoinDelta,
+            heartDelta: deltas.heartDelta,
+            bondDelta: deltas.bondDelta,
+            expDelta: deltas.expDelta,
+            meta: coin,
+          }).then((result) => {
+            if (result.ok) {
+              applyGrowthSnapshot(result.snapshot);
+              coinWalletSchedulerRef.current?.scheduleSync();
+            }
+          });
+        } else if (!useCloud) {
+          if (options?.skipRpg) {
+            setRpg((prev) => {
+              const next = applyReward(normalizeRpgState(prev), reward);
+              saveRpg(next);
+              return next;
+            });
+          }
+        }
+
+        if (deltas.loveCoinDelta > 0 && coin) {
+          setRewards((prev) => {
+            const next = addCoinEarn(prev, deltas.loveCoinDelta, coin);
+            saveRewards(next);
+            return next;
+          });
+        }
       }
 
       setActivity(appendActivity(log));
     },
-    [applyWalletBalance, auth.supabase, canSyncWallet, coupleId, currentUserId]
+    [applyGrowthSnapshot, auth.supabase, canSyncWallet, coupleId, currentUserId]
   );
 
   useEffect(() => {
@@ -843,17 +880,21 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
         }
         granted = true;
         slotNum = count + 1;
-        const after = applyReward(rolled, {
-          ...REWARDS.miniGameComplete,
-          loveCoins: 0,
-        });
-        const out: RpgState = {
-          ...after,
-          dailyGuard: {
-            ...g,
-            miniGamesRewardCount: slotNum,
-          },
-        };
+        const out: RpgState = canSyncWallet
+          ? {
+              ...rolled,
+              dailyGuard: {
+                ...g,
+                miniGamesRewardCount: slotNum,
+              },
+            }
+          : {
+              ...applyReward(rolled, { ...REWARDS.miniGameComplete, loveCoins: 0 }),
+              dailyGuard: {
+                ...g,
+                miniGamesRewardCount: slotNum,
+              },
+            };
         saveRpg(out);
         return out;
       });
@@ -876,7 +917,7 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
 
       return granted;
     },
-    [addCompletion, isPro, logTodayActivity]
+    [addCompletion, canSyncWallet, isPro, logTodayActivity]
   );
 
   const rpgView = useMemo(
@@ -1799,19 +1840,19 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
       let balance = canSyncWallet ? getCachedCoinBalance() : loadRpg().loveCoins;
 
       if (canSyncWallet && coupleId) {
-        const spend = await recordCoinTransaction(auth.supabase, true, {
+        const spend = await recordGrowthEvent(auth.supabase, true, {
           coupleId,
           userId: currentUserId,
-          amount: -item.cost,
           txType: 'spend',
           source: 'redeem',
           idempotencyKey: redeemCoinKey(couponId),
-          title: item.title,
+          note: item.title,
           emoji: item.emoji,
+          loveCoinDelta: -item.cost,
         });
         if (!spend.ok) return false;
-        balance = spend.balance;
-        applyWalletBalance(balance);
+        balance = spend.snapshot.loveCoinBalance;
+        applyGrowthSnapshot(spend.snapshot);
       } else if (balance < item.cost) {
         return false;
       }
@@ -1844,7 +1885,7 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
     },
     [
       actorDisplayName,
-      applyWalletBalance,
+      applyGrowthSnapshot,
       auth.supabase,
       canSyncWallet,
       coupleId,
@@ -1863,19 +1904,19 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
       let balance = canSyncWallet ? getCachedCoinBalance() : loadRpg().loveCoins;
 
       if (canSyncWallet && coupleId) {
-        const spend = await recordCoinTransaction(auth.supabase, true, {
+        const spend = await recordGrowthEvent(auth.supabase, true, {
           coupleId,
           userId: currentUserId,
-          amount: -normalized.cost,
           txType: 'spend',
           source: 'redeem',
           idempotencyKey: redeemCoinKey(couponId),
-          title: normalized.title,
+          note: normalized.title,
           emoji: normalized.emoji,
+          loveCoinDelta: -normalized.cost,
         });
         if (!spend.ok) return false;
-        balance = spend.balance;
-        applyWalletBalance(balance);
+        balance = spend.snapshot.loveCoinBalance;
+        applyGrowthSnapshot(spend.snapshot);
       } else if (balance < normalized.cost) {
         return false;
       }
@@ -1907,7 +1948,7 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
     },
     [
       actorDisplayName,
-      applyWalletBalance,
+      applyGrowthSnapshot,
       auth.supabase,
       canSyncWallet,
       coupleId,

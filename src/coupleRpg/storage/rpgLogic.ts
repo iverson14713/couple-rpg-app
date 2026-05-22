@@ -115,6 +115,19 @@ function clamp(n: number, lo: number, hi: number): number {
   return Math.min(hi, Math.max(lo, n));
 }
 
+/** 僅本機累積欄位（非雲端同步的成就／家事點數） */
+export function localOnlyRewardFields(reward: RpgReward): RpgReward {
+  return {
+    heart: 0,
+    compatibility: 0,
+    xp: 0,
+    loveCoins: 0,
+    houseworkPoints: reward.houseworkPoints,
+    dateAchievements: reward.dateAchievements,
+    anniversaryAchievements: reward.anniversaryAchievements,
+  };
+}
+
 export function applyReward(state: RpgState, reward: RpgReward): RpgState {
   let {
     heartPoints,

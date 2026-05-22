@@ -1,13 +1,16 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import {
   canSyncCoinWallet,
-  migrateLocalLoveCoinsIfNeeded,
-  pullCoinWalletFromRemote,
-  pushPendingCoinTransactions,
+  growthSnapshotToRpgFields,
+  migrateLocalGrowthIfNeeded,
+  pullGrowthFromRemote,
+  pushPendingGrowthTransactions,
   type CoinWalletSyncStatus,
+  type GrowthSnapshot,
 } from './coinWalletSyncService';
+import type { RpgState } from '../storage/types';
 
-const LOG = '[coin-wallet-scheduler]';
+const LOG = '[growth-sync-scheduler]';
 const DEBOUNCE_MS = 600;
 const POLL_MS = 20_000;
 
@@ -16,8 +19,8 @@ export type CoinWalletSyncSchedulerOptions = {
   getSupabase: () => SupabaseClient | null;
   getCoupleId: () => string | null;
   getUserId: () => string | null;
-  getLocalRpgBalance: () => number;
-  onBalanceApplied: (balance: number) => void;
+  getLocalRpg: () => Pick<RpgState, 'loveCoins' | 'heartPoints' | 'compatibility' | 'xp'>;
+  onGrowthApplied: (snapshot: GrowthSnapshot) => void;
   onStatusChange: (status: CoinWalletSyncStatus, error: string | null) => void;
 };
 
@@ -53,20 +56,16 @@ export function createCoinWalletSyncScheduler(
     setStatus('syncing', null);
 
     try {
-      await migrateLocalLoveCoinsIfNeeded(
-        supabase,
-        coupleId,
-        userId,
-        options.getLocalRpgBalance()
-      );
-      await pushPendingCoinTransactions(supabase, coupleId, userId);
-      const { balance } = await pullCoinWalletFromRemote(supabase, coupleId);
-      options.onBalanceApplied(balance);
+      const local = options.getLocalRpg();
+      await migrateLocalGrowthIfNeeded(supabase, coupleId, userId, local);
+      await pushPendingGrowthTransactions(supabase, coupleId, userId);
+      const { snapshot } = await pullGrowthFromRemote(supabase, coupleId);
+      options.onGrowthApplied(snapshot);
       setStatus('synced', null);
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       console.warn(`${LOG} sync failed:`, msg);
-      setStatus('error', 'LoveCoin 同步失敗，稍後再試');
+      setStatus('error', '成長數值同步失敗，稍後再試');
     } finally {
       syncInProgress = false;
       if (pendingAfter) {
@@ -116,4 +115,4 @@ export function createCoinWalletSyncScheduler(
   };
 }
 
-export { canSyncCoinWallet };
+export { canSyncCoinWallet, growthSnapshotToRpgFields };
