@@ -6,8 +6,11 @@ export default defineConfig(({ mode }) => {
   const assistantTarget = env.ASSISTANT_SERVER_URL || 'http://127.0.0.1:8788';
 
   return {
-    /** Relative assets so Capacitor iOS WebView loads JS/CSS correctly */
-    base: './',
+    /**
+     * Web (Vercel): '/' — nested routes like /auth/callback must load /assets/*, not /auth/assets/*.
+     * Capacitor: npm run build:capacitor uses --mode capacitor → base './' for file:// WebView.
+     */
+    base: mode === 'capacitor' ? './' : '/',
     plugins: [react()],
     optimizeDeps: {
       exclude: ['lucide-react'],

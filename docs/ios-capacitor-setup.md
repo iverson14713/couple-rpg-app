@@ -190,7 +190,8 @@ server: {
 
 | 現象 | 可能原因 | 處理 |
 |------|----------|------|
-| 白屏、JS 404 | `base` 非相對路徑 | 確認 `vite.config.ts` 有 `base: './'` |
+| 白屏、JS 404（iOS） | Web 用了相對 base | iOS 請用 `npm run build:capacitor`（`base: './'`） |
+| `/auth/callback` MIME text/html | Vercel 用了 `base: './'` | 網頁部署用 `npm run build`（`base: '/'`） |
 | OAuth 後回不来 | Redirect URL 未加 | 補 Supabase 兩條 callback URL |
 | callback 白屏 | env 未打入 build | Mac 上 `.env` 存在後重新 `npm run build:ios` |
 | Google 登入失敗 | WebView 限制 | 改用系統瀏覽器 + `com.lovequest.app://` scheme（已支援 bridge） |
