@@ -92,6 +92,93 @@
   }
 }
 
+/* LoveQuest onboarding — 獨立全螢幕，不透明粉白漸層 */
+.lq-onboarding-screen {
+  position: fixed;
+  inset: 0;
+  z-index: 300;
+  isolation: isolate;
+  min-height: 100dvh;
+  height: 100dvh;
+  width: 100%;
+  overflow: hidden;
+  background-color: #fdf4f8;
+  background-image:
+    radial-gradient(ellipse 95% 70% at 50% -12%, rgba(251, 207, 232, 0.55), transparent 58%),
+    radial-gradient(ellipse 80% 55% at 100% 8%, rgba(233, 213, 255, 0.35), transparent 52%),
+    radial-gradient(ellipse 70% 48% at 0% 35%, rgba(252, 231, 243, 0.65), transparent 55%),
+    linear-gradient(180deg, #fceef6 0%, #fef9fb 42%, #f8f2f6 100%);
+}
+
+.lq-onboarding-glow {
+  pointer-events: none;
+  position: absolute;
+  border-radius: 9999px;
+  filter: blur(48px);
+}
+
+.lq-onboarding-glow--tl {
+  top: -2rem;
+  right: -1.5rem;
+  height: 12rem;
+  width: 12rem;
+  background: rgba(251, 182, 206, 0.45);
+}
+
+.lq-onboarding-glow--br {
+  bottom: 5rem;
+  left: -2rem;
+  height: 10rem;
+  width: 10rem;
+  background: rgba(233, 213, 255, 0.4);
+}
+
+.lq-onboarding-glass-card {
+  border-radius: 1.5rem;
+  border: 1px solid rgba(251, 207, 232, 0.65);
+  background: linear-gradient(
+    165deg,
+    rgba(255, 255, 255, 0.94) 0%,
+    rgba(255, 248, 252, 0.9) 48%,
+    rgba(254, 242, 248, 0.88) 100%
+  );
+  box-shadow:
+    0 18px 48px -16px rgba(244, 114, 182, 0.28),
+    0 4px 20px -8px rgba(216, 180, 254, 0.12),
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(14px);
+}
+
+@keyframes onboardingSlideForward {
+  from {
+    opacity: 0;
+    transform: translateX(14px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+  }
+}
+
+@keyframes onboardingSlideBack {
+  from {
+    opacity: 0;
+    transform: translateX(-14px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+  }
+}
+
+.lq-onboarding-slide-forward {
+  animation: onboardingSlideForward 0.32s ease-out both;
+}
+
+.lq-onboarding-slide-back {
+  animation: onboardingSlideBack 0.32s ease-out both;
+}
+
 /* LoveQuest — 奶粉白 / 淡粉紫大氣背景（非純白） */
 .lq-app-shell {
   min-height: 100vh;

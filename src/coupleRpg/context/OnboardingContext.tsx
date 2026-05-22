@@ -29,6 +29,8 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
   const [manualVisible, setManualVisible] = useState(false);
 
   const visible = manualVisible || autoShow === true;
+  /** 含 auth 尚未 ready：不掛載主 App，避免首頁先閃再蓋 onboarding */
+  const pendingResolve = auth.configured && autoShow === null && !manualVisible;
   const onboardingResolved = autoShow !== null || !auth.configured;
 
   const refreshAutoShow = useCallback(async () => {
@@ -65,15 +67,6 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
     setManualVisible(true);
   }, []);
 
-  useEffect(() => {
-    if (!visible) return;
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-    return () => {
-      document.body.style.overflow = prev;
-    };
-  }, [visible]);
-
   const value = useMemo(
     () => ({ replayOnboarding, onboardingResolved }),
     [replayOnboarding, onboardingResolved]
@@ -81,9 +74,27 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
 
   return (
     <OnboardingContext.Provider value={value}>
-      {visible ? <LoveQuestOnboarding onComplete={() => void complete()} /> : null}
-      {children}
+      {pendingResolve ? (
+        <OnboardingResolveShell />
+      ) : visible ? (
+        <LoveQuestOnboarding onComplete={() => void complete()} />
+      ) : (
+        children
+      )}
     </OnboardingContext.Provider>
+  );
+}
+
+/** 解析 onboarding 狀態時不掛載主 App，避免首頁閃現 */
+function OnboardingResolveShell() {
+  return (
+    <div
+      className="lq-onboarding-screen flex min-h-[100dvh] items-center justify-center"
+      aria-busy="true"
+      aria-label="載入中"
+    >
+      <div className="h-8 w-8 animate-pulse rounded-full bg-rose-200/80 ring-4 ring-rose-100/60" />
+    </div>
   );
 }
 
