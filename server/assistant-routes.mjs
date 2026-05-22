@@ -16,6 +16,13 @@ import {
   peekDailyUsed,
 } from './guard.mjs';
 import { appendUsageLog } from './usage-log.mjs';
+import {
+  incrementLoveQuestDailyUsed,
+  lovequestAssistantRateAndQuota,
+  lovequestDailyQuotaFields,
+  parseLoveQuestAiAuth,
+  resolveLoveQuestAiPlan,
+} from './lovequest-ai-quota.mjs';
 
 export const MAX_CONTEXT_CHARS = 48_000;
 export const MAX_QUESTION_CHARS = 8_000;
@@ -941,18 +948,111 @@ async function assistCouplePromptPOST(body, feature, catId, maxTokens) {
 }
 
 /**
+ * LoveQuest: OpenAI → increment Supabase usage on success only.
+ * @param {{
+ *   userId: string;
+ *   coupleId: string | null;
+ *   usageDate: string;
+ *   plan: 'free' | 'pro';
+ *   feature: string;
+ *   catId: string;
+ *   run: () => Promise<Record<string, unknown> & { usage: unknown }>;
+ * }} opts
+ */
+async function runLoveQuestAssistantOpenAiCounted(opts) {
+  const { userId, coupleId, usageDate, plan, feature, catId, run } = opts;
+  try {
+    const out = await run();
+    const usage = out.usage;
+    const { usage: _u, ...jsonPayload } = out;
+    await incrementLoveQuestDailyUsed(userId, usageDate);
+    const estUsd = estUsdFromUsage(usage);
+    logLine({
+      userId,
+      catId,
+      feature,
+      ok: true,
+      statusCode: 200,
+      promptTokens: usage?.prompt_tokens ?? null,
+      completionTokens: usage?.completion_tokens ?? null,
+      totalTokens: usage?.total_tokens ?? null,
+      estUsd,
+      coupleId: coupleId || undefined,
+    });
+    const quotaFields = await lovequestDailyQuotaFields(userId, usageDate, plan);
+    return {
+      status: 200,
+      json: { ...jsonPayload, ...quotaFields },
+    };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    logLine({
+      userId,
+      catId,
+      feature,
+      ok: false,
+      statusCode: 502,
+      error: msg.slice(0, 500),
+      promptTokens: null,
+      completionTokens: null,
+      totalTokens: null,
+      estUsd: null,
+      coupleId: coupleId || undefined,
+    });
+    return {
+      status: 502,
+      json: {
+        error: 'AI 服務暫時無法回應，請稍後再試',
+        code: 'OPENAI',
+        detail: msg.slice(0, 300),
+      },
+    };
+  }
+}
+
+/**
+ * GET LoveQuest AI quota for logged-in user (Supabase-backed).
+ * @param {URLSearchParams} searchParams
+ * @param {Record<string, string | string[] | undefined>} [headers]
+ */
+export async function assistLoveQuestQuotaGET(searchParams, headers = {}) {
+  const usageDate = (searchParams.get('usageDate') || '').trim();
+  const body = {
+    accessToken: (searchParams.get('accessToken') || '').trim(),
+    userId: (searchParams.get('userId') || '').trim(),
+    coupleId: (searchParams.get('coupleId') || '').trim(),
+  };
+  const auth = await parseLoveQuestAiAuth(body, headers);
+  if (!auth.ok) return { status: auth.status, json: auth.json };
+
+  if (!isYmd(usageDate)) {
+    return {
+      status: 400,
+      json: { error: 'Invalid or missing usageDate (YYYY-MM-DD)', code: 'BAD_REQUEST' },
+    };
+  }
+
+  const plan = await resolveLoveQuestAiPlan(auth.userId, auth.coupleId);
+  const fields = await lovequestDailyQuotaFields(auth.userId, usageDate, plan);
+  return {
+    status: 200,
+    json: { ok: true, openaiReady: Boolean(process.env.OPENAI_API_KEY?.trim()), ...fields },
+  };
+}
+
+/**
  * @param {unknown} body
+ * @param {Record<string, string | string[] | undefined>} [headers]
  * @returns {Promise<{ status: number, json: object }>}
  */
-export async function assistDateItineraryPOST(body) {
+export async function assistDateItineraryPOST(body, headers = {}) {
+  const auth = await parseLoveQuestAiAuth(body, headers);
+  if (!auth.ok) return { status: auth.status, json: auth.json };
+
   const b = body && typeof body === 'object' ? body : {};
-  const clientId = typeof b.clientId === 'string' ? b.clientId.trim() : '';
   const usageDate = typeof b.usageDate === 'string' ? b.usageDate.trim() : '';
   const prompt = typeof b.prompt === 'string' ? b.prompt.trim() : '';
 
-  if (!isClientId(clientId)) {
-    return { status: 400, json: { error: 'Invalid or missing clientId', code: 'BAD_REQUEST' } };
-  }
   if (!isYmd(usageDate)) {
     return {
       status: 400,
@@ -973,15 +1073,20 @@ export async function assistDateItineraryPOST(body) {
     };
   }
 
-  const planHint = planHintFromBody(b.plan);
-  const rq = assistantRateAndQuota(clientId, 'couple-date-itinerary', usageDate, 'date-itinerary', planHint);
+  const rq = await lovequestAssistantRateAndQuota({
+    userId: auth.userId,
+    usageDate,
+    coupleId: auth.coupleId,
+    feature: 'date-itinerary',
+  });
   if (!rq.ok) return { status: rq.status, json: rq.json };
 
-  return runAssistantOpenAiCounted({
-    clientId,
-    catId: 'couple-date-itinerary',
+  return runLoveQuestAssistantOpenAiCounted({
+    userId: auth.userId,
+    coupleId: auth.coupleId,
     usageDate,
-    planHint,
+    plan: rq.plan,
+    catId: 'couple-date-itinerary',
     feature: 'date-itinerary',
     run: async () => handleDateItinerary(prompt),
   });
@@ -989,17 +1094,17 @@ export async function assistDateItineraryPOST(body) {
 
 /**
  * @param {unknown} body
+ * @param {Record<string, string | string[] | undefined>} [headers]
  * @returns {Promise<{ status: number, json: object }>}
  */
-export async function assistImportantDatePOST(body) {
+export async function assistImportantDatePOST(body, headers = {}) {
+  const auth = await parseLoveQuestAiAuth(body, headers);
+  if (!auth.ok) return { status: auth.status, json: auth.json };
+
   const b = body && typeof body === 'object' ? body : {};
-  const clientId = typeof b.clientId === 'string' ? b.clientId.trim() : '';
   const usageDate = typeof b.usageDate === 'string' ? b.usageDate.trim() : '';
   const prompt = typeof b.prompt === 'string' ? b.prompt.trim() : '';
 
-  if (!isClientId(clientId)) {
-    return { status: 400, json: { error: 'Invalid or missing clientId', code: 'BAD_REQUEST' } };
-  }
   if (!isYmd(usageDate)) {
     return {
       status: 400,
@@ -1020,15 +1125,20 @@ export async function assistImportantDatePOST(body) {
     };
   }
 
-  const planHint = planHintFromBody(b.plan);
-  const rq = assistantRateAndQuota(clientId, 'couple-important-date', usageDate, 'important-date', planHint);
+  const rq = await lovequestAssistantRateAndQuota({
+    userId: auth.userId,
+    usageDate,
+    coupleId: auth.coupleId,
+    feature: 'important-date',
+  });
   if (!rq.ok) return { status: rq.status, json: rq.json };
 
-  return runAssistantOpenAiCounted({
-    clientId,
-    catId: 'couple-important-date',
+  return runLoveQuestAssistantOpenAiCounted({
+    userId: auth.userId,
+    coupleId: auth.coupleId,
     usageDate,
-    planHint,
+    plan: rq.plan,
+    catId: 'couple-important-date',
     feature: 'important-date',
     run: async () => handleImportantDate(prompt),
   });

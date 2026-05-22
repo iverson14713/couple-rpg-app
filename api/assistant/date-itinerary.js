@@ -25,7 +25,7 @@ export default async function handler(req, res) {
     return;
   }
   try {
-    const { status, json } = await assistDateItineraryPOST(body);
+    const { status, json } = await assistDateItineraryPOST(body, req.headers);
     sendJsonRes(res, status, json);
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);

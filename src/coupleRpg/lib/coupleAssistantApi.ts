@@ -1,6 +1,12 @@
-import { getOrCreateClientId } from '../../aiClient';
 import { parseDateItineraryPlan, type DateItineraryPlan } from './dateItineraryAiModel';
 import { parseImportantDatePlan, type ImportantDatePlan } from './importantDateAiModel';
+import { aiQuotaExhaustedMessage } from './aiUsageLimits';
+
+export type CoupleAssistantAuth = {
+  userId: string;
+  accessToken: string;
+  coupleId?: string | null;
+};
 
 /** Local assistant API (see `npm run dev:server`). */
 export const COUPLE_ASSISTANT_DEV_BASE = 'http://127.0.0.1:8788';
@@ -32,6 +38,23 @@ type CoupleAssistantErrorBody = {
  * Dev on localhost → direct 8788. Dev on LAN/custom host → Vite proxy `/api/...`.
  * Production → same-origin `/api/assistant/...`.
  */
+export function resolveLoveQuestQuotaUrl(): string {
+  if (import.meta.env.PROD) {
+    return '/api/assistant/lovequest-quota';
+  }
+  const override = import.meta.env.VITE_ASSISTANT_SERVER_URL?.trim().replace(/\/$/, '');
+  if (override) {
+    return `${override}/api/assistant/lovequest-quota`;
+  }
+  if (typeof window !== 'undefined') {
+    const host = window.location.hostname;
+    if (host !== 'localhost' && host !== '127.0.0.1') {
+      return '/api/assistant/lovequest-quota';
+    }
+  }
+  return `${COUPLE_ASSISTANT_DEV_BASE}/api/assistant/lovequest-quota`;
+}
+
 export function resolveCoupleAssistantUrl(endpoint: CoupleAssistantEndpoint): string {
   const path = `/api/assistant/${endpoint}`;
   if (import.meta.env.PROD) {
@@ -71,8 +94,14 @@ function errorMessageZh(
   if (code === 'NO_API_KEY') {
     return '助理服務尚未設定 API 金鑰，請確認專案根目錄 .env 的 OPENAI_API_KEY。';
   }
+  if (code === 'AUTH_REQUIRED' || code === 'AUTH_INVALID') {
+    return body.error?.trim() || '請先登入後再使用 AI';
+  }
+  if (code === 'SUPABASE_NOT_CONFIGURED') {
+    return body.error?.trim() || '雲端 AI 額度尚未設定';
+  }
   if (code === 'QUOTA') {
-    return '今日 AI 次數已用完，請明天再試或升級 Pro。';
+    return body.error?.trim() || aiQuotaExhaustedMessage(false);
   }
   if (code === 'RATE') {
     return '請求太頻繁，請稍候約一分鐘再試。';
@@ -96,24 +125,31 @@ function errorMessageZh(
   return `請求失敗（HTTP ${status}）`;
 }
 
+function assistantPostBody(prompt: string, auth: CoupleAssistantAuth) {
+  return {
+    prompt,
+    usageDate: todayUsageDateYmd(),
+    userId: auth.userId,
+    accessToken: auth.accessToken,
+    coupleId: auth.coupleId ?? undefined,
+  };
+}
+
 export async function postCoupleAssistant(
   endpoint: CoupleAssistantEndpoint,
   prompt: string,
-  plan: 'free' | 'pro'
-): Promise<{ ok: true; data: CoupleAssistantSuccess } | { ok: false; message: string }> {
+  auth: CoupleAssistantAuth
+): Promise<{ ok: true; data: CoupleAssistantSuccess } | { ok: false; message: string; code?: string }> {
   const url = resolveCoupleAssistantUrl(endpoint);
-  console.log('calling assistant api', url);
   let res: Response;
   try {
     res = await fetch(url, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        clientId: getOrCreateClientId(),
-        usageDate: todayUsageDateYmd(),
-        plan,
-        prompt,
-      }),
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${auth.accessToken}`,
+      },
+      body: JSON.stringify(assistantPostBody(prompt, auth)),
     });
   } catch (e) {
     const networkDetail = e instanceof Error ? e.message : String(e);
@@ -128,7 +164,7 @@ export async function postCoupleAssistant(
   }
 
   if (!res.ok) {
-    return { ok: false, message: errorMessageZh(body, res.status, url) };
+    return { ok: false, message: errorMessageZh(body, res.status, url), code: body.code };
   }
 
   const answer = typeof body.answer === 'string' ? body.answer.trim() : '';
@@ -155,21 +191,18 @@ type DateItineraryApiBody = CoupleAssistantSuccess &
 /** Date itinerary — returns structured plan for card UI. */
 export async function postDateItineraryAssistant(
   prompt: string,
-  plan: 'free' | 'pro'
-): Promise<{ ok: true; data: DateItineraryAssistantSuccess } | { ok: false; message: string }> {
+  auth: CoupleAssistantAuth
+): Promise<{ ok: true; data: DateItineraryAssistantSuccess } | { ok: false; message: string; code?: string }> {
   const url = resolveCoupleAssistantUrl('date-itinerary');
-  console.log('calling assistant api', url);
   let res: Response;
   try {
     res = await fetch(url, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        clientId: getOrCreateClientId(),
-        usageDate: todayUsageDateYmd(),
-        plan,
-        prompt,
-      }),
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${auth.accessToken}`,
+      },
+      body: JSON.stringify(assistantPostBody(prompt, auth)),
     });
   } catch (e) {
     const networkDetail = e instanceof Error ? e.message : String(e);
@@ -184,7 +217,7 @@ export async function postDateItineraryAssistant(
   }
 
   if (!res.ok) {
-    return { ok: false, message: errorMessageZh(body, res.status, url) };
+    return { ok: false, message: errorMessageZh(body, res.status, url), code: body.code };
   }
 
   const answer = typeof body.answer === 'string' ? body.answer.trim() : '';
@@ -215,21 +248,18 @@ type ImportantDateApiBody = CoupleAssistantSuccess &
 /** Important date reminders — structured plan for card UI. */
 export async function postImportantDateAssistant(
   prompt: string,
-  plan: 'free' | 'pro'
-): Promise<{ ok: true; data: ImportantDateAssistantSuccess } | { ok: false; message: string }> {
+  auth: CoupleAssistantAuth
+): Promise<{ ok: true; data: ImportantDateAssistantSuccess } | { ok: false; message: string; code?: string }> {
   const url = resolveCoupleAssistantUrl('important-date');
-  console.log('calling assistant api', url);
   let res: Response;
   try {
     res = await fetch(url, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        clientId: getOrCreateClientId(),
-        usageDate: todayUsageDateYmd(),
-        plan,
-        prompt,
-      }),
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${auth.accessToken}`,
+      },
+      body: JSON.stringify(assistantPostBody(prompt, auth)),
     });
   } catch (e) {
     const networkDetail = e instanceof Error ? e.message : String(e);
@@ -244,7 +274,7 @@ export async function postImportantDateAssistant(
   }
 
   if (!res.ok) {
-    return { ok: false, message: errorMessageZh(body, res.status, url) };
+    return { ok: false, message: errorMessageZh(body, res.status, url), code: body.code };
   }
 
   const answer = typeof body.answer === 'string' ? body.answer.trim() : '';

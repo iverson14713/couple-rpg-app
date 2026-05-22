@@ -7,6 +7,7 @@ import {
   assistCareBundlePOST,
   assistDateItineraryPOST,
   assistHealthGET,
+  assistLoveQuestQuotaGET,
   assistImportantDatePOST,
   assistQaPOST,
   assistVetReportPOST,
@@ -81,6 +82,13 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
+    if (req.method === 'GET' && pathname === '/api/assistant/lovequest-quota') {
+      logRequest('GET', pathname);
+      const { status, json } = await assistLoveQuestQuotaGET(url.searchParams, req.headers);
+      sendJson(res, status, json);
+      return;
+    }
+
     if (req.method !== 'POST') {
       logRequest(req.method || 'GET', pathname);
       sendJson(res, 404, { error: 'Not found' });
@@ -130,13 +138,13 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (pathname === '/api/assistant/date-itinerary') {
-      const { status, json } = await assistDateItineraryPOST(body);
+      const { status, json } = await assistDateItineraryPOST(body, req.headers);
       sendJson(res, status, json);
       return;
     }
 
     if (pathname === '/api/assistant/important-date') {
-      const { status, json } = await assistImportantDatePOST(body);
+      const { status, json } = await assistImportantDatePOST(body, req.headers);
       sendJson(res, status, json);
       return;
     }

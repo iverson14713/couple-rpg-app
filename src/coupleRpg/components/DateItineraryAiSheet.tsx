@@ -17,12 +17,12 @@ import {
   type DateAiStyleChoice,
   type DateAiTransportChoice,
 } from '../lib/dateItineraryAiPrompt';
-import { postDateItineraryAssistant } from '../lib/coupleAssistantApi';
+import { callDateItineraryAssistant } from '../lib/callCoupleAssistant';
 import type { DateItineraryPlan } from '../lib/dateItineraryAiModel';
 import { DateItineraryAiResult } from './DateItineraryAiResult';
 import type { DateSuggestion } from '../storage/dateTypes';
+import { useAiUsage } from '../hooks/useAiUsage';
 import { useProFeature } from '../hooks/useProFeature';
-import { useUserPlan } from '../context/UserPlanContext';
 import { ProBadgeIfNeeded } from './ProBadge';
 import { lq } from '../theme';
 
@@ -33,7 +33,7 @@ type Props = {
 
 export function DateItineraryAiSheet({ suggestion, onClose }: Props) {
   const aiPro = useProFeature('ai_in_app');
-  const { isPro } = useUserPlan();
+  const aiUsage = useAiUsage();
   const [departure, setDeparture] = useState('');
   const [budget, setBudget] = useState<DateAiBudgetChoice>(() => costToDefaultBudget(suggestion.cost));
   const [customBudget, setCustomBudget] = useState('');
@@ -61,9 +61,10 @@ export function DateItineraryAiSheet({ suggestion, onClose }: Props) {
         style,
         partnerPrefs,
       });
-      const result = await postDateItineraryAssistant(prompt, isPro ? 'pro' : 'free');
+      const result = await callDateItineraryAssistant(prompt, aiUsage);
       if (!result.ok) {
         setError(result.message);
+        if (result.code === 'QUOTA') aiUsage.onQuotaBlocked(result.message);
         return;
       }
       setPlan(result.data.plan);
@@ -72,7 +73,7 @@ export function DateItineraryAiSheet({ suggestion, onClose }: Props) {
     } finally {
       setLoading(false);
     }
-  }, [suggestion, departure, budget, customBudget, transport, style, partnerPrefs, isPro]);
+  }, [suggestion, departure, budget, customBudget, transport, style, partnerPrefs, aiUsage]);
 
   const sheet = (
     <div className="fixed inset-0 z-[100] flex flex-col justify-end" role="presentation">
@@ -96,6 +97,9 @@ export function DateItineraryAiSheet({ suggestion, onClose }: Props) {
             </p>
             <p className={`mt-0.5 truncate text-[17px] font-extrabold ${lq.text}`}>
               {suggestion.emoji} {suggestion.title}
+            </p>
+            <p className="mt-0.5 text-[11px] font-semibold text-stone-500">
+              今日 AI 使用：{aiUsage.usageLine}
             </p>
           </div>
           <button

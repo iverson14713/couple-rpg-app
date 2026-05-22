@@ -10,12 +10,12 @@ import {
   type AiPromptInput,
   type AiStyleChoice,
 } from '../lib/importantDateAiPrompt';
-import { postImportantDateAssistant } from '../lib/coupleAssistantApi';
+import { callImportantDateAssistant } from '../lib/callCoupleAssistant';
 import type { ImportantDatePlan } from '../lib/importantDateAiModel';
 import { ImportantDateAiResult } from './ImportantDateAiResult';
 import type { ImportantDateEvent } from '../lib/importantDateEvents';
+import { useAiUsage } from '../hooks/useAiUsage';
 import { useProFeature } from '../hooks/useProFeature';
-import { useUserPlan } from '../context/UserPlanContext';
 import { ProBadgeIfNeeded } from './ProBadge';
 import { lq } from '../theme';
 
@@ -28,7 +28,7 @@ type Props = {
 
 export function ImportantDateAiSheet({ event, initialPrefs, onClose, onSavePrefs }: Props) {
   const aiPro = useProFeature('ai_in_app');
-  const { isPro } = useUserPlan();
+  const aiUsage = useAiUsage();
   const [budget, setBudget] = useState<AiBudgetChoice>('mid');
   const [customBudget, setCustomBudget] = useState('');
   const [style, setStyle] = useState<AiStyleChoice>('romantic');
@@ -43,15 +43,15 @@ export function ImportantDateAiSheet({ event, initialPrefs, onClose, onSavePrefs
   }, [event, budget, customBudget, style, partnerPrefs]);
 
   const onGenerate = useCallback(async () => {
-    console.log('important date AI button clicked');
     onSavePrefs(partnerPrefs);
     setLoading(true);
     setError(null);
     setPlan(null);
     try {
-      const result = await postImportantDateAssistant(prompt, isPro ? 'pro' : 'free');
+      const result = await callImportantDateAssistant(prompt, aiUsage);
       if (!result.ok) {
         setError(result.message);
+        if (result.code === 'QUOTA') aiUsage.onQuotaBlocked(result.message);
         return;
       }
       setPlan(result.data.plan);
@@ -60,7 +60,7 @@ export function ImportantDateAiSheet({ event, initialPrefs, onClose, onSavePrefs
     } finally {
       setLoading(false);
     }
-  }, [prompt, partnerPrefs, onSavePrefs, isPro]);
+  }, [prompt, partnerPrefs, onSavePrefs, aiUsage]);
 
   const sheet = (
     <div className="fixed inset-0 z-[100] flex flex-col justify-end" role="presentation">
@@ -83,6 +83,9 @@ export function ImportantDateAiSheet({ event, initialPrefs, onClose, onSavePrefs
             </p>
             <p className={`truncate text-[15px] font-bold ${lq.text}`}>
               {event.icon} {event.displayTitle}
+            </p>
+            <p className="mt-0.5 text-[11px] font-semibold text-stone-500">
+              今日 AI 使用：{aiUsage.usageLine}
             </p>
           </div>
           <button
