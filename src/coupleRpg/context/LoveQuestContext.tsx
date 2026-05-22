@@ -471,6 +471,17 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
     [coupleExtended, coupleId, currentUserId, isPro]
   );
 
+  const actorDisplayName = useCallback(
+    (userId: string | null) =>
+      displayNameForUserId(
+        userId,
+        currentUserId,
+        coupleExtended.myNickname,
+        coupleExtended.partnerNickname
+      ),
+    [currentUserId, coupleExtended.myNickname, coupleExtended.partnerNickname]
+  );
+
   const choreSchedulerRef = useRef<ChoreSyncScheduler | null>(null);
   const dinnerSchedulerRef = useRef<DinnerSyncScheduler | null>(null);
   const activityLogSchedulerRef = useRef<ActivityLogSyncScheduler | null>(null);
@@ -1816,17 +1827,6 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
       return next;
     });
   }, []);
-
-  const actorDisplayName = useCallback(
-    (userId: string | null) =>
-      displayNameForUserId(
-        userId,
-        currentUserId,
-        coupleExtended.myNickname,
-        coupleExtended.partnerNickname
-      ),
-    [currentUserId, coupleExtended.myNickname, coupleExtended.partnerNickname]
-  );
 
   const pushCouponBackground = useCallback(
     (coupon: NonNullable<ReturnType<typeof redeemCoupon>['coupon']>) => {
