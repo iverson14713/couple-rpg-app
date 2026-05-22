@@ -5,6 +5,7 @@ import { CoupleBindSection } from '../components/CoupleBindSection';
 import { CoupleDetailsSection } from '../components/CoupleDetailsSection';
 import { ImportantDateRemindersSection } from '../components/ImportantDateRemindersSection';
 import { UpgradeCard } from '../components/UpgradeCard';
+import { OnboardingSettingsSection } from '../components/OnboardingSettingsSection';
 import { PlanSettingsSection } from '../components/PlanSettingsSection';
 import { SettingsSectionErrorBoundary } from '../components/SettingsSectionErrorBoundary';
 import { lq } from '../theme';
@@ -29,6 +30,10 @@ export function SettingsPage({ embedded }: { embedded?: boolean } = {}) {
           <p className={`mt-1 text-sm ${lq.textSecondary}`}>帳號、綁定另一半、雲端與 App</p>
         </section>
       ) : null}
+
+      <SettingsSectionErrorBoundary sectionName="新手導覽">
+        <OnboardingSettingsSection />
+      </SettingsSectionErrorBoundary>
 
       <SettingsSectionErrorBoundary sectionName="帳號登入">
         <AuthSettingsSection />
