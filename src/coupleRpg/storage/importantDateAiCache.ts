@@ -1,5 +1,8 @@
 import { formatDateShort, todayKey } from '../lib/dates';
+import { importantDateRecordId } from '../lib/aiRecordIds';
 import { AI_RECORD_HISTORY_CAP_PRO, dispatchAiRecordsChanged } from '../lib/aiRecordsConfig';
+import { removeAiFavoriteById } from './aiFavoritesStore';
+import { maintainImportantDateAiStorage } from './aiRecordMaintenance';
 import type { ImportantDatePlan } from '../lib/importantDateAiModel';
 import type { AiBudgetChoice, AiStyleChoice } from '../lib/importantDateAiPrompt';
 import type { ImportantDateEvent } from '../lib/importantDateEvents';
@@ -68,7 +71,24 @@ function loadImportantDateAiHistory(): SavedImportantDateAi[] {
   return raw.filter(isValidImportantDateRecord);
 }
 
+export function deleteImportantDateAiRecord(record: SavedImportantDateAi, isPro: boolean): void {
+  removeAiFavoriteById(importantDateRecordId(record));
+
+  const last = loadLastImportantDateAi();
+  if (isPro) {
+    const hist = loadImportantDateAiHistory().filter((r) => r.savedAt !== record.savedAt);
+    saveJson(LQ_KEYS.importantDateAiHistory, hist);
+    if (last?.savedAt === record.savedAt) {
+      saveJson(LQ_KEYS.lastImportantDateAi, hist[0] ?? null);
+    }
+  } else if (last?.savedAt === record.savedAt) {
+    saveJson(LQ_KEYS.lastImportantDateAi, null);
+  }
+  dispatchAiRecordsChanged();
+}
+
 export function listImportantDateAiRecords(isPro: boolean): SavedImportantDateAi[] {
+  maintainImportantDateAiStorage(isPro);
   if (isPro) {
     const hist = loadImportantDateAiHistory();
     if (hist.length > 0) return hist.slice(0, AI_RECORD_HISTORY_CAP_PRO);

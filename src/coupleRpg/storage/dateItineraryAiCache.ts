@@ -6,7 +6,10 @@ import type {
   DateAiTransportChoice,
 } from '../lib/dateItineraryAiPrompt';
 import type { DateCost, DateDuration, DateFilterKey, DateSuggestion } from './dateTypes';
+import { dateItineraryRecordId } from '../lib/aiRecordIds';
 import { AI_RECORD_HISTORY_CAP_PRO, dispatchAiRecordsChanged } from '../lib/aiRecordsConfig';
+import { removeAiFavoriteById } from './aiFavoritesStore';
+import { maintainDateItineraryAiStorage } from './aiRecordMaintenance';
 import { LQ_KEYS } from './keys';
 import { loadJson, saveJson } from './persist';
 
@@ -81,7 +84,24 @@ function loadDateItineraryAiHistory(): SavedDateItineraryAi[] {
   return raw.filter(isValidDateItineraryRecord);
 }
 
+export function deleteDateItineraryAiRecord(record: SavedDateItineraryAi, isPro: boolean): void {
+  removeAiFavoriteById(dateItineraryRecordId(record));
+
+  const last = loadLastDateItineraryAi();
+  if (isPro) {
+    const hist = loadDateItineraryAiHistory().filter((r) => r.savedAt !== record.savedAt);
+    saveJson(LQ_KEYS.dateItineraryAiHistory, hist);
+    if (last?.savedAt === record.savedAt) {
+      saveJson(LQ_KEYS.lastDateItineraryAi, hist[0] ?? null);
+    }
+  } else if (last?.savedAt === record.savedAt) {
+    saveJson(LQ_KEYS.lastDateItineraryAi, null);
+  }
+  dispatchAiRecordsChanged();
+}
+
 export function listDateItineraryAiRecords(isPro: boolean): SavedDateItineraryAi[] {
+  maintainDateItineraryAiStorage(isPro);
   if (isPro) {
     const hist = loadDateItineraryAiHistory();
     if (hist.length > 0) return hist.slice(0, AI_RECORD_HISTORY_CAP_PRO);

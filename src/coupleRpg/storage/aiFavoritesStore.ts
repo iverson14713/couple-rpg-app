@@ -52,3 +52,12 @@ export function toggleAiFavorite(recordId: string): boolean {
 export function countAiFavorites(): number {
   return loadAiFavoriteIds().size;
 }
+
+/** 刪除紀錄時一併移除收藏 */
+export function removeAiFavoriteById(recordId: string): void {
+  const set = loadAiFavoriteIds();
+  if (!set.has(recordId)) return;
+  set.delete(recordId);
+  saveJson(LQ_KEYS.aiFavorites, { version: 1, ids: [...set] });
+  dispatchFavoritesChanged();
+}
