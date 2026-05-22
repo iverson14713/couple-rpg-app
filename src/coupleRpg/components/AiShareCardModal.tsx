@@ -95,14 +95,9 @@ export function AiShareCardModal({ payload, onClose }: Props) {
     setStep('compose');
   };
 
-  const saveHint =
-    step === 'image'
-      ? '長按圖片可儲存到手機相簿'
-      : null;
-
-  const fallbackHint = !fileShareAvailable
-    ? '請長按圖片儲存，或使用系統分享'
-    : '可分享到 LINE、IG、Messenger、AirDrop 等';
+  const shareChannelsHint = fileShareAvailable
+    ? '可分享到 LINE、IG、Messenger、AirDrop 等'
+    : '此裝置可能無法附圖分享，請優先長按圖片儲存';
 
   const modal = (
     <div
@@ -153,14 +148,6 @@ export function AiShareCardModal({ payload, onClose }: Props) {
                   draggable={false}
                 />
               </div>
-              {saveHint ? (
-                <p className={`mt-3 text-center text-[13px] font-bold text-rose-600 ${lq.text}`}>
-                  {saveHint}
-                </p>
-              ) : null}
-              <p className={`mt-1.5 text-center text-[12px] font-semibold ${lq.textMuted}`}>
-                長按圖片儲存
-              </p>
             </div>
           ) : null}
         </div>
@@ -186,6 +173,10 @@ export function AiShareCardModal({ payload, onClose }: Props) {
             </button>
           ) : (
             <>
+              <SaveToPhotosHintCard
+                emphasize={!fileShareAvailable}
+                subline={!fileShareAvailable ? '或使用下方「分享」傳給另一半' : undefined}
+              />
               <button
                 type="button"
                 disabled={sharing || !imageBlob}
@@ -206,12 +197,17 @@ export function AiShareCardModal({ payload, onClose }: Props) {
               >
                 重新調整分享卡
               </button>
+              <p className="text-center text-[11px] leading-relaxed text-slate-500">
+                {shareChannelsHint}
+              </p>
             </>
           )}
 
-          <p className={`text-center text-[11px] leading-relaxed ${lq.textMuted}`}>
-            {step === 'image' ? fallbackHint : '先產生分享圖，再長按儲存或一鍵分享'}
-          </p>
+          {step === 'compose' ? (
+            <p className="text-center text-[11px] leading-relaxed text-slate-500">
+              先產生分享圖，再長按儲存或一鍵分享
+            </p>
+          ) : null}
         </div>
       </div>
     </div>
@@ -219,4 +215,39 @@ export function AiShareCardModal({ payload, onClose }: Props) {
 
   if (typeof document === 'undefined') return modal;
   return createPortal(modal, document.body);
+}
+
+/** 次操作：iOS / PWA 長按存相簿說明（高對比、獨立提示卡） */
+function SaveToPhotosHintCard({
+  subline,
+  emphasize = false,
+}: {
+  subline?: string;
+  emphasize?: boolean;
+}) {
+  return (
+    <div
+      className={`flex items-start gap-3 rounded-xl border px-3.5 py-3.5 shadow-sm ${
+        emphasize
+          ? 'border-slate-300/90 bg-white ring-1 ring-slate-200/80'
+          : 'border-slate-200/90 bg-white/95 ring-1 ring-black/[0.04]'
+      }`}
+      role="note"
+    >
+      <span
+        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-lg"
+        aria-hidden
+      >
+        📱
+      </span>
+      <div className="min-w-0 flex-1 pt-0.5">
+        <p className="text-[14px] font-semibold leading-snug text-slate-700">
+          長按圖片可儲存到手機相簿
+        </p>
+        {subline ? (
+          <p className="mt-1.5 text-[12px] font-medium leading-snug text-slate-600">{subline}</p>
+        ) : null}
+      </div>
+    </div>
+  );
 }

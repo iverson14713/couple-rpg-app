@@ -106,57 +106,21 @@ export function AiRecordsPage() {
       <p className={`mb-2 text-[10px] leading-snug ${lq.textMuted}`}>{AI_RECORD_RETENTION_HINT}</p>
 
       {!empty ? (
-        <div className="mb-2 space-y-1.5">
-          <div className={`flex gap-1 rounded-xl p-0.5 ${lq.cardSoft}`}>
-            <FilterTab active={listFilter === 'all'} onClick={() => setListFilter('all')} label="全部" />
-            <FilterTab
-              active={listFilter === 'favorites'}
-              onClick={() => setListFilter('favorites')}
-              label={`收藏${favCount > 0 ? ` ${favCount}` : ''}`}
-            />
-            <FilterTab
-              active={sortMode === 'newest'}
-              onClick={() => setSortMode('newest')}
-              label="最新"
-            />
-            <FilterTab
-              active={sortMode === 'favorites_first'}
-              onClick={() => setSortMode('favorites_first')}
-              label="收藏優先"
-            />
-          </div>
-          <ProToolsBar
-            favCount={favCount}
-            favoritesActive={listFilter === 'favorites'}
-            onFavorites={() => setListFilter((f) => (f === 'favorites' ? 'all' : 'favorites'))}
-            onShare={() => {
-              if (!isPro) {
-                openUpgradeModal('產生 IG 分享卡為 Pro 功能');
-                return;
-              }
-              const first = sortedDate[0] ?? null;
-              const imp = sortedImportant[0] ?? null;
-              if (first) openShare(buildDateItinerarySharePayload(first));
-              else if (imp) openShare(buildImportantDateSharePayload(imp));
-              else openUpgradeModal('請先產生一筆 AI 紀錄');
-            }}
+        <div className={`mb-2 flex gap-1 rounded-xl p-0.5 ${lq.cardSoft}`}>
+          <FilterTab active={listFilter === 'all'} onClick={() => setListFilter('all')} label="全部" />
+          <FilterTab
+            active={listFilter === 'favorites'}
+            onClick={() => setListFilter('favorites')}
+            label={`收藏${favCount > 0 ? ` ${favCount}` : ''}`}
+          />
+          <FilterTab active={sortMode === 'newest'} onClick={() => setSortMode('newest')} label="最新" />
+          <FilterTab
+            active={sortMode === 'favorites_first'}
+            onClick={() => setSortMode('favorites_first')}
+            label="收藏優先"
           />
         </div>
-      ) : (
-        <ProToolsBar
-          favCount={favCount}
-          favoritesActive={listFilter === 'favorites'}
-          onFavorites={() => setListFilter((f) => (f === 'favorites' ? 'all' : 'favorites'))}
-          onShare={() => {
-            if (!isPro) {
-              openUpgradeModal('產生 IG 分享卡為 Pro 功能');
-              return;
-            }
-            openUpgradeModal('請先產生一筆 AI 紀錄');
-          }}
-          className="mb-2"
-        />
-      )}
+      ) : null}
 
       {empty ? (
         <section className={`p-6 text-center ${lq.card}`}>
@@ -333,50 +297,6 @@ export function AiRecordsPage() {
         onConfirm={confirmDelete}
       />
     </>
-  );
-}
-
-function ProToolsBar({
-  favCount,
-  favoritesActive,
-  onFavorites,
-  onShare,
-  className = '',
-}: {
-  favCount: number;
-  favoritesActive: boolean;
-  onFavorites: () => void;
-  onShare: () => void;
-  className?: string;
-}) {
-  const toolBtn = (active: boolean) =>
-    `flex flex-1 items-center justify-center gap-1 rounded-lg px-2 py-1.5 text-[12px] font-bold transition active:scale-[0.97] ${
-      active
-        ? 'bg-white/90 text-rose-700 shadow-sm ring-1 ring-rose-200/60'
-        : 'text-[#7a6a74] hover:bg-white/50'
-    }`;
-
-  return (
-    <div
-      className={`flex items-center gap-2 rounded-xl border border-rose-100/45 bg-white/55 px-2 py-1 ${className}`}
-    >
-      <span className="shrink-0 text-[10px] font-bold uppercase tracking-wide text-rose-500/85">
-        Pro 工具
-      </span>
-      <div className="flex min-w-0 flex-1 gap-1">
-        <button type="button" onClick={onFavorites} className={toolBtn(favoritesActive)}>
-          <span aria-hidden>❤️</span>
-          收藏
-          {favCount > 0 ? (
-            <span className="text-[10px] font-semibold text-rose-500/90">{favCount}</span>
-          ) : null}
-        </button>
-        <button type="button" onClick={onShare} className={toolBtn(false)}>
-          <span aria-hidden>🖼</span>
-          分享卡
-        </button>
-      </div>
-    </div>
   );
 }
 
