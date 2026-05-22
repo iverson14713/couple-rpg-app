@@ -16,7 +16,9 @@ import {
   updateEventSettings,
 } from '../storage/importantDateRemindersStore';
 import { REMINDER_OFFSET_OPTIONS, type ReminderOffsetDays } from '../storage/importantDateReminderTypes';
+import { useAiUsage } from '../hooks/useAiUsage';
 import { useProFeature } from '../hooks/useProFeature';
+import { AiUsageQuotaLabel } from './AiUsageQuotaLabel';
 import { ProBadgeIfNeeded } from './ProBadge';
 import { lq } from '../theme';
 
@@ -82,6 +84,9 @@ export function ImportantDateRemindersSection({ showBack, compactHero }: Props) 
             <ProBadgeIfNeeded show={datesPro.showProBadge} feature="important_dates_unlimited" />
           </h1>
           <p className={`mt-0.5 text-[13px] ${lq.textSecondary}`}>記住生日與紀念日，提前準備驚喜。</p>
+          <div className="mt-2">
+            <AiUsageQuotaLabel variant="badge" />
+          </div>
         </header>
       ) : (
         <div className={`mb-3 flex items-center gap-2 px-0.5`}>
@@ -171,9 +176,10 @@ export function ImportantDateRemindersSection({ showBack, compactHero }: Props) 
                   <button
                     type="button"
                     onClick={() => setAiEvent(ev)}
-                    className={`flex min-h-[44px] flex-1 items-center justify-center gap-1 rounded-xl px-3 py-2 text-[12px] font-bold text-white active:scale-[0.98] ${lq.btnPrimary}`}
+                    disabled={!aiUsage.canUseAi}
+                    className={`flex min-h-[44px] flex-1 items-center justify-center gap-1 rounded-xl px-3 py-2 text-[12px] font-bold text-white active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50 ${lq.btnPrimary}`}
                   >
-                    ✨ AI 安排
+                    ✨ {!aiUsage.canUseAi ? 'AI 次數已用完' : 'AI 安排'}
                     <ProBadgeIfNeeded show={aiPro.showProBadge} feature="ai_in_app" size="sm" />
                   </button>
                 </div>

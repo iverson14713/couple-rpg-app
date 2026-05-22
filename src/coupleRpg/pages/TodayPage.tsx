@@ -4,7 +4,6 @@ import { useCoupleRpgNav } from '../context/CoupleRpgNavContext';
 import { useLoveQuest } from '../context/LoveQuestContext';
 import { useCoupleSpace } from '../context/CoupleSpaceContext';
 import { HomeCoupleOverviewCard } from '../components/HomeCoupleOverviewCard';
-import { HomeAiUsageBanner } from '../components/HomeAiUsageBanner';
 import { HomeImportantDateHeroCard } from '../components/HomeImportantDateHeroCard';
 import { NicknameSetupBanner } from '../components/NicknameSetupBanner';
 import { lq } from '../theme';
@@ -37,8 +36,6 @@ export function TodayPage() {
   return (
     <>
       <HomeImportantDateHeroCard />
-
-      <HomeAiUsageBanner />
 
       <HomeCoupleOverviewCard />
 

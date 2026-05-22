@@ -21,8 +21,11 @@ import { callDateItineraryAssistant } from '../lib/callCoupleAssistant';
 import type { DateItineraryPlan } from '../lib/dateItineraryAiModel';
 import { DateItineraryAiResult } from './DateItineraryAiResult';
 import type { DateSuggestion } from '../storage/dateTypes';
+import { useAiToast } from '../context/AiToastContext';
+import { useAiResultReveal } from '../hooks/useAiResultReveal';
 import { useAiUsage } from '../hooks/useAiUsage';
 import { useProFeature } from '../hooks/useProFeature';
+import { AiUsageQuotaLabel } from './AiUsageQuotaLabel';
 import { ProBadgeIfNeeded } from './ProBadge';
 import { lq } from '../theme';
 
@@ -34,6 +37,8 @@ type Props = {
 export function DateItineraryAiSheet({ suggestion, onClose }: Props) {
   const aiPro = useProFeature('ai_in_app');
   const aiUsage = useAiUsage();
+  const { showAiGenerated, showError } = useAiToast();
+  const { scrollRef, resultRef, highlight, revealResult } = useAiResultReveal();
   const [departure, setDeparture] = useState('');
   const [budget, setBudget] = useState<DateAiBudgetChoice>(() => costToDefaultBudget(suggestion.cost));
   const [customBudget, setCustomBudget] = useState('');
@@ -47,7 +52,17 @@ export function DateItineraryAiSheet({ suggestion, onClose }: Props) {
   const tagLabels = useMemo(() => tagLabelsForSuggestion(suggestion.tags), [suggestion.tags]);
   const preview = useMemo(() => getDateItineraryPreview(suggestion), [suggestion]);
 
+  const generateDisabled = loading || !aiUsage.canUseAi;
+
   const handleGenerate = useCallback(async () => {
+    const gate = aiUsage.ensureCanCallAi();
+    if (!gate.ok) {
+      setError(gate.message);
+      showError(gate.message);
+      if (gate.code === 'QUOTA') aiUsage.onQuotaBlocked(gate.message);
+      return;
+    }
+
     setLoading(true);
     setError(null);
     setPlan(null);
@@ -64,16 +79,33 @@ export function DateItineraryAiSheet({ suggestion, onClose }: Props) {
       const result = await callDateItineraryAssistant(prompt, aiUsage);
       if (!result.ok) {
         setError(result.message);
+        showError(result.message);
         if (result.code === 'QUOTA') aiUsage.onQuotaBlocked(result.message);
         return;
       }
       setPlan(result.data.plan);
+      showAiGenerated();
+      revealResult();
     } catch (e) {
-      setError(e instanceof Error ? e.message : '產生行程時發生錯誤，請再試一次。');
+      const msg = e instanceof Error ? e.message : '產生行程時發生錯誤，請再試一次。';
+      setError(msg);
+      showError(msg);
     } finally {
       setLoading(false);
     }
-  }, [suggestion, departure, budget, customBudget, transport, style, partnerPrefs, aiUsage]);
+  }, [
+    suggestion,
+    departure,
+    budget,
+    customBudget,
+    transport,
+    style,
+    partnerPrefs,
+    aiUsage,
+    showAiGenerated,
+    showError,
+    revealResult,
+  ]);
 
   const sheet = (
     <div className="fixed inset-0 z-[100] flex flex-col justify-end" role="presentation">
@@ -98,9 +130,6 @@ export function DateItineraryAiSheet({ suggestion, onClose }: Props) {
             <p className={`mt-0.5 truncate text-[17px] font-extrabold ${lq.text}`}>
               {suggestion.emoji} {suggestion.title}
             </p>
-            <p className="mt-0.5 text-[11px] font-semibold text-stone-500">
-              今日 AI 使用：{aiUsage.usageLine}
-            </p>
           </div>
           <button
             type="button"
@@ -112,9 +141,9 @@ export function DateItineraryAiSheet({ suggestion, onClose }: Props) {
           </button>
         </div>
 
-        <div className="min-h-0 flex-1 overflow-y-auto px-4 pt-3">
+        <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto px-4 pt-3">
           <p className={`mb-3 text-[13px] leading-relaxed ${lq.textSecondary}`}>
-            依目前抽到的約會點子，由 AI 直接產生完整行程建議（需本機助理服務運行中）。
+            依目前抽到的約會點子，由 AI 直接產生完整行程建議。
           </p>
 
           <section className={`mb-4 rounded-2xl border border-rose-100 bg-gradient-to-br from-rose-50/80 to-white p-3.5`}>
@@ -211,22 +240,43 @@ export function DateItineraryAiSheet({ suggestion, onClose }: Props) {
             </div>
           ) : null}
 
-          {plan ? <DateItineraryAiResult plan={plan} /> : null}
+          <div
+            ref={resultRef}
+            className={`ai-result-reveal ${highlight ? 'ai-result-reveal--highlight' : ''}`}
+          >
+            {plan ? <DateItineraryAiResult plan={plan} /> : null}
+          </div>
         </div>
 
         <div className="shrink-0 border-t border-stone-100 bg-white px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3">
+          <div className="mb-2 flex items-center justify-between gap-2">
+            <AiUsageQuotaLabel />
+            {!aiUsage.canUseAi && aiUsage.isLoggedIn && !aiUsage.isPro ? (
+              <button
+                type="button"
+                onClick={() => aiUsage.onQuotaBlocked()}
+                className="text-[11px] font-bold text-violet-600 underline-offset-2"
+              >
+                升級 Pro
+              </button>
+            ) : null}
+          </div>
           <button
             type="button"
             onClick={handleGenerate}
-            disabled={loading}
+            disabled={generateDisabled}
             aria-busy={loading}
-            className={`flex min-h-[48px] w-full items-center justify-center gap-2 ${lq.btnPrimary} disabled:pointer-events-none disabled:opacity-60`}
+            className={`flex min-h-[48px] w-full items-center justify-center gap-2 ${lq.btnPrimary} disabled:pointer-events-none disabled:opacity-50`}
           >
             {loading ? (
               <>
                 <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
                 正在產生行程…
               </>
+            ) : !aiUsage.isLoggedIn ? (
+              '請先登入使用 AI'
+            ) : !aiUsage.canUseAi ? (
+              '今日 AI 次數已用完'
             ) : (
               '✨ 產生約會行程'
             )}

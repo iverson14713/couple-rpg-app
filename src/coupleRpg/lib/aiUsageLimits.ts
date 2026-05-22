@@ -18,6 +18,13 @@ export function formatAiUsageLine(used: number, limit: number): string {
   return `${displayUsed} / ${displayLimit}`;
 }
 
+/** 功能頁顯示：今日剩餘 AI：2 / 3 */
+export function formatAiRemainingLine(remaining: number, limit: number): string {
+  const displayLimit = Math.max(0, Math.floor(limit));
+  const displayRemaining = Math.max(0, Math.min(Math.floor(remaining), displayLimit));
+  return `今日剩餘 AI：${displayRemaining} / ${displayLimit}`;
+}
+
 export function formatAiQuotaDisplay(
   used: number,
   limit: number

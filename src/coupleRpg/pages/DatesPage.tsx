@@ -6,7 +6,9 @@ import {
 } from '../data/dateIdeasPool';
 import { DateItineraryAiSheet } from '../components/DateItineraryAiSheet';
 import { ProBadgeIfNeeded } from '../components/ProBadge';
+import { useAiUsage } from '../hooks/useAiUsage';
 import { useProFeature } from '../hooks/useProFeature';
+import { AiUsageQuotaLabel } from '../components/AiUsageQuotaLabel';
 import { RpgMiniStats } from '../components/RpgMiniStats';
 import { PageHero, PrimaryButton } from '../components/ui';
 import { useLoveQuest } from '../context/LoveQuestContext';
@@ -207,6 +209,7 @@ function SuggestionCard({
   onOpenAiPlan: () => void;
 }) {
   const aiPro = useProFeature('ai_in_app');
+  const aiUsage = useAiUsage();
   const tagLabels = suggestion.tags
     .map((k) => DATE_FILTER_OPTIONS.find((o) => o.key === k)?.label)
     .filter(Boolean) as string[];
@@ -289,15 +292,25 @@ function SuggestionCard({
         </button>
       </div>
 
-      <button
-        type="button"
-        onClick={onOpenAiPlan}
-        className={`mt-2.5 flex min-h-[48px] w-full items-center justify-center gap-1.5 rounded-xl border-2 border-violet-100 bg-gradient-to-r from-violet-50/90 to-rose-50/80 text-[14px] font-bold text-violet-900 shadow-sm active:scale-[0.98]`}
-      >
-        <span aria-hidden>✨</span>
-        AI 規劃整天行程
-        <ProBadgeIfNeeded show={aiPro.showProBadge} feature="ai_in_app" size="sm" />
-      </button>
+      <div className="mt-2.5">
+        <div className="mb-1.5 flex justify-end px-0.5">
+          <AiUsageQuotaLabel />
+        </div>
+        <button
+          type="button"
+          onClick={onOpenAiPlan}
+          disabled={!aiUsage.canUseAi}
+          className={`flex min-h-[48px] w-full items-center justify-center gap-1.5 rounded-xl border-2 border-violet-100 bg-gradient-to-r from-violet-50/90 to-rose-50/80 text-[14px] font-bold text-violet-900 shadow-sm active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50`}
+        >
+          <span aria-hidden>✨</span>
+          {!aiUsage.isLoggedIn
+            ? '登入後使用 AI 規劃'
+            : !aiUsage.canUseAi
+              ? '今日 AI 次數已用完'
+              : 'AI 規劃整天行程'}
+          <ProBadgeIfNeeded show={aiPro.showProBadge} feature="ai_in_app" size="sm" />
+        </button>
+      </div>
     </article>
   );
 }

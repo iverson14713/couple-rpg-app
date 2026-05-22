@@ -7,6 +7,7 @@ import { TabPageHeader } from './components/TabPageHeader';
 import { CoupleRpgNavProvider, useCoupleRpgNav, type CoupleNavTabId } from './context/CoupleRpgNavContext';
 import { CoupleSpaceProvider } from './context/CoupleSpaceContext';
 import { LoveQuestProvider } from './context/LoveQuestContext';
+import { AiToastProvider } from './context/AiToastContext';
 import { UserPlanProvider } from './context/UserPlanContext';
 import { DinnerPage } from './pages/DinnerPage';
 import { HouseworkPage } from './pages/HouseworkPage';
@@ -26,11 +27,13 @@ export default function CoupleRpgApp() {
   return (
     <CoupleSpaceProvider>
       <UserPlanProvider>
-        <LoveQuestProvider>
-          <CoupleRpgNavProvider>
-            <CoupleRpgShell />
-          </CoupleRpgNavProvider>
-        </LoveQuestProvider>
+        <AiToastProvider>
+          <LoveQuestProvider>
+            <CoupleRpgNavProvider>
+              <CoupleRpgShell />
+            </CoupleRpgNavProvider>
+          </LoveQuestProvider>
+        </AiToastProvider>
       </UserPlanProvider>
     </CoupleSpaceProvider>
   );

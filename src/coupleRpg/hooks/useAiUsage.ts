@@ -4,6 +4,7 @@ import { useCoupleSpace } from '../context/CoupleSpaceContext';
 import { useUserPlan } from '../context/UserPlanContext';
 import {
   aiQuotaExhaustedMessage,
+  formatAiRemainingLine,
   formatAiUsageLine,
   getDailyAiLimit,
   type AiPlanTier,
@@ -80,6 +81,11 @@ export function useAiUsage() {
     [quota.used, quota.limit]
   );
 
+  const remainingLine = useMemo(
+    () => formatAiRemainingLine(quota.remaining, quota.limit),
+    [quota.remaining, quota.limit]
+  );
+
   const getCoupleAssistantAuth = useCallback((): CoupleAssistantAuth | null => {
     const token = auth.session?.access_token;
     if (!userId || !token) return null;
@@ -151,6 +157,7 @@ export function useAiUsage() {
   return {
     quota,
     usageLine,
+    remainingLine,
     usageDate,
     plan,
     isPro,
