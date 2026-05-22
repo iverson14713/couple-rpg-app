@@ -33,6 +33,7 @@ import { useAiToast } from '../context/AiToastContext';
 import { useAiResultReveal } from '../hooks/useAiResultReveal';
 import { useAiUsage } from '../hooks/useAiUsage';
 import { useProFeature } from '../hooks/useProFeature';
+import { useUserPlan } from '../context/UserPlanContext';
 import { AiUsageQuotaLabel } from './AiUsageQuotaLabel';
 import { ProBadgeIfNeeded } from './ProBadge';
 import { lq } from '../theme';
@@ -86,6 +87,7 @@ export function DateItineraryAiSheet({ suggestion: suggestionProp, onClose, save
   const suggestion = initial.suggestion;
 
   const aiPro = useProFeature('ai_in_app');
+  const { isPro } = useUserPlan();
   const aiUsage = useAiUsage();
   const { showAiGenerated, showError } = useAiToast();
   const { scrollRef, resultRef, highlight, revealResult } = useAiResultReveal();
@@ -152,11 +154,14 @@ export function DateItineraryAiSheet({ suggestion: suggestionProp, onClose, save
       }
       const nextPlan = result.data.plan;
       setPlan(nextPlan);
-      saveLastDateItineraryAi({
-        suggestion: snapshotDateSuggestion(suggestion),
-        plan: nextPlan,
-        settings: { departure, budget, customBudget, transport, style, partnerPrefs },
-      });
+      saveLastDateItineraryAi(
+        {
+          suggestion: snapshotDateSuggestion(suggestion),
+          plan: nextPlan,
+          settings: { departure, budget, customBudget, transport, style, partnerPrefs },
+        },
+        { isPro }
+      );
       showAiGenerated();
     } catch (e) {
       const msg = e instanceof Error ? e.message : '產生行程時發生錯誤，請再試一次。';
@@ -176,6 +181,7 @@ export function DateItineraryAiSheet({ suggestion: suggestionProp, onClose, save
     aiUsage,
     showAiGenerated,
     showError,
+    isPro,
   ]);
 
   const sheet = (

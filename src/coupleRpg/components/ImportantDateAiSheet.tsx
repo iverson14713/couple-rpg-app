@@ -1,6 +1,6 @@
-import { useCallback, useMemo, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
-import { Loader2, X } from 'lucide-react';
+import { ChevronUp, Loader2, X } from 'lucide-react';
 import {
   AI_BUDGET_OPTIONS,
   AI_STYLE_OPTIONS,
@@ -14,10 +14,17 @@ import { callImportantDateAssistant } from '../lib/callCoupleAssistant';
 import type { ImportantDatePlan } from '../lib/importantDateAiModel';
 import { ImportantDateAiResult } from './ImportantDateAiResult';
 import type { ImportantDateEvent } from '../lib/importantDateEvents';
+import {
+  loadLastImportantDateAi,
+  saveImportantDateAi,
+  snapshotImportantDateEvent,
+  type SavedImportantDateAi,
+} from '../storage/importantDateAiCache';
 import { useAiToast } from '../context/AiToastContext';
 import { useAiResultReveal } from '../hooks/useAiResultReveal';
 import { useAiUsage } from '../hooks/useAiUsage';
 import { useProFeature } from '../hooks/useProFeature';
+import { useUserPlan } from '../context/UserPlanContext';
 import { AiUsageQuotaLabel } from './AiUsageQuotaLabel';
 import { ProBadgeIfNeeded } from './ProBadge';
 import { lq } from '../theme';
@@ -27,20 +34,80 @@ type Props = {
   initialPrefs: string;
   onClose: () => void;
   onSavePrefs: (prefs: string) => void;
+  savedRecord?: SavedImportantDateAi | null;
 };
 
-export function ImportantDateAiSheet({ event, initialPrefs, onClose, onSavePrefs }: Props) {
+function resolveInitialImportantState(
+  event: ImportantDateEvent,
+  initialPrefs: string,
+  savedRecord?: SavedImportantDateAi | null
+): {
+  plan: ImportantDatePlan | null;
+  budget: AiBudgetChoice;
+  customBudget: string;
+  style: AiStyleChoice;
+  partnerPrefs: string;
+  fromCache: boolean;
+} {
+  if (savedRecord) {
+    return {
+      plan: savedRecord.plan,
+      budget: savedRecord.settings.budget,
+      customBudget: savedRecord.settings.customBudget,
+      style: savedRecord.settings.style,
+      partnerPrefs: savedRecord.settings.partnerPrefs,
+      fromCache: true,
+    };
+  }
+  const last = loadLastImportantDateAi();
+  if (last && last.event.id === event.id) {
+    return {
+      plan: last.plan,
+      budget: last.settings.budget,
+      customBudget: last.settings.customBudget,
+      style: last.settings.style,
+      partnerPrefs: last.settings.partnerPrefs,
+      fromCache: true,
+    };
+  }
+  return {
+    plan: null,
+    budget: 'mid',
+    customBudget: '',
+    style: 'romantic',
+    partnerPrefs: initialPrefs,
+    fromCache: false,
+  };
+}
+
+export function ImportantDateAiSheet({
+  event,
+  initialPrefs,
+  onClose,
+  onSavePrefs,
+  savedRecord,
+}: Props) {
+  const initial = useMemo(
+    () => resolveInitialImportantState(event, initialPrefs, savedRecord),
+    [event, initialPrefs, savedRecord]
+  );
+
   const aiPro = useProFeature('ai_in_app');
+  const { isPro } = useUserPlan();
   const aiUsage = useAiUsage();
   const { showAiGenerated, showError } = useAiToast();
   const { scrollRef, resultRef, highlight, revealResult } = useAiResultReveal();
-  const [budget, setBudget] = useState<AiBudgetChoice>('mid');
-  const [customBudget, setCustomBudget] = useState('');
-  const [style, setStyle] = useState<AiStyleChoice>('romantic');
-  const [partnerPrefs, setPartnerPrefs] = useState(initialPrefs);
-  const [plan, setPlan] = useState<ImportantDatePlan | null>(null);
+  const [budget, setBudget] = useState<AiBudgetChoice>(initial.budget);
+  const [customBudget, setCustomBudget] = useState(initial.customBudget);
+  const [style, setStyle] = useState<AiStyleChoice>(initial.style);
+  const [partnerPrefs, setPartnerPrefs] = useState(initial.partnerPrefs);
+  const [plan, setPlan] = useState<ImportantDatePlan | null>(initial.plan);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [settingsExpanded, setSettingsExpanded] = useState(!initial.plan);
+  const [resultAnimateIn, setResultAnimateIn] = useState(!!initial.plan);
+  const viewingCached = initial.fromCache && plan !== null;
+  const inResultMode = plan !== null;
 
   const prompt = useMemo(() => {
     const input: AiPromptInput = { event, budget, customBudget, style, partnerPrefs };
@@ -48,6 +115,14 @@ export function ImportantDateAiSheet({ event, initialPrefs, onClose, onSavePrefs
   }, [event, budget, customBudget, style, partnerPrefs]);
 
   const generateDisabled = loading || !aiUsage.canUseAi;
+
+  useEffect(() => {
+    if (!plan) return;
+    setSettingsExpanded(false);
+    setResultAnimateIn(true);
+    const t = window.setTimeout(() => revealResult(), 80);
+    return () => window.clearTimeout(t);
+  }, [plan, revealResult]);
 
   const onGenerate = useCallback(async () => {
     const gate = aiUsage.ensureCanCallAi();
@@ -62,6 +137,7 @@ export function ImportantDateAiSheet({ event, initialPrefs, onClose, onSavePrefs
     setLoading(true);
     setError(null);
     setPlan(null);
+    setResultAnimateIn(false);
     try {
       const result = await callImportantDateAssistant(prompt, aiUsage);
       if (!result.ok) {
@@ -70,9 +146,17 @@ export function ImportantDateAiSheet({ event, initialPrefs, onClose, onSavePrefs
         if (result.code === 'QUOTA') aiUsage.onQuotaBlocked(result.message);
         return;
       }
-      setPlan(result.data.plan);
+      const nextPlan = result.data.plan;
+      setPlan(nextPlan);
+      saveImportantDateAi(
+        {
+          event: snapshotImportantDateEvent(event),
+          plan: nextPlan,
+          settings: { budget, customBudget, style, partnerPrefs },
+        },
+        { isPro }
+      );
       showAiGenerated();
-      revealResult();
     } catch (e) {
       const msg = e instanceof Error ? e.message : '產生建議時發生錯誤，請再試一次。';
       setError(msg);
@@ -80,7 +164,19 @@ export function ImportantDateAiSheet({ event, initialPrefs, onClose, onSavePrefs
     } finally {
       setLoading(false);
     }
-  }, [prompt, partnerPrefs, onSavePrefs, aiUsage, showAiGenerated, showError, revealResult]);
+  }, [
+    prompt,
+    partnerPrefs,
+    onSavePrefs,
+    aiUsage,
+    showAiGenerated,
+    showError,
+    event,
+    budget,
+    customBudget,
+    style,
+    isPro,
+  ]);
 
   const sheet = (
     <div className="fixed inset-0 z-[100] flex flex-col justify-end" role="presentation">
@@ -116,69 +212,78 @@ export function ImportantDateAiSheet({ event, initialPrefs, onClose, onSavePrefs
         </div>
 
         <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto px-4 pt-3">
-          <p className={`mb-3 text-[12px] ${lq.textSecondary}`}>
-            選擇條件後由 AI 直接產生約會與驚喜建議。
-          </p>
-
-          <Field label="1. 重要日子類型">
-            <p className={`text-[14px] font-semibold ${lq.text}`}>
-              {event.icon} {event.typeLabel}
+          {viewingCached ? (
+            <p className={`mb-3 rounded-xl px-3 py-2 text-[12px] font-semibold leading-snug ${lq.cardSoft} ${lq.textSecondary}`}>
+              已保留最近一次 AI 安排，查看不會扣除今日 AI 次數。
             </p>
-          </Field>
+          ) : null}
 
-          <Field label="2. 預算">
-            <div className="flex flex-wrap gap-1.5">
-              {AI_BUDGET_OPTIONS.map((o) => (
-                <Chip key={o.id} active={budget === o.id} onClick={() => setBudget(o.id)} disabled={loading}>
-                  {o.label}
-                </Chip>
-              ))}
-            </div>
-            {budget === 'custom' ? (
-              <input
-                type="text"
-                value={customBudget}
-                onChange={(e) => setCustomBudget(e.target.value)}
-                placeholder="例如：3000 元以內"
-                className="mt-2 w-full rounded-xl border border-stone-200 px-3 py-2 text-[14px] outline-none focus:border-rose-300"
-                disabled={loading}
+          {inResultMode ? (
+            <>
+              <div
+                ref={resultRef}
+                className={`ai-result-reveal mb-3 ${resultAnimateIn ? 'ai-result-enter' : ''} ${highlight ? 'ai-result-reveal--highlight' : ''}`}
+                aria-live="polite"
+              >
+                <p className={`mb-2 flex items-center gap-1.5 ${lq.sectionTitleSm}`}>
+                  ✨ 你的專屬安排
+                </p>
+                <ImportantDateAiResult plan={plan} />
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setSettingsExpanded((v) => !v)}
+                className={`mb-3 flex w-full min-h-[44px] items-center justify-between gap-2 rounded-2xl border border-rose-100/80 px-3.5 py-2.5 text-left ${lq.cardSoft}`}
+                aria-expanded={settingsExpanded}
+              >
+                <span className={`text-[14px] font-bold ${lq.text}`}>規劃設定</span>
+                <span className={`flex items-center gap-0.5 text-[12px] font-semibold ${lq.textMuted}`}>
+                  {settingsExpanded ? (
+                    <>
+                      收合
+                      <ChevronUp className="h-4 w-4" aria-hidden />
+                    </>
+                  ) : (
+                    <>▲</>
+                  )}
+                </span>
+              </button>
+
+              {settingsExpanded ? (
+                <SettingsFields
+                  event={event}
+                  budget={budget}
+                  setBudget={setBudget}
+                  customBudget={customBudget}
+                  setCustomBudget={setCustomBudget}
+                  style={style}
+                  setStyle={setStyle}
+                  partnerPrefs={partnerPrefs}
+                  setPartnerPrefs={setPartnerPrefs}
+                  loading={loading}
+                />
+              ) : null}
+            </>
+          ) : (
+            <>
+              <p className={`mb-3 text-[12px] ${lq.textSecondary}`}>
+                選擇條件後由 AI 直接產生約會與驚喜建議。
+              </p>
+              <SettingsFields
+                event={event}
+                budget={budget}
+                setBudget={setBudget}
+                customBudget={customBudget}
+                setCustomBudget={setCustomBudget}
+                style={style}
+                setStyle={setStyle}
+                partnerPrefs={partnerPrefs}
+                setPartnerPrefs={setPartnerPrefs}
+                loading={loading}
               />
-            ) : null}
-          </Field>
-
-          <Field label="3. 風格">
-            <div className="flex flex-wrap gap-1.5">
-              {AI_STYLE_OPTIONS.map((o) => (
-                <Chip key={o.id} active={style === o.id} onClick={() => setStyle(o.id)} disabled={loading}>
-                  {o.emoji} {o.label}
-                </Chip>
-              ))}
-            </div>
-          </Field>
-
-          <Field label="4. 對方喜好">
-            <textarea
-              value={partnerPrefs}
-              onChange={(e) => setPartnerPrefs(e.target.value)}
-              rows={3}
-              placeholder="喜歡什麼、不喜歡什麼、最近想要什麼…"
-              className="w-full resize-none rounded-xl border border-stone-200 px-3 py-2.5 text-[14px] outline-none focus:border-rose-300 focus:ring-1 focus:ring-rose-200"
-              disabled={loading}
-            />
-          </Field>
-
-          <Field label="5. 禮物靈感（靜態參考）">
-            <div className="space-y-2">
-              {Object.values(STATIC_GIFT_IDEAS).map((g) => (
-                <div key={g.title} className={`rounded-xl px-2.5 py-2 ${lq.cardSoft}`}>
-                  <p className="text-[12px] font-bold text-stone-700">
-                    {g.emoji} {g.title}
-                  </p>
-                  <p className="mt-0.5 text-[11px] leading-snug text-stone-600">{g.items.join(' · ')}</p>
-                </div>
-              ))}
-            </div>
-          </Field>
+            </>
+          )}
 
           {error ? (
             <div
@@ -189,12 +294,7 @@ export function ImportantDateAiSheet({ event, initialPrefs, onClose, onSavePrefs
             </div>
           ) : null}
 
-          <div
-            ref={resultRef}
-            className={`ai-result-reveal ${highlight ? 'ai-result-reveal--highlight' : ''}`}
-          >
-            {plan ? <ImportantDateAiResult plan={plan} /> : null}
-          </div>
+          {!inResultMode ? <div ref={resultRef} className="h-0 overflow-hidden" aria-hidden /> : null}
         </div>
 
         <div className="shrink-0 border-t border-stone-100 bg-white px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3">
@@ -226,6 +326,8 @@ export function ImportantDateAiSheet({ event, initialPrefs, onClose, onSavePrefs
               '請先登入使用 AI'
             ) : !aiUsage.canUseAi ? (
               '今日 AI 次數已用完'
+            ) : inResultMode ? (
+              '✨ 重新產生建議'
             ) : (
               '✨ 產生 AI 建議'
             )}
@@ -237,6 +339,94 @@ export function ImportantDateAiSheet({ event, initialPrefs, onClose, onSavePrefs
 
   if (typeof document === 'undefined') return sheet;
   return createPortal(sheet, document.body);
+}
+
+function SettingsFields({
+  event,
+  budget,
+  setBudget,
+  customBudget,
+  setCustomBudget,
+  style,
+  setStyle,
+  partnerPrefs,
+  setPartnerPrefs,
+  loading,
+}: {
+  event: ImportantDateEvent;
+  budget: AiBudgetChoice;
+  setBudget: (v: AiBudgetChoice) => void;
+  customBudget: string;
+  setCustomBudget: (v: string) => void;
+  style: AiStyleChoice;
+  setStyle: (v: AiStyleChoice) => void;
+  partnerPrefs: string;
+  setPartnerPrefs: (v: string) => void;
+  loading: boolean;
+}) {
+  return (
+    <>
+      <Field label="1. 重要日子類型">
+        <p className={`text-[14px] font-semibold ${lq.text}`}>
+          {event.icon} {event.typeLabel}
+        </p>
+      </Field>
+
+      <Field label="2. 預算">
+        <div className="flex flex-wrap gap-1.5">
+          {AI_BUDGET_OPTIONS.map((o) => (
+            <Chip key={o.id} active={budget === o.id} onClick={() => setBudget(o.id)} disabled={loading}>
+              {o.label}
+            </Chip>
+          ))}
+        </div>
+        {budget === 'custom' ? (
+          <input
+            type="text"
+            value={customBudget}
+            onChange={(e) => setCustomBudget(e.target.value)}
+            placeholder="例如：3000 元以內"
+            className={`mt-2 w-full ${lq.input}`}
+            disabled={loading}
+          />
+        ) : null}
+      </Field>
+
+      <Field label="3. 風格">
+        <div className="flex flex-wrap gap-1.5">
+          {AI_STYLE_OPTIONS.map((o) => (
+            <Chip key={o.id} active={style === o.id} onClick={() => setStyle(o.id)} disabled={loading}>
+              {o.emoji} {o.label}
+            </Chip>
+          ))}
+        </div>
+      </Field>
+
+      <Field label="4. 對方喜好">
+        <textarea
+          value={partnerPrefs}
+          onChange={(e) => setPartnerPrefs(e.target.value)}
+          rows={3}
+          placeholder="喜歡什麼、不喜歡什麼、最近想要什麼…"
+          className={`w-full resize-none ${lq.input}`}
+          disabled={loading}
+        />
+      </Field>
+
+      <Field label="5. 禮物靈感（靜態參考）">
+        <div className="space-y-2">
+          {Object.values(STATIC_GIFT_IDEAS).map((g) => (
+            <div key={g.title} className={`rounded-xl px-2.5 py-2 ${lq.cardSoft}`}>
+              <p className="text-[12px] font-bold text-stone-700">
+                {g.emoji} {g.title}
+              </p>
+              <p className="mt-0.5 text-[11px] leading-snug text-stone-600">{g.items.join(' · ')}</p>
+            </div>
+          ))}
+        </div>
+      </Field>
+    </>
+  );
 }
 
 function Field({ label, children }: { label: string; children: ReactNode }) {

@@ -8,7 +8,7 @@ export type CoupleDeepTabId = 'tasks' | 'dates' | 'miniGames' | 'importantDates'
 
 export type CoupleTabId = CoupleNavTabId | CoupleDeepTabId;
 
-export type ProfileSectionFocus = 'status' | 'settings';
+export type ProfileSectionFocus = 'status' | 'settings' | 'aiRecords';
 
 type NavContextValue = {
   tab: CoupleTabId;

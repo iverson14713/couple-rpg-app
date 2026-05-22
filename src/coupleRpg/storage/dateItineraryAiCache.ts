@@ -6,10 +6,12 @@ import type {
   DateAiTransportChoice,
 } from '../lib/dateItineraryAiPrompt';
 import type { DateCost, DateDuration, DateFilterKey, DateSuggestion } from './dateTypes';
+import { AI_RECORD_HISTORY_CAP_PRO, dispatchAiRecordsChanged } from '../lib/aiRecordsConfig';
 import { LQ_KEYS } from './keys';
 import { loadJson, saveJson } from './persist';
 
-export const DATE_ITINERARY_AI_SAVED_EVENT = 'lovequest:date-itinerary-ai-saved';
+/** @deprecated 請改用 AI_RECORDS_CHANGED_EVENT */
+export const DATE_ITINERARY_AI_SAVED_EVENT = 'lovequest:ai-records-changed';
 
 export type SavedDateItinerarySuggestion = {
   id: string;
@@ -62,14 +64,37 @@ export function savedSuggestionToDateSuggestion(snap: SavedDateItinerarySuggesti
   };
 }
 
+function isValidDateItineraryRecord(
+  raw: SavedDateItineraryAi | null | undefined
+): raw is SavedDateItineraryAi {
+  return Boolean(raw?.plan?.title && raw.suggestion?.title);
+}
+
 export function loadLastDateItineraryAi(): SavedDateItineraryAi | null {
   const raw = loadJson<SavedDateItineraryAi | null>(LQ_KEYS.lastDateItineraryAi, null);
-  if (!raw?.plan?.title || !raw.suggestion?.title) return null;
-  return raw;
+  return isValidDateItineraryRecord(raw) ? raw : null;
+}
+
+function loadDateItineraryAiHistory(): SavedDateItineraryAi[] {
+  const raw = loadJson<SavedDateItineraryAi[] | null>(LQ_KEYS.dateItineraryAiHistory, null);
+  if (!Array.isArray(raw)) return [];
+  return raw.filter(isValidDateItineraryRecord);
+}
+
+export function listDateItineraryAiRecords(isPro: boolean): SavedDateItineraryAi[] {
+  if (isPro) {
+    const hist = loadDateItineraryAiHistory();
+    if (hist.length > 0) return hist.slice(0, AI_RECORD_HISTORY_CAP_PRO);
+    const last = loadLastDateItineraryAi();
+    return last ? [last] : [];
+  }
+  const last = loadLastDateItineraryAi();
+  return last ? [last] : [];
 }
 
 export function saveLastDateItineraryAi(
-  input: Omit<SavedDateItineraryAi, 'savedAt' | 'dateKey'> & { savedAt?: string; dateKey?: string }
+  input: Omit<SavedDateItineraryAi, 'savedAt' | 'dateKey'> & { savedAt?: string; dateKey?: string },
+  options?: { isPro?: boolean }
 ): SavedDateItineraryAi {
   const record: SavedDateItineraryAi = {
     savedAt: input.savedAt ?? new Date().toISOString(),
@@ -79,9 +104,15 @@ export function saveLastDateItineraryAi(
     settings: input.settings,
   };
   saveJson(LQ_KEYS.lastDateItineraryAi, record);
-  if (typeof window !== 'undefined') {
-    window.dispatchEvent(new CustomEvent(DATE_ITINERARY_AI_SAVED_EVENT));
+  if (options?.isPro) {
+    const prev = loadDateItineraryAiHistory();
+    const next = [record, ...prev.filter((r) => r.savedAt !== record.savedAt)].slice(
+      0,
+      AI_RECORD_HISTORY_CAP_PRO
+    );
+    saveJson(LQ_KEYS.dateItineraryAiHistory, next);
   }
+  dispatchAiRecordsChanged();
   return record;
 }
 

@@ -1,4 +1,5 @@
 import { Sparkles } from 'lucide-react';
+import { useCoupleRpgNav } from '../context/CoupleRpgNavContext';
 import { formatSavedItineraryDate } from '../storage/dateItineraryAiCache';
 import type { SavedDateItineraryAi } from '../storage/dateItineraryAiCache';
 import { useLastDateItineraryAi } from '../hooks/useLastDateItineraryAi';
@@ -11,6 +12,7 @@ type Props = {
 
 /** 免費版：顯示最近一次 AI 約會行程，可再次查看（不扣次） */
 export function RecentDateItineraryAiCard({ onView, className = '' }: Props) {
+  const { navigateTo } = useCoupleRpgNav();
   const record = useLastDateItineraryAi();
   if (!record) return null;
 
@@ -39,6 +41,13 @@ export function RecentDateItineraryAiCard({ onView, className = '' }: Props) {
           查看
         </button>
       </div>
+      <button
+        type="button"
+        onClick={() => navigateTo('profile', { profileSection: 'aiRecords' })}
+        className={`mt-2.5 w-full text-center text-[11px] font-bold text-rose-600 underline-offset-2`}
+      >
+        查看全部 AI 紀錄 →
+      </button>
     </section>
   );
 }

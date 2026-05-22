@@ -1,10 +1,4 @@
-import { useEffect, useState } from 'react';
-import { DateItineraryAiSheet } from '../components/DateItineraryAiSheet';
-import { RecentDateItineraryAiCard } from '../components/RecentDateItineraryAiCard';
-import {
-  savedSuggestionToDateSuggestion,
-  type SavedDateItineraryAi,
-} from '../storage/dateItineraryAiCache';
+import { useEffect } from 'react';
 import { useSupabaseAuth } from '../../useSupabaseAuth';
 import { useCoupleRpgNav } from '../context/CoupleRpgNavContext';
 import { useLoveQuest } from '../context/LoveQuestContext';
@@ -38,26 +32,12 @@ export function TodayPage() {
     ? `晚餐：${todayDinner.label}`
     : '不知道吃什麼就交給命運決定';
   const { done, total, pct } = taskProgress;
-  const [savedItineraryView, setSavedItineraryView] = useState<SavedDateItineraryAi | null>(null);
 
   return (
     <>
       <HomeImportantDateHeroCard />
 
       <HomeCoupleOverviewCard />
-
-      <RecentDateItineraryAiCard
-        onView={setSavedItineraryView}
-        className="mb-3"
-      />
-
-      {savedItineraryView ? (
-        <DateItineraryAiSheet
-          suggestion={savedSuggestionToDateSuggestion(savedItineraryView.suggestion)}
-          savedRecord={savedItineraryView}
-          onClose={() => setSavedItineraryView(null)}
-        />
-      ) : null}
 
       <NicknameSetupBanner compact />
 

@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useState } from 'react';
 import { AI_RECORDS_CHANGED_EVENT } from '../lib/aiRecordsConfig';
-import { loadLastDateItineraryAi, type SavedDateItineraryAi } from '../storage/dateItineraryAiCache';
+import { loadLastImportantDateAi, type SavedImportantDateAi } from '../storage/importantDateAiCache';
 
-export function useLastDateItineraryAi(): SavedDateItineraryAi | null {
-  const [record, setRecord] = useState<SavedDateItineraryAi | null>(() => loadLastDateItineraryAi());
+export function useLastImportantDateAi(): SavedImportantDateAi | null {
+  const [record, setRecord] = useState<SavedImportantDateAi | null>(() => loadLastImportantDateAi());
 
   const sync = useCallback(() => {
-    setRecord(loadLastDateItineraryAi());
+    setRecord(loadLastImportantDateAi());
   }, []);
 
   useEffect(() => {

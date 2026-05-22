@@ -2,10 +2,12 @@ import { useLayoutEffect, useState } from 'react';
 import { HubShell } from '../components/HubShell';
 import { ProfileStatsPanel } from '../components/ProfileStatsPanel';
 import { useCoupleRpgNav } from '../context/CoupleRpgNavContext';
+import { AiRecordsPage } from './AiRecordsPage';
 import { SettingsPage } from './SettingsPage';
 
 const TABS = [
   { id: 'status', label: '狀態', emoji: '💖' },
+  { id: 'aiRecords', label: 'AI 紀錄', emoji: '✨' },
   { id: 'settings', label: '設定', emoji: '⚙️' },
 ] as const;
 
@@ -29,6 +31,7 @@ export function ProfileHubPage() {
       onTabChange={(id) => setSection(id as ProfileSection)}
     >
       {section === 'status' && <ProfileStatsPanel />}
+      {section === 'aiRecords' && <AiRecordsPage />}
       {section === 'settings' && <SettingsPage embedded />}
     </HubShell>
   );

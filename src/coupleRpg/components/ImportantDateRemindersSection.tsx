@@ -4,6 +4,11 @@ import { useCoupleRpgNav } from '../context/CoupleRpgNavContext';
 import { useLoveQuest } from '../context/LoveQuestContext';
 import { EmptyState } from './EmptyState';
 import { ImportantDateAiSheet } from './ImportantDateAiSheet';
+import { RecentImportantDateAiCard } from './RecentImportantDateAiCard';
+import {
+  savedEventToImportantDateEvent,
+  type SavedImportantDateAi,
+} from '../storage/importantDateAiCache';
 import {
   buildImportantDateEvents,
   statusLabel,
@@ -80,6 +85,13 @@ export function ImportantDateRemindersSection({ showBack, compactHero }: Props) 
           <ChevronLeft className="h-4 w-4" aria-hidden />
           返回
         </button>
+      ) : null}
+
+      {showBack ? (
+        <RecentImportantDateAiCard
+          onView={setSavedImportantView}
+          className="mb-3"
+        />
       ) : null}
 
       {!compactHero ? (
@@ -234,6 +246,16 @@ export function ImportantDateRemindersSection({ showBack, compactHero }: Props) 
           onSavePrefs={(prefs) => {
             patchImportantDateReminder((d) => updateEventSettings(d, aiEvent.id, { partnerPrefs: prefs }));
           }}
+        />
+      ) : null}
+
+      {savedImportantView ? (
+        <ImportantDateAiSheet
+          event={savedEventToImportantDateEvent(savedImportantView.event)}
+          initialPrefs={savedImportantView.settings.partnerPrefs}
+          savedRecord={savedImportantView}
+          onClose={() => setSavedImportantView(null)}
+          onSavePrefs={() => {}}
         />
       ) : null}
     </section>
