@@ -30,11 +30,11 @@ export function AiRecordsPage() {
     <>
       {!isPro ? (
         <p className={`mb-3 rounded-xl px-3 py-2.5 text-[12px] font-semibold leading-snug ${lq.cardSoft} ${lq.textSecondary}`}>
-          免費版各保留最近一次 AI 結果，查看不扣 AI 次數。升級 Pro 可保存多筆歷史並使用收藏、匯出等功能。
+          免費版各保留最近一次 AI 結果，查看不扣 AI 次數。升級 Pro 可收藏、分享，並保存多筆戀愛 AI 紀錄。
         </p>
       ) : (
         <p className={`mb-3 text-[12px] ${lq.textMuted}`}>
-          Pro：已保存多筆 AI 紀錄（本機）。收藏、PDF、分享圖即將推出。
+          已為你們保存多筆 AI 紀錄（本機）。收藏與分享卡等功能陸續推出。
         </p>
       )}
 
@@ -118,20 +118,22 @@ export function AiRecordsPage() {
 
       {isPro ? (
         <section className={`p-3.5 ${lq.cardSoft}`}>
-          <p className={`text-[12px] font-bold ${lq.text}`}>Pro 進階（即將推出）</p>
-          <ul className={`mt-2 space-y-1 text-[12px] ${lq.textMuted}`}>
-            <li>· 收藏喜歡的 AI 建議</li>
-            <li>· 匯出高質感 PDF 行程</li>
-            <li>· 產生 IG / 分享卡圖片</li>
+          <p className={`text-[13px] font-bold ${lq.text}`}>Pro AI 回憶收藏</p>
+          <p className={`mt-0.5 text-[11px] ${lq.textMuted}`}>收藏、分享與回憶，留住你們的甜蜜規劃</p>
+          <ul className={`mt-2 space-y-1 text-[12px] ${lq.textSecondary}`}>
+            <li>· 多筆 AI 歷史紀錄（已開啟）</li>
+            <li>· 收藏喜歡的 AI 建議（即將推出）</li>
+            <li>· 產生 IG / 分享卡圖片（即將推出）</li>
+            <li>· AI 戀愛回憶卡（規劃中）</li>
           </ul>
         </section>
       ) : (
         <button
           type="button"
-          onClick={() => openUpgradeModal('解鎖 AI 歷史紀錄與匯出')}
+          onClick={() => openUpgradeModal('解鎖 AI 收藏、分享與多筆歷史')}
           className={`mb-2 w-full ${lq.btnSecondary}`}
         >
-          升級 Pro 解鎖多筆歷史
+          升級 Pro · AI 回憶收藏
         </button>
       )}
 
