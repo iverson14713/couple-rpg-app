@@ -4,7 +4,6 @@ import { getShopItem } from '../data/rewardShopCatalog';
 import { LQ_KEYS } from './keys';
 import { loadJson, saveJson } from './persist';
 import { makeCustomRewardItemId, normalizeCustomRewardInput } from '../lib/customRewardCard';
-import { couponNeedsPartnerCompletion } from '../lib/rewardCardHelpers';
 import { normalizeOwnedCoupon, statusToStoreStatus } from '../lib/rewardCardModel';
 import type {
   CoinEarnMeta,
@@ -148,6 +147,26 @@ export function findCoupon(rewards: RewardsData, couponId: string): OwnedCoupon 
   return rewards.coupons.find((c) => c.id === couponId);
 }
 
+export function isCouponOwnedBy(coupon: OwnedCoupon, userId: string | null): boolean {
+  if (!userId) return true;
+  const owner = coupon.ownerUserId ?? coupon.redeemedBy;
+  return owner === userId;
+}
+
+/** 移除非本人卡券（舊 couple 同步殘留） */
+export function stripForeignCoupons(rewards: RewardsData, userId: string | null): RewardsData {
+  if (!userId) return rewards;
+  return {
+    ...rewards,
+    coupons: rewards.coupons.filter((c) => isCouponOwnedBy(c, userId)),
+  };
+}
+
+export function filterMyCoupons(rewards: RewardsData, userId: string | null): OwnedCoupon[] {
+  if (!userId) return rewards.coupons;
+  return rewards.coupons.filter((c) => isCouponOwnedBy(c, userId));
+}
+
 export function redeemCoupon(
   rewards: RewardsData,
   itemId: ShopItemId,
@@ -244,23 +263,52 @@ export function redeemCustomCoupon(
 export function useRewardCardLocal(
   rewards: RewardsData,
   couponId: string,
-  usedBy: string | null,
-  targetUser: string | null
+  usedBy: string | null
 ): { rewards: RewardsData; coupon: OwnedCoupon | null; error?: string } {
   const cur = findCoupon(rewards, couponId);
   if (!cur) return { rewards, coupon: null, error: 'not_found' };
+  if (!isCouponOwnedBy(cur, usedBy)) return { rewards, coupon: null, error: 'not_owner' };
   if (cur.status !== 'redeemed') return { rewards, coupon: null, error: 'invalid_status' };
 
   const now = new Date().toISOString();
-  const autoComplete = !couponNeedsPartnerCompletion(cur);
   const updated = normalizeOwnedCoupon({
     ...cur,
-    status: autoComplete ? 'completed' : 'used',
+    status: 'used',
     usedBy,
-    targetUser,
+    targetUser: null,
     usedAt: now,
-    completedAt: autoComplete ? now : null,
-    completedByUserId: autoComplete ? usedBy : null,
+    completedAt: null,
+    completedByUserId: null,
+    syncPending: true,
+  });
+
+  return {
+    rewards: {
+      ...rewards,
+      coupons: rewards.coupons.map((c) => (c.id === couponId ? updated : c)),
+    },
+    coupon: updated,
+  };
+}
+
+export function cancelUseRewardCardLocal(
+  rewards: RewardsData,
+  couponId: string,
+  userId: string | null
+): { rewards: RewardsData; coupon: OwnedCoupon | null; error?: string } {
+  const cur = findCoupon(rewards, couponId);
+  if (!cur) return { rewards, coupon: null, error: 'not_found' };
+  if (!isCouponOwnedBy(cur, userId)) return { rewards, coupon: null, error: 'not_owner' };
+  if (cur.status !== 'used') return { rewards, coupon: null, error: 'invalid_status' };
+
+  const updated = normalizeOwnedCoupon({
+    ...cur,
+    status: 'redeemed',
+    usedBy: null,
+    targetUser: null,
+    usedAt: null,
+    completedAt: null,
+    completedByUserId: null,
     syncPending: true,
   });
 
@@ -280,6 +328,7 @@ export function completeRewardCardLocal(
 ): { rewards: RewardsData; coupon: OwnedCoupon | null; error?: string } {
   const cur = findCoupon(rewards, couponId);
   if (!cur) return { rewards, coupon: null, error: 'not_found' };
+  if (!isCouponOwnedBy(cur, completedBy)) return { rewards, coupon: null, error: 'not_owner' };
   if (cur.status !== 'used') return { rewards, coupon: null, error: 'invalid_status' };
 
   const now = new Date().toISOString();
@@ -287,7 +336,7 @@ export function completeRewardCardLocal(
     ...cur,
     status: 'completed',
     completedByUserId: completedBy,
-    targetUser: completedBy ?? cur.targetUser,
+    targetUser: null,
     completedAt: now,
     syncPending: true,
   });
@@ -317,7 +366,7 @@ export function replaceCouponsFromMerge(rewards: RewardsData, coupons: OwnedCoup
 
 /** @deprecated */
 export function markCouponUsed(rewards: RewardsData, couponId: string): RewardsData {
-  const r = useRewardCardLocal(rewards, couponId, null, null);
+  const r = useRewardCardLocal(rewards, couponId, null);
   return r.rewards;
 }
 

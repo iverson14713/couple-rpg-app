@@ -39,12 +39,7 @@ export function formatRedeemFeedLine(actorName: string, cardTitle: string): stri
   return `${actorName} 兌換了「${cardTitle}」`;
 }
 
-export function formatUseFeedLine(
-  actorName: string,
-  cardTitle: string,
-  towardPartner: boolean
-): string {
-  if (towardPartner) return `${actorName} 對你使用了「${cardTitle}」`;
+export function formatUseFeedLine(actorName: string, cardTitle: string): string {
   return `${actorName} 使用了「${cardTitle}」`;
 }
 
@@ -52,13 +47,35 @@ export function formatCompleteFeedLine(actorName: string, cardTitle: string): st
   return `${actorName} 完成了「${cardTitle}」`;
 }
 
-export function canMarkRewardCardComplete(
-  coupon: Pick<OwnedCoupon, 'status' | 'targetUser' | 'usedBy' | 'isCustom' | 'needsPartnerComplete' | 'category' | 'itemId'>,
+export function canOwnerUseRewardCard(
+  coupon: Pick<OwnedCoupon, 'status' | 'ownerUserId' | 'redeemedBy'>,
   currentUserId: string | null
 ): boolean {
-  if (coupon.status !== 'used') return false;
-  if (!couponNeedsPartnerCompletion(coupon)) return false;
-  if (!currentUserId) return false;
-  if (coupon.targetUser) return coupon.targetUser === currentUserId;
-  return coupon.usedBy !== currentUserId;
+  if (coupon.status !== 'redeemed' || !currentUserId) return false;
+  const owner = coupon.ownerUserId ?? coupon.redeemedBy;
+  return owner === currentUserId;
+}
+
+export function canOwnerCompleteRewardCard(
+  coupon: Pick<OwnedCoupon, 'status' | 'ownerUserId' | 'redeemedBy'>,
+  currentUserId: string | null
+): boolean {
+  if (coupon.status !== 'used' || !currentUserId) return false;
+  const owner = coupon.ownerUserId ?? coupon.redeemedBy;
+  return owner === currentUserId;
+}
+
+export function canOwnerCancelUseRewardCard(
+  coupon: Pick<OwnedCoupon, 'status' | 'ownerUserId' | 'redeemedBy'>,
+  currentUserId: string | null
+): boolean {
+  return canOwnerCompleteRewardCard(coupon, currentUserId);
+}
+
+/** @deprecated 個人卡券僅持有人可完成 */
+export function canMarkRewardCardComplete(
+  coupon: Pick<OwnedCoupon, 'status' | 'ownerUserId' | 'redeemedBy'>,
+  currentUserId: string | null
+): boolean {
+  return canOwnerCompleteRewardCard(coupon, currentUserId);
 }

@@ -11,7 +11,12 @@ import { PageHero } from '../components/ui';
 import { useLoveQuest } from '../context/LoveQuestContext';
 import { useToast } from '../../context/ToastContext';
 import { useSupabaseAuth } from '../../useSupabaseAuth';
-import { canMarkRewardCardComplete, REWARD_CARD_STATUS_LABEL } from '../lib/rewardCardHelpers';
+import {
+  canOwnerCancelUseRewardCard,
+  canOwnerCompleteRewardCard,
+  canOwnerUseRewardCard,
+  REWARD_CARD_STATUS_LABEL,
+} from '../lib/rewardCardHelpers';
 import { couponActorIds } from '../lib/rewardCardModel';
 import type { OwnedCoupon, RewardShopCategory } from '../storage/rewardTypes';
 import { lq } from '../theme';
@@ -37,7 +42,7 @@ const TAB_META: Record<
   coupons: {
     label: '卡券',
     icon: Ticket,
-    hint: '我的兌換卡券',
+    hint: '我的卡券',
     gradient: 'from-emerald-100 via-teal-50 to-rose-50',
   },
 };
@@ -57,6 +62,7 @@ export function RewardsPage({ embedded }: { embedded?: boolean } = {}) {
     redeemRewardItem,
     redeemCustomRewardItem,
     useCoupon,
+    cancelRewardCardUse,
     completeRewardCard,
     redeemedCoupons,
     inProgressCoupons,
@@ -145,8 +151,8 @@ export function RewardsPage({ embedded }: { embedded?: boolean } = {}) {
 
   const SYNC_STATUS_LABEL = {
     local: '本機保存',
-    syncing: '正在同步卡券…',
-    synced: '已同步',
+    syncing: '正在同步我的卡券…',
+    synced: '已同步至帳號',
     error: '同步失敗，稍後再試',
   } as const;
 
@@ -358,7 +364,7 @@ export function RewardsPage({ embedded }: { embedded?: boolean } = {}) {
           <div className="flex flex-wrap items-center justify-between gap-2">
             <h2 className={`flex flex-wrap items-center gap-1.5 ${lq.sectionTitleSm}`}>
               <Ticket className="h-4 w-4 text-emerald-600" aria-hidden />
-              情侶卡券
+              我的卡券
               <ProBadgeIfNeeded show={syncPro.showProBadge} feature="full_sync" />
             </h2>
             <button
@@ -372,9 +378,13 @@ export function RewardsPage({ embedded }: { embedded?: boolean } = {}) {
               ) : (
                 <Cloud className="h-3.5 w-3.5" aria-hidden />
               )}
-              同步卡券
+              同步我的卡券
             </button>
           </div>
+
+          <p className="text-[12px] leading-relaxed text-stone-500">
+            卡券只保存在你的帳號中，不會同步給另一半；使用紀錄會顯示在今日動態。
+          </p>
 
           <div className="mb-2 flex flex-wrap items-center gap-2 rounded-xl bg-stone-50/90 px-2.5 py-2 ring-1 ring-stone-100">
             <span className="text-[11px] font-semibold text-stone-600">
@@ -391,7 +401,7 @@ export function RewardsPage({ embedded }: { embedded?: boolean } = {}) {
             </p>
           ) : (
             <p className="text-[11px] leading-relaxed text-stone-400">
-              兌換與使用會先存本機；登入並完成情侶綁定後，另一半重新整理或按「同步卡券」即可看到最新狀態。
+              登入並連上網路後，卡券會同步至你的帳號；另一半僅能在今日動態看到兌換／使用紀錄。
             </p>
           )}
 
@@ -411,12 +421,13 @@ export function RewardsPage({ embedded }: { embedded?: boolean } = {}) {
           ) : null}
 
           {inProgressCoupons.length > 0 ? (
-            <CouponSection title="使用中 / 待完成" count={inProgressCoupons.length} accent="amber">
+            <CouponSection title="使用中" count={inProgressCoupons.length} accent="amber">
               <CouponList
                 coupons={inProgressCoupons}
                 currentUserId={currentUserId}
                 displayNameForUser={displayNameForUser}
                 onComplete={completeRewardCard}
+                onCancelUse={cancelRewardCardUse}
               />
             </CouponSection>
           ) : null}
@@ -586,12 +597,14 @@ function CouponList({
   displayNameForUser,
   onUse,
   onComplete,
+  onCancelUse,
 }: {
   coupons: OwnedCoupon[];
   currentUserId: string | null;
   displayNameForUser: (userId: string | null | undefined) => string;
   onUse?: (id: string) => void;
   onComplete?: (id: string) => void;
+  onCancelUse?: (id: string) => void;
 }) {
   return (
     <ul className="space-y-2.5">
@@ -603,6 +616,7 @@ function CouponList({
           displayNameForUser={displayNameForUser}
           onUse={onUse}
           onComplete={onComplete}
+          onCancelUse={onCancelUse}
         />
       ))}
     </ul>
@@ -615,12 +629,14 @@ function CouponCard({
   displayNameForUser,
   onUse,
   onComplete,
+  onCancelUse,
 }: {
   coupon: OwnedCoupon;
   currentUserId: string | null;
   displayNameForUser: (userId: string | null | undefined) => string;
   onUse?: (id: string) => void;
   onComplete?: (id: string) => void;
+  onCancelUse?: (id: string) => void;
 }) {
   const actors = couponActorIds(c);
   const redeemerName = actors.redeemedBy ? displayNameForUser(actors.redeemedBy) : null;
@@ -636,11 +652,9 @@ function CouponCard({
           ? 'bg-stone-100 text-stone-600'
           : 'bg-stone-100 text-stone-500';
 
-  const showUse = c.status === 'redeemed' && onUse;
-  const showComplete =
-    c.status === 'used' &&
-    onComplete &&
-    canMarkRewardCardComplete(c, currentUserId);
+  const showUse = onUse && canOwnerUseRewardCard(c, currentUserId);
+  const showComplete = onComplete && canOwnerCompleteRewardCard(c, currentUserId);
+  const showCancelUse = onCancelUse && canOwnerCancelUseRewardCard(c, currentUserId);
 
   return (
     <li
@@ -689,12 +703,17 @@ function CouponCard({
             <dd className="inline text-stone-400">尚未使用</dd>
           </div>
         ) : null}
-        {c.status === 'completed' && c.completedAt && actors.completedBy ? (
+        {c.status === 'completed' && c.completedAt ? (
           <div>
             <dt className="inline font-semibold text-stone-600">完成：</dt>
             <dd className="inline">
-              {completedName ?? '—'} · {formatIso(c.completedAt)}
+              {completedName ?? redeemerName ?? '—'} · {formatIso(c.completedAt)}
             </dd>
+          </div>
+        ) : c.status === 'used' ? (
+          <div>
+            <dt className="inline font-semibold text-stone-500">完成：</dt>
+            <dd className="inline text-stone-400">尚未完成</dd>
           </div>
         ) : null}
       </dl>
@@ -715,10 +734,20 @@ function CouponCard({
         </button>
       ) : null}
 
+      {showCancelUse ? (
+        <button
+          type="button"
+          onClick={() => onCancelUse!(c.id)}
+          className="mt-2 min-h-[40px] w-full rounded-xl border border-stone-200 bg-white py-2 text-[12px] font-bold text-stone-600"
+        >
+          取消使用
+        </button>
+      ) : null}
+
       {showComplete ? (
         <button
           type="button"
-          onClick={() => onComplete(c.id)}
+          onClick={() => onComplete!(c.id)}
           className={`mt-3 min-h-[44px] w-full rounded-xl py-2.5 text-[13px] font-bold ${lq.btnSecondary}`}
         >
           ✓ 標記完成

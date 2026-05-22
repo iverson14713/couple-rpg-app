@@ -1,57 +1,61 @@
 /**
- * Sync reward card records with Supabase public.reward_card_records.
- * local coupon.id ↔ DB local_id (legacy column client_id supported on read).
+ * Sync personal reward cards with Supabase public.user_reward_cards.
+ * Cards are per-user (owner only); couple_activity_logs carries partner-visible events.
  */
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { COMPLETED_REWARD_CARD_RETENTION_DAYS } from '../constants/rewardCardRetention';
 import { isCustomRewardCardId } from '../lib/customRewardCard';
 import { normalizeOwnedCoupon } from '../lib/rewardCardModel';
-import { pickPreferredStatus } from '../lib/rewardCardHelpers';
 import type { OwnedCoupon, RewardCardStatus, RewardsData } from '../storage/rewardTypes';
 import { loadRewards, saveRewards } from '../storage/rewardsStore';
+import { isCouponOwnedBy, stripForeignCoupons } from '../storage/rewardsStore';
 
 export { COMPLETED_REWARD_CARD_RETENTION_DAYS };
 
-const LOG = '[reward-card-sync]';
+const LOG = '[user-reward-card-sync]';
+const TABLE = 'user_reward_cards';
 
 const SELECT_COLS =
-  'id, couple_id, local_id, card_id, card_title, card_type, status, redeemed_by, owner_user_id, used_by, completed_by, target_user, redeemed_at, used_at, completed_at, note, cost, emoji, created_at, updated_at';
+  'id, user_id, couple_id, local_id, reward_id, title, cost, status, card_type, emoji, note, description, is_custom, needs_partner_complete, redeemed_at, used_at, completed_at, cancelled_at, created_at, updated_at';
 
 export type RewardCardSyncStatus = 'local' | 'syncing' | 'synced' | 'error';
 
-export type RewardCardRecordRow = {
+export type UserRewardCardRow = {
   id: string;
-  couple_id: string;
+  user_id: string;
+  couple_id: string | null;
   local_id: string;
-  card_id: string;
-  card_title: string;
-  card_type: string | null;
+  reward_id: string;
+  title: string;
+  cost: number;
   status: RewardCardStatus;
-  redeemed_by: string | null;
-  owner_user_id: string | null;
-  used_by: string | null;
-  completed_by: string | null;
-  target_user: string | null;
+  card_type: string | null;
+  emoji: string | null;
+  note: string | null;
+  description: string | null;
+  is_custom: boolean;
+  needs_partner_complete: boolean;
   redeemed_at: string;
   used_at: string | null;
   completed_at: string | null;
-  note: string | null;
-  cost: number;
-  emoji: string | null;
+  cancelled_at: string | null;
   created_at: string;
   updated_at: string;
 };
 
+/** @deprecated alias */
+export type RewardCardRecordRow = UserRewardCardRow;
+
 export function canSyncRewardCards(input: {
   configured: boolean;
   userId: string | null;
-  coupleId: string | null;
+  coupleId?: string | null;
   online: boolean;
-  isFullyBound: boolean;
+  isFullyBound?: boolean;
 }): boolean {
-  return Boolean(
-    input.configured && input.userId && input.coupleId && input.online && input.isFullyBound
-  );
+  void input.coupleId;
+  void input.isFullyBound;
+  return Boolean(input.configured && input.userId && input.online);
 }
 
 function rowLocalId(row: { local_id?: string | null }): string {
@@ -66,7 +70,6 @@ function parseTs(iso: string | null | undefined): number {
 
 const RETENTION_MS = COMPLETED_REWARD_CARD_RETENTION_DAYS * 24 * 60 * 60 * 1000;
 
-/** 僅 completed 且 completed_at 超過保留期的卡券可清理 */
 export function isEligibleForCompletedCleanup(coupon: OwnedCoupon, nowMs = Date.now()): boolean {
   if (coupon.status !== 'completed') return false;
   const completedAt = coupon.completedAt?.trim();
@@ -85,33 +88,34 @@ export type CleanupOldCompletedResult = {
   rewards: RewardsData;
 };
 
-function pruneExpiredCompletedFromRewards(rewards: RewardsData): {
+function pruneExpiredCompletedFromRewards(rewards: RewardsData, userId: string | null): {
   rewards: RewardsData;
   removed: OwnedCoupon[];
 } {
+  const base = stripForeignCoupons(rewards, userId);
   const removed: OwnedCoupon[] = [];
-  const coupons = rewards.coupons.filter((c) => {
+  const coupons = base.coupons.filter((c) => {
     if (isEligibleForCompletedCleanup(c)) {
       removed.push(c);
       return false;
     }
     return true;
   });
-  return { rewards: { ...rewards, coupons }, removed };
+  return { rewards: { ...base, coupons }, removed };
 }
 
 async function deleteRemoteExpiredCompleted(
   supabase: SupabaseClient,
-  coupleId: string,
+  userId: string,
   removed: OwnedCoupon[]
 ): Promise<void> {
   for (const c of removed) {
     if (!isEligibleForCompletedCleanup(c)) continue;
 
     let query = supabase
-      .from('reward_card_records')
+      .from(TABLE)
       .delete()
-      .eq('couple_id', coupleId)
+      .eq('user_id', userId)
       .eq('status', 'completed');
 
     if (c.remoteId) {
@@ -129,14 +133,14 @@ async function deleteRemoteExpiredCompleted(
   }
 }
 
-/** 清理超過保留期的已完成卡券（本機必做；雲端可選） */
 export async function cleanupOldCompletedRewardCards(
   supabase: SupabaseClient | null,
-  coupleId: string | null,
+  userId: string | null,
+  _coupleId?: string | null,
   options?: { syncRemote?: boolean }
 ): Promise<CleanupOldCompletedResult> {
   const cur = loadRewards();
-  const { rewards: pruned, removed } = pruneExpiredCompletedFromRewards(cur);
+  const { rewards: pruned, removed } = pruneExpiredCompletedFromRewards(cur, userId);
   const removedCount = removed.length;
 
   if (removedCount > 0) {
@@ -144,37 +148,34 @@ export async function cleanupOldCompletedRewardCards(
     console.log(`${LOG} cleaned ${removedCount} expired completed coupon(s) locally`);
   }
 
-  if (options?.syncRemote && supabase && coupleId && removed.length > 0) {
-    await deleteRemoteExpiredCompleted(supabase, coupleId, removed);
+  if (options?.syncRemote && supabase && userId && removed.length > 0) {
+    await deleteRemoteExpiredCompleted(supabase, userId, removed);
   }
 
   return { removedCount, rewards: pruned };
 }
 
-function couponLocalUpdatedAt(c: OwnedCoupon): number {
-  return Math.max(parseTs(c.completedAt), parseTs(c.usedAt), parseTs(c.redeemedAt));
-}
-
-export function rowToCoupon(row: RewardCardRecordRow): OwnedCoupon {
+export function rowToCoupon(row: UserRewardCardRow): OwnedCoupon {
   const localId = rowLocalId(row);
-  const itemId = row.card_id;
+  const itemId = row.reward_id;
   const category = (row.card_type ?? 'date') as OwnedCoupon['category'];
+  const owner = row.user_id;
   return normalizeOwnedCoupon({
     id: localId,
     remoteId: row.id,
     itemId,
     cardId: itemId,
-    cardTitle: row.card_title,
+    cardTitle: row.title,
     cardType: row.card_type ?? category,
-    title: row.card_title,
+    title: row.title,
     emoji: row.emoji ?? '🎫',
     category,
     cost: row.cost ?? 0,
-    redeemedBy: row.redeemed_by,
-    ownerUserId: row.owner_user_id ?? row.redeemed_by,
-    usedBy: row.used_by,
-    completedByUserId: row.completed_by,
-    targetUser: row.target_user,
+    redeemedBy: owner,
+    ownerUserId: owner,
+    usedBy: row.used_at ? owner : null,
+    completedByUserId: row.completed_at ? owner : null,
+    targetUser: null,
     redeemedAt: row.redeemed_at,
     usedAt: row.used_at,
     completedAt: row.completed_at,
@@ -182,64 +183,44 @@ export function rowToCoupon(row: RewardCardRecordRow): OwnedCoupon {
     status: row.status,
     syncPending: false,
     remoteUpdatedAt: row.updated_at,
-    isCustom: isCustomRewardCardId(itemId),
+    isCustom: row.is_custom || isCustomRewardCardId(itemId),
+    description: row.description ?? undefined,
+    needsPartnerComplete: row.needs_partner_complete,
   });
 }
 
-export function couponToRowPayload(coupon: OwnedCoupon, coupleId: string) {
+export function couponToRowPayload(
+  coupon: OwnedCoupon,
+  userId: string,
+  coupleId: string | null
+) {
   const c = normalizeOwnedCoupon(coupon);
+  const owner = c.ownerUserId ?? c.redeemedBy ?? userId;
   return {
+    user_id: owner,
     couple_id: coupleId,
     local_id: c.id,
-    card_id: c.cardId,
-    card_title: c.cardTitle,
-    card_type: c.cardType,
+    reward_id: c.cardId,
+    title: c.cardTitle,
+    cost: c.cost,
     status: c.status,
-    redeemed_by: c.redeemedBy,
-    owner_user_id: c.ownerUserId ?? c.redeemedBy,
-    used_by: c.usedBy,
-    completed_by: c.completedByUserId,
-    target_user: c.targetUser,
+    card_type: c.cardType,
+    emoji: c.emoji,
+    note: c.note,
+    description: c.description ?? null,
+    is_custom: Boolean(c.isCustom),
+    needs_partner_complete: Boolean(c.needsPartnerComplete),
     redeemed_at: c.redeemedAt,
     used_at: c.usedAt,
     completed_at: c.completedAt,
-    note: c.note,
-    cost: c.cost,
-    emoji: c.emoji,
+    cancelled_at: c.status === 'cancelled' ? c.completedAt ?? new Date().toISOString() : null,
   };
 }
 
-/** 雲端列為單一真相；僅保留尚未上傳的 optimistic 本機卡券 */
-function mergeTwoCoupons(local: OwnedCoupon, remote: OwnedCoupon): OwnedCoupon {
-  const L = normalizeOwnedCoupon(local);
-  const R = normalizeOwnedCoupon(remote);
-
-  if (R.remoteId) {
-    return { ...R, syncPending: false, syncError: null };
-  }
-
-  if (L.syncPending) {
-    return { ...L, remoteId: R.remoteId ?? L.remoteId ?? null };
-  }
-
-  const status = pickPreferredStatus(L.status, R.status);
-  return normalizeOwnedCoupon({ ...L, ...R, status, syncPending: false, syncError: null });
-}
-
-/** 將遠端列合併進現有 RewardsData（保留本機 optimistic 卡券） */
-export function applyRemoteRewardRowsToRewards(
-  current: RewardsData,
-  remoteRows: RewardCardRecordRow[]
-): RewardsData {
-  return { ...current, coupons: mergeRemoteRewardCards(current.coupons, remoteRows) };
-}
-
-/** @alias mergeRemoteRewardCards */
-export function mergeRewardCards(local: OwnedCoupon[], remoteRows: RewardCardRecordRow[]): OwnedCoupon[] {
-  return mergeRemoteRewardCards(local, remoteRows);
-}
-
-export function mergeRemoteRewardCards(local: OwnedCoupon[], remoteRows: RewardCardRecordRow[]): OwnedCoupon[] {
+export function mergeRemoteRewardCards(
+  local: OwnedCoupon[],
+  remoteRows: UserRewardCardRow[]
+): OwnedCoupon[] {
   const byId = new Map<string, OwnedCoupon>();
 
   for (const row of remoteRows) {
@@ -254,7 +235,7 @@ export function mergeRemoteRewardCards(local: OwnedCoupon[], remoteRows: RewardC
     const remote = byId.get(L.id);
     if (remote?.remoteId) {
       if (L.syncPending && !L.remoteId) {
-        byId.set(L.id, mergeTwoCoupons(L, remote));
+        byId.set(L.id, { ...remote, syncPending: false, syncError: null });
       }
       continue;
     }
@@ -269,14 +250,24 @@ export function mergeRemoteRewardCards(local: OwnedCoupon[], remoteRows: RewardC
   );
 }
 
+export function applyRemoteRewardRowsToRewards(
+  current: RewardsData,
+  userId: string,
+  remoteRows: UserRewardCardRow[]
+): RewardsData {
+  const mine = current.coupons.filter((c) => isCouponOwnedBy(c, userId));
+  const merged = mergeRemoteRewardCards(mine, remoteRows);
+  return { ...current, coupons: merged };
+}
+
 export async function getRemoteRewardCards(
   supabase: SupabaseClient,
-  coupleId: string
-): Promise<RewardCardRecordRow[]> {
+  userId: string
+): Promise<UserRewardCardRow[]> {
   const { data, error } = await supabase
-    .from('reward_card_records')
+    .from(TABLE)
     .select(SELECT_COLS)
-    .eq('couple_id', coupleId)
+    .eq('user_id', userId)
     .order('redeemed_at', { ascending: false });
 
   if (error) {
@@ -284,31 +275,35 @@ export async function getRemoteRewardCards(
     throw error;
   }
 
-  return (data ?? []) as RewardCardRecordRow[];
+  return (data ?? []) as UserRewardCardRow[];
 }
 
 export async function pullRewardCardsFromRemote(
   supabase: SupabaseClient,
-  coupleId: string,
+  userId: string,
   current: RewardsData
 ): Promise<RewardsData> {
-  console.log(`${LOG} pulling`);
-  const rows = await getRemoteRewardCards(supabase, coupleId);
+  console.log(`${LOG} pulling user=${userId}`);
+  const rows = await getRemoteRewardCards(supabase, userId);
   console.log(`${LOG} pull count = ${rows.length}`);
-  return applyRemoteRewardRowsToRewards(current, rows);
+  const merged = applyRemoteRewardRowsToRewards(current, userId, rows);
+  const stripped = stripForeignCoupons(merged, userId);
+  saveRewards(stripped);
+  return stripped;
 }
 
-async function upsertRewardCard(
+async function upsertUserRewardCard(
   supabase: SupabaseClient,
-  coupleId: string,
+  userId: string,
+  coupleId: string | null,
   coupon: OwnedCoupon
 ): Promise<string | null> {
-  const payload = couponToRowPayload(coupon, coupleId);
+  const payload = couponToRowPayload(coupon, userId, coupleId);
 
   const { data: existing, error: selErr } = await supabase
-    .from('reward_card_records')
+    .from(TABLE)
     .select('id')
-    .eq('couple_id', coupleId)
+    .eq('user_id', userId)
     .eq('local_id', coupon.id)
     .maybeSingle();
 
@@ -318,10 +313,7 @@ async function upsertRewardCard(
   }
 
   if (existing?.id) {
-    const { error: upErr } = await supabase
-      .from('reward_card_records')
-      .update(payload)
-      .eq('id', existing.id);
+    const { error: upErr } = await supabase.from(TABLE).update(payload).eq('id', existing.id);
     if (upErr) {
       console.error(`${LOG} upsert update failed:`, upErr.message);
       throw upErr;
@@ -330,7 +322,7 @@ async function upsertRewardCard(
   }
 
   const { data: ins, error: insErr } = await supabase
-    .from('reward_card_records')
+    .from(TABLE)
     .insert(payload)
     .select('id')
     .single();
@@ -345,10 +337,11 @@ async function upsertRewardCard(
 
 export async function pushRewardCardToRemote(
   supabase: SupabaseClient,
-  coupleId: string,
+  userId: string,
+  coupleId: string | null,
   coupon: OwnedCoupon
 ): Promise<OwnedCoupon> {
-  const remoteId = await upsertRewardCard(supabase, coupleId, coupon);
+  const remoteId = await upsertUserRewardCard(supabase, userId, coupleId, coupon);
   const c = normalizeOwnedCoupon(coupon);
   return {
     ...c,
@@ -361,59 +354,59 @@ export async function pushRewardCardToRemote(
 
 export async function pushRewardCardsToRemote(
   supabase: SupabaseClient,
-  coupleId: string,
-  rewards: RewardsData,
-  options?: { pushAll?: boolean }
+  userId: string,
+  coupleId: string | null,
+  rewards: RewardsData
 ): Promise<RewardsData> {
-  const pushAll = options?.pushAll ?? false;
-  console.log(`${LOG} pushing coupons=${rewards.coupons.length} pushAll=${pushAll}`);
-  let coupons = rewards.coupons;
-  for (const c of rewards.coupons) {
-    if (!pushAll && !c.syncPending && c.remoteId) continue;
-    const updated = await pushRewardCardToRemote(supabase, coupleId, c);
+  const mine = stripForeignCoupons(rewards, userId);
+  let coupons = mine.coupons;
+  for (const c of mine.coupons) {
+    if (!c.syncPending && c.remoteId) continue;
+    const updated = await pushRewardCardToRemote(supabase, userId, coupleId, c);
     coupons = coupons.map((x) => (x.id === c.id ? updated : x));
   }
-  return { ...rewards, coupons };
+  return { ...mine, coupons };
 }
 
-/** 雙向同步：清理舊完成卡券 → push → pull 合併 */
 export async function syncRewardCards(
   supabase: SupabaseClient,
-  coupleId: string,
+  userId: string,
+  coupleId: string | null,
   current?: RewardsData
 ): Promise<RewardsData> {
-  const base = current ?? loadRewards();
-  const { rewards: cleaned } = await cleanupOldCompletedRewardCards(supabase, coupleId, {
+  const base = stripForeignCoupons(current ?? loadRewards(), userId);
+  const { rewards: cleaned } = await cleanupOldCompletedRewardCards(supabase, userId, coupleId, {
     syncRemote: true,
   });
-  const pushed = await pushRewardCardsToRemote(supabase, coupleId, cleaned, { pushAll: true });
-  const merged = await pullRewardCardsFromRemote(supabase, coupleId, pushed);
-  saveRewards(merged);
-  return merged;
+  await pushRewardCardsToRemote(supabase, userId, coupleId, cleaned);
+  return pullRewardCardsFromRemote(supabase, userId, cleaned);
 }
 
 export async function redeemRewardCard(
   supabase: SupabaseClient,
-  coupleId: string,
+  userId: string,
+  coupleId: string | null,
   coupon: OwnedCoupon
 ): Promise<OwnedCoupon> {
-  return pushRewardCardToRemote(supabase, coupleId, coupon);
+  return pushRewardCardToRemote(supabase, userId, coupleId, coupon);
 }
 
 export async function useRewardCard(
   supabase: SupabaseClient,
-  coupleId: string,
+  userId: string,
+  coupleId: string | null,
   coupon: OwnedCoupon
 ): Promise<OwnedCoupon> {
-  return pushRewardCardToRemote(supabase, coupleId, coupon);
+  return pushRewardCardToRemote(supabase, userId, coupleId, coupon);
 }
 
 export async function completeRewardCard(
   supabase: SupabaseClient,
-  coupleId: string,
+  userId: string,
+  coupleId: string | null,
   coupon: OwnedCoupon
 ): Promise<OwnedCoupon> {
-  return pushRewardCardToRemote(supabase, coupleId, coupon);
+  return pushRewardCardToRemote(supabase, userId, coupleId, coupon);
 }
 
 /** @deprecated use redeemRewardCard */
