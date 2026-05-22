@@ -5,6 +5,11 @@ import {
   DURATION_LABEL,
 } from '../data/dateIdeasPool';
 import { DateItineraryAiSheet } from '../components/DateItineraryAiSheet';
+import { RecentDateItineraryAiCard } from '../components/RecentDateItineraryAiCard';
+import {
+  savedSuggestionToDateSuggestion,
+  type SavedDateItineraryAi,
+} from '../storage/dateItineraryAiCache';
 import { ProBadgeIfNeeded } from '../components/ProBadge';
 import { useAiUsage } from '../hooks/useAiUsage';
 import { useProFeature } from '../hooks/useProFeature';
@@ -37,11 +42,22 @@ export function DatesPage({ embedded }: { embedded?: boolean } = {}) {
   const favSet = useMemo(() => new Set(datePlanner.favoriteIds), [datePlanner.favoriteIds]);
   const [noMatch, setNoMatch] = useState(false);
   const [aiSheetOpen, setAiSheetOpen] = useState(false);
+  const [aiSavedRecord, setAiSavedRecord] = useState<SavedDateItineraryAi | null>(null);
+
+  const openAiSheet = (saved?: SavedDateItineraryAi) => {
+    setAiSavedRecord(saved ?? null);
+    setAiSheetOpen(true);
+  };
+
+  const closeAiSheet = () => {
+    setAiSheetOpen(false);
+    setAiSavedRecord(null);
+  };
 
   const handleGenerate = () => {
     const ok = generateDateIdea();
     setNoMatch(!ok);
-    setAiSheetOpen(false);
+    closeAiSheet();
   };
 
   return (
@@ -92,6 +108,8 @@ export function DatesPage({ embedded }: { embedded?: boolean } = {}) {
         </p>
       </section>
 
+      <RecentDateItineraryAiCard onView={(record) => openAiSheet(record)} className="mb-3" />
+
       <section className={`mb-3 p-3 ${lq.card}`}>
         <PrimaryButton onClick={handleGenerate}>🎲 隨機產生約會建議</PrimaryButton>
         {noMatch ? (
@@ -112,8 +130,16 @@ export function DatesPage({ embedded }: { embedded?: boolean } = {}) {
         )}
       </section>
 
-      {aiSheetOpen && current ? (
-        <DateItineraryAiSheet suggestion={current} onClose={() => setAiSheetOpen(false)} />
+      {aiSheetOpen && (current || aiSavedRecord) ? (
+        <DateItineraryAiSheet
+          suggestion={
+            aiSavedRecord
+              ? savedSuggestionToDateSuggestion(aiSavedRecord.suggestion)
+              : current!
+          }
+          savedRecord={aiSavedRecord}
+          onClose={closeAiSheet}
+        />
       ) : null}
 
       {favoriteIdeas.length > 0 ? (

@@ -21,6 +21,14 @@ import { callDateItineraryAssistant } from '../lib/callCoupleAssistant';
 import type { DateItineraryPlan } from '../lib/dateItineraryAiModel';
 import { DateItineraryAiResult } from './DateItineraryAiResult';
 import type { DateSuggestion } from '../storage/dateTypes';
+import {
+  loadLastDateItineraryAi,
+  saveLastDateItineraryAi,
+  savedSuggestionToDateSuggestion,
+  snapshotDateSuggestion,
+  type SavedDateItineraryAi,
+  type SavedDateItinerarySettings,
+} from '../storage/dateItineraryAiCache';
 import { useAiToast } from '../context/AiToastContext';
 import { useAiResultReveal } from '../hooks/useAiResultReveal';
 import { useAiUsage } from '../hooks/useAiUsage';
@@ -32,24 +40,71 @@ import { lq } from '../theme';
 type Props = {
   suggestion: DateSuggestion;
   onClose: () => void;
+  /** 從「最近 AI 約會行程」開啟：直接顯示已存結果，不扣次 */
+  savedRecord?: SavedDateItineraryAi | null;
 };
 
-export function DateItineraryAiSheet({ suggestion, onClose }: Props) {
+function resolveInitialSheetState(
+  suggestionProp: DateSuggestion,
+  savedRecord?: SavedDateItineraryAi | null
+): {
+  suggestion: DateSuggestion;
+  plan: DateItineraryPlan | null;
+  settings: SavedDateItinerarySettings | null;
+  fromCache: boolean;
+} {
+  if (savedRecord) {
+    return {
+      suggestion: savedSuggestionToDateSuggestion(savedRecord.suggestion),
+      plan: savedRecord.plan,
+      settings: savedRecord.settings,
+      fromCache: true,
+    };
+  }
+  const last = loadLastDateItineraryAi();
+  if (last && last.suggestion.id === suggestionProp.id) {
+    return {
+      suggestion: suggestionProp,
+      plan: last.plan,
+      settings: last.settings,
+      fromCache: true,
+    };
+  }
+  return {
+    suggestion: suggestionProp,
+    plan: null,
+    settings: null,
+    fromCache: false,
+  };
+}
+
+export function DateItineraryAiSheet({ suggestion: suggestionProp, onClose, savedRecord }: Props) {
+  const initial = useMemo(
+    () => resolveInitialSheetState(suggestionProp, savedRecord),
+    [suggestionProp, savedRecord]
+  );
+  const suggestion = initial.suggestion;
+
   const aiPro = useProFeature('ai_in_app');
   const aiUsage = useAiUsage();
   const { showAiGenerated, showError } = useAiToast();
   const { scrollRef, resultRef, highlight, revealResult } = useAiResultReveal();
-  const [departure, setDeparture] = useState('');
-  const [budget, setBudget] = useState<DateAiBudgetChoice>(() => costToDefaultBudget(suggestion.cost));
-  const [customBudget, setCustomBudget] = useState('');
-  const [transport, setTransport] = useState<DateAiTransportChoice>('transit');
-  const [style, setStyle] = useState<DateAiStyleChoice>('romantic');
-  const [partnerPrefs, setPartnerPrefs] = useState('');
-  const [plan, setPlan] = useState<DateItineraryPlan | null>(null);
+  const [departure, setDeparture] = useState(initial.settings?.departure ?? '');
+  const [budget, setBudget] = useState<DateAiBudgetChoice>(
+    () => initial.settings?.budget ?? costToDefaultBudget(suggestion.cost)
+  );
+  const [customBudget, setCustomBudget] = useState(initial.settings?.customBudget ?? '');
+  const [transport, setTransport] = useState<DateAiTransportChoice>(
+    initial.settings?.transport ?? 'transit'
+  );
+  const [style, setStyle] = useState<DateAiStyleChoice>(initial.settings?.style ?? 'romantic');
+  const [partnerPrefs, setPartnerPrefs] = useState(initial.settings?.partnerPrefs ?? '');
+  const [plan, setPlan] = useState<DateItineraryPlan | null>(initial.plan);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [settingsExpanded, setSettingsExpanded] = useState(true);
-  const [resultAnimateIn, setResultAnimateIn] = useState(false);
+  const [settingsExpanded, setSettingsExpanded] = useState(!initial.plan);
+  const [resultAnimateIn, setResultAnimateIn] = useState(!!initial.plan);
+  const viewingCached = initial.fromCache && plan !== null;
 
   const tagLabels = useMemo(() => tagLabelsForSuggestion(suggestion.tags), [suggestion.tags]);
   const preview = useMemo(() => getDateItineraryPreview(suggestion), [suggestion]);
@@ -95,7 +150,13 @@ export function DateItineraryAiSheet({ suggestion, onClose }: Props) {
         if (result.code === 'QUOTA') aiUsage.onQuotaBlocked(result.message);
         return;
       }
-      setPlan(result.data.plan);
+      const nextPlan = result.data.plan;
+      setPlan(nextPlan);
+      saveLastDateItineraryAi({
+        suggestion: snapshotDateSuggestion(suggestion),
+        plan: nextPlan,
+        settings: { departure, budget, customBudget, transport, style, partnerPrefs },
+      });
       showAiGenerated();
     } catch (e) {
       const msg = e instanceof Error ? e.message : '產生行程時發生錯誤，請再試一次。';
@@ -152,6 +213,12 @@ export function DateItineraryAiSheet({ suggestion, onClose }: Props) {
         </div>
 
         <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto px-4 pt-3">
+          {viewingCached ? (
+            <p className={`mb-3 rounded-xl px-3 py-2 text-[12px] font-semibold leading-snug ${lq.cardSoft} ${lq.textSecondary}`}>
+              已保留最近一次 AI 行程，查看不會扣除今日 AI 次數。
+            </p>
+          ) : null}
+
           {inResultMode ? (
             <>
               <div

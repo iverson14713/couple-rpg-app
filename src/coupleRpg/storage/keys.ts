@@ -14,6 +14,8 @@ export const LQ_KEYS = {
   /** 首頁「今日動態」操作紀錄（local；預留 remote 同步） */
   activityLog: 'lovequest-activity-log',
   datePlanner: 'lovequest-date-planner',
+  /** 最近一次 AI 約會行程（local only；免費版單筆） */
+  lastDateItineraryAi: 'lovequest-last-date-itinerary-ai',
   anniversaries: 'lovequest-anniversaries',
   rewards: 'lovequest-rewards',
   /** Set after Phase 7 couple bind; until then bind reminder shows on home */
