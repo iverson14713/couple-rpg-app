@@ -195,7 +195,7 @@ export function MiniGamesPage() {
         返回
       </button>
 
-      <div className={`mb-3 rounded-2xl border border-rose-100/90 bg-white/95 px-3 py-2.5 ${lq.card}`}>
+      <div className={`mb-3 px-3 py-2.5 ${lq.card}`}>
         <p className="text-[12px] font-bold text-stone-600">🎲 情侶小遊戲</p>
         <p className="mt-2 text-[11px] font-bold text-violet-800">題庫狀態</p>
         <p className="text-[13px] font-extrabold text-stone-900">{library.headline}</p>
@@ -211,7 +211,7 @@ export function MiniGamesPage() {
         ) : null}
       </div>
 
-      <div className={`mb-3 rounded-2xl border border-rose-100/90 bg-white/95 px-3 py-2.5 ${lq.card}`}>
+      <div className={`mb-3 px-3 py-2.5 ${lq.card}`}>
         <p className="text-[10px] font-bold text-stone-500">今日小遊戲獎勵</p>
         <p className="text-sm font-extrabold text-rose-700">
           {count}/{cap}
@@ -236,10 +236,10 @@ export function MiniGamesPage() {
                 onClick={() => selectMode(m.id)}
                 className={`relative flex min-h-0 items-center gap-1.5 rounded-xl border px-2 py-1.5 text-left transition duration-200 active:scale-[0.98] ${
                   selected
-                    ? 'scale-[1.02] border-rose-300 bg-rose-50/95 shadow-sm shadow-rose-200/50'
+                    ? lq.hubChipActive
                     : locked
                       ? 'border-violet-100/80 bg-violet-50/30'
-                      : 'border-stone-200/60 bg-white'
+                      : lq.hubChipIdle
                 }`}
               >
                 {m.proOnly ? (
@@ -268,9 +268,9 @@ export function MiniGamesPage() {
         </div>
       </div>
 
-      <section className={`rounded-2xl border border-rose-100/80 p-4 shadow-[0_8px_28px_-10px_rgba(15,23,42,0.08)] ${lq.card}`}>
+      <section className={`p-4 ${lq.cardElevated}`}>
         <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-          <h2 className="text-[18px] font-extrabold leading-tight text-stone-900">
+          <h2 className={lq.sectionTitle}>
             <span className="mr-1">{modeDef.emoji}</span>
             {modeDef.title}
           </h2>
@@ -297,7 +297,7 @@ export function MiniGamesPage() {
               type="button"
               onClick={draw}
               disabled={drawDisabled}
-              className="flex-1 rounded-xl border border-stone-200 bg-white py-2.5 text-sm font-bold text-stone-700 active:scale-[0.99] disabled:opacity-40"
+              className={`flex-1 py-2.5 text-sm font-bold active:scale-[0.99] disabled:opacity-40 ${lq.btnSecondary}`}
             >
               {primaryLabel}
             </button>

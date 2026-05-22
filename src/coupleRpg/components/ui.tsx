@@ -31,7 +31,7 @@ export function PrimaryButton({
       ? lq.btnPrimary
       : variant === 'secondary'
         ? lq.btnSecondary
-        : 'border border-stone-200 bg-white text-stone-700';
+        : `${lq.btnSecondary} !bg-transparent`;
   return (
     <button type="button" className={`w-full transition ${base} ${className}`} {...props}>
       {children}
@@ -93,7 +93,7 @@ export function InlineInput({
         onChange={(e) => onChange(e.target.value)}
         onKeyDown={(e) => e.key === 'Enter' && onSubmit()}
         placeholder={placeholder}
-        className="min-w-0 flex-1 rounded-xl border border-stone-200 bg-white px-3 py-2.5 text-[15px] outline-none focus:border-rose-300 focus:ring-1 focus:ring-rose-200"
+        className={`min-w-0 flex-1 ${lq.input}`}
       />
       <button
         type="button"

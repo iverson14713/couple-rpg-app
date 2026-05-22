@@ -142,27 +142,27 @@ export function DatesPage({ embedded }: { embedded?: boolean } = {}) {
       ) : null}
 
       <section className={`p-3 ${lq.card}`}>
-        <h2 className="mb-2 text-sm font-bold text-stone-900">最近 7 筆約會紀錄</h2>
+        <h2 className={`mb-2 ${lq.sectionTitleSm}`}>最近 7 筆約會紀錄</h2>
         {dateHistory.length === 0 ? (
-          <p className="text-[13px] text-stone-500">完成約會後會記錄在這裡</p>
+          <p className={`text-[13px] ${lq.textMuted}`}>完成約會後會記錄在這裡</p>
         ) : (
           <ul className="space-y-1.5">
             {dateHistory.map((h) => (
               <li
                 key={h.id}
-                className="flex items-center justify-between gap-2 rounded-xl border border-rose-50 bg-white/80 px-2.5 py-2 text-[12px]"
+                className={`flex items-center justify-between gap-2 px-2.5 py-2 text-[12px] ${lq.cardSoft}`}
               >
-                <span className="min-w-0 font-semibold text-stone-800">
+                <span className={`min-w-0 font-semibold ${lq.text}`}>
                   {h.emoji} {h.title}
                 </span>
-                <span className="shrink-0 text-stone-400">
+                <span className={`shrink-0 ${lq.textHint}`}>
                   {h.date} {h.time}
                 </span>
               </li>
             ))}
           </ul>
         )}
-        <p className="mt-2 text-[11px] text-stone-500">完成約會：愛心 +4 · 默契 +3 · EXP +18 · 成就 +1</p>
+        <p className={`mt-2 text-[11px] ${lq.textMuted}`}>完成約會：愛心 +4 · 默契 +3 · EXP +18 · 成就 +1</p>
       </section>
     </>
   );
@@ -184,9 +184,7 @@ function FilterChip({
       type="button"
       onClick={onClick}
       className={`inline-flex items-center gap-0.5 rounded-full px-2 py-1 text-[11px] font-bold transition active:scale-95 ${
-        active
-          ? 'bg-rose-500 text-white shadow-sm ring-2 ring-rose-200'
-          : 'bg-white text-stone-600 ring-1 ring-rose-100'
+        active ? `${lq.badgeAccent} !text-white !bg-rose-500` : lq.badge
       }`}
     >
       <span>{emoji}</span>
@@ -215,17 +213,14 @@ function SuggestionCard({
     .filter(Boolean) as string[];
 
   return (
-    <article className="mt-4 rounded-2xl border-2 border-rose-100/90 bg-gradient-to-br from-rose-50/95 via-white to-pink-50/60 p-4 shadow-[0_12px_36px_-14px_rgba(244,63,94,0.22)]">
+    <article className={`mt-4 p-4 ${lq.cardHero}`}>
       <div className="mb-3 flex items-start gap-3">
-        <span
-          className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-white text-[2.5rem] leading-none shadow-inner ring-1 ring-rose-100"
-          aria-hidden
-        >
+        <span className={`h-16 w-16 text-[2.5rem] leading-none ${lq.iconChip}`} aria-hidden>
           {suggestion.emoji}
         </span>
         <div className="min-w-0 flex-1 pt-0.5">
           <div className="flex flex-wrap items-start justify-between gap-2">
-            <h3 className="text-[26px] font-extrabold leading-tight tracking-tight text-stone-900">
+            <h3 className={`text-[26px] font-extrabold leading-tight tracking-tight ${lq.text}`}>
               {suggestion.title}
             </h3>
             {suggestion.completed ? (
@@ -240,7 +235,7 @@ function SuggestionCard({
               {tagLabels.map((t) => (
                 <span
                   key={t}
-                  className="rounded-full bg-white px-2.5 py-1 text-[13px] font-bold text-rose-700 ring-1 ring-rose-100"
+                  className={lq.badgeAccent}
                 >
                   {t}
                 </span>
@@ -251,17 +246,17 @@ function SuggestionCard({
       </div>
 
       <div className="mb-3 flex flex-wrap gap-2">
-        <span className="rounded-xl bg-white/90 px-3 py-1.5 text-[13px] font-bold text-stone-700 ring-1 ring-stone-100">
+        <span className={`px-3 py-1.5 text-[13px] font-bold ${lq.badge}`}>
           💰 預算 {COST_LABEL[suggestion.cost]}
         </span>
-        <span className="rounded-xl bg-white/90 px-3 py-1.5 text-[13px] font-bold text-stone-700 ring-1 ring-stone-100">
+        <span className={`px-3 py-1.5 text-[13px] font-bold ${lq.badge}`}>
           ⏱ {DURATION_LABEL[suggestion.duration]}
         </span>
       </div>
 
-      <p className="text-[15px] leading-relaxed text-stone-700">{suggestion.description}</p>
+      <p className={`text-[15px] leading-relaxed ${lq.textSecondary}`}>{suggestion.description}</p>
 
-      <div className="mt-3 rounded-xl bg-rose-50/90 px-3 py-2.5 ring-1 ring-rose-100/80">
+      <div className={`mt-3 px-3 py-2.5 ${lq.cardSoft}`}>
         <p className="text-[14px] font-extrabold leading-snug text-rose-800">
           <span className="text-rose-500">適合：</span>
           {suggestion.scenario}
@@ -275,7 +270,7 @@ function SuggestionCard({
           className={`flex min-h-[48px] flex-1 items-center justify-center rounded-xl text-[14px] font-bold ring-1 transition active:scale-[0.98] ${
             isFavorite
               ? 'bg-amber-50 text-amber-800 ring-amber-200'
-              : 'bg-white text-stone-700 ring-rose-100'
+              : lq.btnSecondary
           }`}
         >
           {isFavorite ? '★ 已收藏' : '☆ 收藏'}

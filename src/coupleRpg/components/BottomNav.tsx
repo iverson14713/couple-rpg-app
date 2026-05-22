@@ -22,10 +22,10 @@ export function BottomNav({ activeTab, onChange }: Props) {
 
   return (
     <nav
-      className={`fixed bottom-0 left-0 right-0 z-40 px-1.5 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2 ${lq.nav}`}
+      className={`fixed bottom-0 left-0 right-0 z-40 px-2 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2.5 ${lq.nav}`}
       aria-label="主要功能"
     >
-      <div className="mx-auto flex max-w-md">
+      <div className="mx-auto flex max-w-md gap-0.5">
         {TABS.map((tab) => {
           const isActive = tab.id === highlighted;
           const TabIcon = tab.Icon;
@@ -35,24 +35,20 @@ export function BottomNav({ activeTab, onChange }: Props) {
               type="button"
               onClick={() => onChange(tab.id)}
               aria-current={isActive ? 'page' : undefined}
-              className={`relative flex min-h-[52px] min-w-0 flex-1 flex-col items-center justify-center gap-1 rounded-xl px-1 py-2.5 transition active:scale-[0.97] ${
-                isActive ? 'bg-rose-50/90' : 'bg-transparent active:bg-stone-50/80'
+              className={`relative flex min-h-[54px] min-w-0 flex-1 flex-col items-center justify-center gap-1 rounded-2xl px-1 py-2 transition duration-200 active:scale-[0.97] ${
+                isActive ? lq.navItemActive : 'bg-transparent active:bg-rose-50/50'
               }`}
             >
-              {isActive ? (
-                <span
-                  className="absolute top-1.5 left-1/2 h-1 w-1 -translate-x-1/2 rounded-full bg-rose-400"
-                  aria-hidden
-                />
-              ) : null}
               <TabIcon
-                className={`h-[26px] w-[26px] shrink-0 ${isActive ? 'text-rose-500' : lq.navIdle}`}
+                className={`h-[26px] w-[26px] shrink-0 transition-colors ${
+                  isActive ? lq.navActive : lq.navIdle
+                }`}
                 strokeWidth={isActive ? 2.5 : 2}
                 aria-hidden
               />
               <span
-                className={`truncate text-[13px] leading-tight ${
-                  isActive ? 'font-bold text-rose-500' : 'font-medium text-stone-500'
+                className={`truncate text-[12px] leading-tight ${
+                  isActive ? `font-bold ${lq.navActive}` : `font-medium ${lq.navIdle}`
                 }`}
               >
                 {tab.label}

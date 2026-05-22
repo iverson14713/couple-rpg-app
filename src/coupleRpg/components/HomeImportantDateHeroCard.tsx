@@ -29,7 +29,7 @@ export function HomeImportantDateHeroCard() {
       <button
         type="button"
         onClick={hasConfigured ? goReminders : goAddDates}
-        className="group relative w-full overflow-hidden rounded-3xl bg-gradient-to-br from-rose-50 via-white to-pink-50/90 p-5 text-left shadow-[0_14px_40px_-14px_rgba(244,114,182,0.35)] ring-1 ring-rose-200/60 transition active:scale-[0.99] active:opacity-95"
+        className={`group relative w-full overflow-hidden p-5 text-left transition active:scale-[0.99] active:opacity-95 ${lq.cardHero}`}
         aria-label={hasConfigured ? '查看重要日子提醒' : '新增重要日子'}
       >
         <div
@@ -88,13 +88,13 @@ function ConfiguredHero({
       <p className="text-[11px] font-bold uppercase tracking-wider text-rose-500/90">下一個重要日子</p>
 
       <div className="mt-3 flex items-center gap-3.5">
-        <span className="flex h-[4.25rem] w-[4.25rem] shrink-0 items-center justify-center rounded-2xl bg-white/80 text-[2.75rem] leading-none shadow-sm ring-1 ring-rose-100/80">
+        <span className={`h-[4.25rem] w-[4.25rem] text-[2.75rem] leading-none ${lq.iconChip}`}>
           {event.icon}
         </span>
 
         <div className="min-w-0 flex-1">
           <p className={`truncate text-[22px] font-extrabold leading-tight ${lq.text}`}>{event.displayTitle}</p>
-          <p className="mt-1 text-[13px] font-semibold text-stone-500">
+          <p className={`mt-1 text-[13px] font-semibold ${lq.textSecondary}`}>
             {event.typeLabel}
             <span className="mx-1.5 text-stone-300">·</span>
             {dateText}

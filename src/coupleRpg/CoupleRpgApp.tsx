@@ -107,7 +107,7 @@ function CoupleRpgShell() {
 function AppRoot({ children }: { children: ReactNode }) {
   return (
     <div
-      className={`min-h-screen px-4 py-6 ${lq.mainPadBottom} text-stone-800 ${lq.bg}`}
+      className={`min-h-screen px-4 py-6 ${lq.mainPadBottom} ${lq.text} ${lq.bg}`}
     >
       <div className="mx-auto max-w-md">{children}</div>
     </div>

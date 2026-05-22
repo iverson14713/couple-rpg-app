@@ -56,30 +56,24 @@ export function TasksPage({
       {showTasks ? (
         <>
           {/* 今日任務中心 */}
-          <section
-            className={`overflow-hidden rounded-2xl border border-rose-100/90 bg-gradient-to-br from-rose-50/90 via-white to-pink-50/50 p-4 shadow-[0_10px_32px_-12px_rgba(244,63,94,0.18)]`}
-          >
+          <section className={`overflow-hidden p-4 ${lq.cardHero}`}>
             <div className="mb-3 flex items-start justify-between gap-2">
               <div className="min-w-0">
-                <p className="text-[11px] font-bold uppercase tracking-wide text-rose-500">LoveQuest</p>
-                <h2 className="mt-0.5 flex items-center gap-2 text-[18px] font-extrabold leading-tight text-stone-900">
-                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white/90 text-xl shadow-sm ring-1 ring-rose-100">
-                    💌
-                  </span>
+                <p className={lq.label}>LoveQuest</p>
+                <h2 className={`mt-0.5 flex items-center gap-2 ${lq.sectionTitle}`}>
+                  <span className={`h-9 w-9 text-xl ${lq.iconChip}`}>💌</span>
                   今日任務中心
                 </h2>
               </div>
-              <span className="shrink-0 rounded-full bg-white/90 px-2.5 py-1 text-[11px] font-bold text-rose-600 ring-1 ring-rose-100">
-                隨機 {total} 項
-              </span>
+              <span className={`shrink-0 ${lq.badgeAccent}`}>隨機 {total} 項</span>
             </div>
 
-            <p className="mb-3 flex items-start gap-2 rounded-xl bg-white/70 px-3 py-2.5 text-[14px] font-semibold leading-snug text-rose-800 ring-1 ring-rose-100/80">
+            <p className={`mb-3 flex items-start gap-2 px-3 py-2.5 text-[14px] font-semibold leading-snug text-rose-800 ${lq.cardSoft}`}>
               <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-rose-400" aria-hidden />
               {encouragement}
             </p>
 
-            <div className="mb-1 flex justify-between text-[13px] font-semibold text-stone-600">
+            <div className={`mb-1 flex justify-between text-[13px] font-semibold ${lq.textSecondary}`}>
               <span>今日完成進度</span>
               <span className={lq.accent}>
                 {done}/{total} · {pct}%
@@ -94,13 +88,13 @@ export function TasksPage({
             {allDone ? (
               <p className="text-[12px] font-semibold text-emerald-600">🎉 今日任務全部完成，太棒了！</p>
             ) : (
-              <p className="text-[11px] text-stone-500">完成任務可累積愛心與 LoveCoin</p>
+              <p className={`text-[11px] ${lq.textMuted}`}>完成任務可累積愛心與 LoveCoin</p>
             )}
           </section>
 
           {/* 任務列表 */}
           <section className={`p-4 ${lq.card}`}>
-            <h3 className="mb-3 flex items-center gap-1.5 text-[15px] font-bold text-stone-900">
+            <h3 className={`mb-3 flex items-center gap-1.5 ${lq.sectionTitleSm}`}>
               <span aria-hidden>✨</span>
               今日小任務
             </h3>
@@ -254,7 +248,7 @@ function TaskCard({
       <button
         type="button"
         onClick={onReroll}
-        className="mt-3 flex min-h-[44px] w-full items-center justify-center gap-1.5 rounded-xl border border-rose-100 bg-white px-3 text-[13px] font-bold text-rose-700 shadow-sm active:scale-[0.98]"
+        className={`mt-3 flex min-h-[44px] w-full items-center justify-center gap-1.5 px-3 text-[13px] font-bold text-rose-700 active:scale-[0.98] ${lq.btnSecondary}`}
       >
         <RefreshCw className="h-4 w-4" aria-hidden />
         換一個
@@ -265,7 +259,7 @@ function TaskCard({
 
 function RewardPill({ emoji, label, value }: { emoji: string; label: string; value: string }) {
   return (
-    <li className="flex items-center gap-2 rounded-xl bg-white/90 px-3 py-2.5 ring-1 ring-stone-100">
+    <li className={`flex items-center gap-2 px-3 py-2.5 ${lq.cardFeature}`}>
       <span className="text-lg" aria-hidden>
         {emoji}
       </span>

@@ -72,12 +72,12 @@ export function TodayPage() {
 
       <h2 className={`mb-2.5 mt-1 px-0.5 ${lq.sectionTitle}`}>功能</h2>
       <div className="space-y-2.5">
-        <section className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-white via-rose-50/30 to-stone-50/80 p-4 shadow-[0_8px_28px_-12px_rgba(15,23,42,0.08)] ring-1 ring-stone-200/40">
+        <section className={`relative overflow-hidden p-4 ${lq.cardElevated}`}>
           <span className="absolute -right-1 -top-1 text-4xl opacity-[0.06]" aria-hidden>
             🎲
           </span>
           <div className="relative">
-            <p className="text-[11px] font-semibold uppercase tracking-wide text-stone-400">一起玩</p>
+            <p className={lq.label}>一起玩</p>
             <h3 className={`mt-0.5 text-[20px] font-extrabold leading-snug ${lq.text}`}>情侶小遊戲</h3>
             <p className={`mt-1 text-[13px] ${lq.textSecondary}`}>骰子 · 真心話 · 默契 · 情話 · 挑戰</p>
             <div className="mt-3 flex flex-wrap items-center gap-2">
@@ -152,9 +152,9 @@ function HomeCoreFeatureCard({
   onAction: () => void;
 }) {
   return (
-    <article className="relative flex min-h-[9.5rem] flex-col rounded-2xl bg-white/90 p-3 shadow-[0_4px_16px_-8px_rgba(15,23,42,0.08)] ring-1 ring-stone-200/40 transition active:scale-[0.99]">
+    <article className={`relative flex min-h-[9.5rem] flex-col p-3 transition active:scale-[0.99] ${lq.cardFeature}`}>
       {badge ? (
-        <span className="absolute right-2 top-2 max-w-[calc(100%-3.5rem)] truncate rounded-full bg-stone-100 px-2 py-0.5 text-[10px] font-bold text-stone-600">
+        <span className={`absolute right-2 top-2 max-w-[calc(100%-3.5rem)] truncate px-2 py-0.5 text-[10px] font-bold ${lq.badge}`}>
           {badge}
         </span>
       ) : null}

@@ -12,24 +12,20 @@ type Props = {
 
 export function FeatureActionCard({ emoji, title, description, cta, badge, onAction }: Props) {
   return (
-    <article
-      className={`relative overflow-hidden rounded-2xl border border-rose-100/90 bg-white/95 p-3.5 shadow-[0_8px_28px_-12px_rgba(244,114,182,0.28)] transition active:scale-[0.99]`}
-    >
+    <article className={`relative overflow-hidden p-3.5 transition active:scale-[0.99] ${lq.cardFeature}`}>
       {badge ? (
-        <span className="absolute right-3 top-3 rounded-full bg-rose-50 px-2 py-0.5 text-[9px] font-bold text-rose-600 ring-1 ring-rose-100">
-          {badge}
-        </span>
+        <span className={`absolute right-3 top-3 ${lq.badgeAccent}`}>{badge}</span>
       ) : null}
       <div className="flex gap-3">
         <span
-          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-rose-50 to-pink-100 text-2xl ring-1 ring-rose-100/80"
+          className={`h-11 w-11 text-2xl ${lq.iconChip}`}
           aria-hidden
         >
           {emoji}
         </span>
         <div className="min-w-0 flex-1 pr-6">
-          <h3 className="text-[15px] font-bold leading-snug text-stone-900">{title}</h3>
-          <p className="mt-0.5 text-[12px] leading-relaxed text-stone-500">{description}</p>
+          <h3 className={`text-[15px] font-bold leading-snug ${lq.text}`}>{title}</h3>
+          <p className={`mt-0.5 text-[12px] leading-relaxed ${lq.textSecondary}`}>{description}</p>
           <button
             type="button"
             onClick={onAction}

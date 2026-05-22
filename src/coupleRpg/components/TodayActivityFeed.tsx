@@ -151,7 +151,7 @@ export function TodayActivityFeed() {
         </button>
 
         {expanded ? (
-          <div className="mt-2 space-y-1.5 rounded-2xl bg-white/80 px-1 py-1 ring-1 ring-stone-100/90">
+          <div className={`mt-2 space-y-1.5 px-1 py-1 ${lq.cardSoft}`}>
             {todayLogs.length === 0 ? (
               <p className="px-2 py-3 text-center text-[12px] text-stone-500">今天還沒有新動態，去完成一項甜蜜任務吧</p>
             ) : (

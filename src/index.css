@@ -92,6 +92,40 @@
   }
 }
 
+/* LoveQuest — 奶粉白 / 淡粉紫大氣背景（非純白） */
+.lq-app-shell {
+  min-height: 100vh;
+  background-color: #fdf4f8;
+  background-image:
+    radial-gradient(ellipse 110% 75% at 50% -18%, rgba(233, 213, 255, 0.2), transparent 54%),
+    radial-gradient(ellipse 85% 55% at 100% 0%, rgba(251, 182, 206, 0.14), transparent 48%),
+    radial-gradient(ellipse 75% 50% at 0% 28%, rgba(252, 231, 243, 0.4), transparent 52%),
+    linear-gradient(180deg, #fceef6 0%, #fef9fb 40%, #f7f3f6 100%);
+}
+
+/* Bottom tab — active 浮起 + 頂部粉光指示 */
+.lq-nav-tab-active {
+  position: relative;
+}
+
+.lq-nav-tab-active::before {
+  content: '';
+  position: absolute;
+  top: 4px;
+  left: 50%;
+  width: 28px;
+  height: 3px;
+  transform: translateX(-50%);
+  border-radius: 9999px;
+  background: linear-gradient(
+    90deg,
+    rgba(251, 113, 133, 0.35),
+    rgba(244, 114, 182, 0.85),
+    rgba(251, 113, 133, 0.35)
+  );
+  box-shadow: 0 0 10px rgba(244, 114, 182, 0.45);
+}
+
 /*
  * Native-like iOS / PWA: form fields ≥16px to avoid Safari focus auto-zoom.
  * After all Tailwind + @layer so this wins over utilities like text-sm on inputs.

@@ -42,7 +42,7 @@ export function HomeCoupleOverviewCard() {
   }, [dinnerLabel, dinnerHomeStatus.summaryPart, houseworkHomeStatus.summaryPart, todayDinner?.label, total, done, datePlanner.current]);
 
   return (
-    <section className="mb-4 overflow-hidden rounded-3xl bg-gradient-to-b from-white via-rose-50/40 to-stone-50/80 shadow-[0_12px_40px_-16px_rgba(15,23,42,0.12)] ring-1 ring-stone-200/50">
+    <section className={`mb-4 overflow-hidden ${lq.cardElevated}`}>
       {/* 頂部：情侶 + Pro 小入口 */}
       <div className="px-4 pb-3 pt-4">
         <div className="flex items-start justify-between gap-3">
@@ -81,14 +81,14 @@ export function HomeCoupleOverviewCard() {
         </div>
 
         {/* 數值列：無獨立白卡 */}
-        <div className="mt-3.5 grid grid-cols-4 divide-x divide-stone-200/60 rounded-2xl bg-stone-50/70 py-2.5">
+        <div className="mt-3.5 grid grid-cols-4 divide-x divide-rose-100/50 rounded-2xl bg-rose-50/35 py-2.5 ring-1 ring-rose-100/40 backdrop-blur-sm">
           <StatCell emoji="❤️" value={String(rpgView.heartPoints)} label="愛心" />
           <StatCell emoji="🤝" value={`${rpgView.compatibility}%`} label="默契" />
           <StatCell emoji="✨" value={`Lv.${rpgView.level}`} label="等級" />
           <StatCell emoji="🪙" value={`+${todayCoinEarned}`} label="今日" />
         </div>
 
-        <p className="mt-2.5 truncate text-[12px] font-medium text-stone-500">{todayLine}</p>
+        <p className={`mt-2.5 truncate text-[12px] font-medium ${lq.textSecondary}`}>{todayLine}</p>
       </div>
 
       <TodayActivityFeed />
