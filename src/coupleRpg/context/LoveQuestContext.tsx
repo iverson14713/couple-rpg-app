@@ -113,10 +113,11 @@ import {
   useRewardCardLocal,
 } from '../storage/rewardsStore';
 import {
+  applyRemoteRewardRowsToRewards,
   canSyncRewardCards,
   cleanupOldCompletedRewardCards,
   completeRewardCard as pushCompleteRewardCardRemote,
-  pullRewardCardsFromRemote,
+  getRemoteRewardCards,
   redeemRewardCard,
   sortCompletedCoupons,
   syncRewardCards as syncRewardCardsRemote,
@@ -369,8 +370,11 @@ type LoveQuestContextValue = {
   completedCoupons: ReturnType<typeof getCouponsByStatus>;
   rewardCardSyncStatus: RewardCardSyncStatus;
   rewardCardSyncError: string | null;
-  redeemRewardItem: (itemId: ShopItemId) => Promise<boolean>;
-  redeemCustomRewardItem: (input: CustomRewardCardInput) => Promise<boolean>;
+  /** 剛兌換的卡券 id（卡券頁捲動／高亮） */
+  highlightCouponId: string | null;
+  clearHighlightCoupon: () => void;
+  redeemRewardItem: (itemId: ShopItemId) => Promise<RewardRedeemResult>;
+  redeemCustomRewardItem: (input: CustomRewardCardInput) => Promise<RewardRedeemResult>;
   useCoupon: (couponId: string) => void;
   completeRewardCard: (couponId: string) => void;
   pullRewardCardsFromCloud: () => Promise<void>;
@@ -383,6 +387,8 @@ type LoveQuestContextValue = {
 };
 
 const LoveQuestContext = createContext<LoveQuestContextValue | null>(null);
+
+export type RewardRedeemResult = { ok: true; couponId: string } | { ok: false };
 
 function loadRpg(): RpgState {
   const raw = loadJson<Partial<RpgState> & Record<string, unknown>>(LQ_KEYS.rpg, {});
@@ -413,6 +419,8 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
 
   const [rewardCardSyncStatus, setRewardCardSyncStatus] = useState<RewardCardSyncStatus>('local');
   const [rewardCardSyncError, setRewardCardSyncError] = useState<string | null>(null);
+  const [highlightCouponId, setHighlightCouponId] = useState<string | null>(null);
+  const clearHighlightCoupon = useCallback(() => setHighlightCouponId(null), []);
   const [choreSyncStatus, setChoreSyncStatus] = useState<ChoreSyncStatus>('local');
   const [choreSyncError, setChoreSyncError] = useState<string | null>(null);
   const [dinnerSyncStatus, setDinnerSyncStatus] = useState<DinnerSyncStatus>('local');
@@ -1862,6 +1870,18 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
         .catch((e) => {
           const msg = e instanceof Error ? e.message : String(e);
           console.error('[reward-card-sync] push failed:', msg);
+          setRewards((prev) => {
+            const next = {
+              ...prev,
+              coupons: prev.coupons.map((c) =>
+                c.id === coupon.id
+                  ? { ...c, syncPending: true, syncError: '同步失敗，稍後再試' }
+                  : c
+              ),
+            };
+            saveRewards(next);
+            return next;
+          });
           setRewardCardSyncStatus('error');
           setRewardCardSyncError('同步失敗，稍後再試');
         });
@@ -1870,11 +1890,11 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
   );
 
   const redeemRewardItemFn = useCallback(
-    async (itemId: ShopItemId): Promise<boolean> => {
+    async (itemId: ShopItemId): Promise<RewardRedeemResult> => {
       const item = getShopItem(itemId);
-      if (!item) return false;
+      if (!item) return { ok: false };
 
-      const couponId = makeId();
+      const coinIdempotencyKey = makeId();
       let balance = canSyncWallet ? getCachedCoinBalance() : loadRpg().loveCoins;
 
       if (canSyncWallet && coupleId) {
@@ -1883,21 +1903,21 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
           userId: currentUserId,
           txType: 'spend',
           source: 'redeem',
-          idempotencyKey: redeemCoinKey(couponId),
+          idempotencyKey: redeemCoinKey(coinIdempotencyKey),
           note: item.title,
           emoji: item.emoji,
           loveCoinDelta: -item.cost,
         });
-        if (!spend.ok) return false;
+        if (!spend.ok) return { ok: false };
         balance = spend.snapshot.loveCoinBalance;
         applyGrowthSnapshot(spend.snapshot);
       } else if (balance < item.cost) {
-        return false;
+        return { ok: false };
       }
 
       const rewPrev = loadRewards();
       const result = redeemCoupon(rewPrev, itemId, balance, currentUserId);
-      if (result.error || !result.coupon) return false;
+      if (result.error || !result.coupon) return { ok: false };
 
       if (!canSyncWallet) {
         const nextRpg = normalizeRpgState({
@@ -1910,6 +1930,7 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
 
       saveRewards(result.rewards);
       setRewards(result.rewards);
+      setHighlightCouponId(result.coupon.id);
       const name = actorDisplayName(currentUserId);
       setActivity(appendActivity(formatRedeemFeedLine(name, result.coupon.cardTitle)));
       logTodayActivity({
@@ -1920,7 +1941,7 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
       });
       pushCouponBackground(result.coupon);
       coinWalletSchedulerRef.current?.scheduleSync();
-      return true;
+      return { ok: true, couponId: result.coupon.id };
     },
     [
       actorDisplayName,
@@ -1936,11 +1957,11 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
   );
 
   const redeemCustomRewardItemFn = useCallback(
-    async (input: CustomRewardCardInput): Promise<boolean> => {
+    async (input: CustomRewardCardInput): Promise<RewardRedeemResult> => {
       const normalized = normalizeCustomRewardInput(input);
-      if (!normalized) return false;
+      if (!normalized) return { ok: false };
 
-      const couponId = makeId();
+      const coinIdempotencyKey = makeId();
       let balance = canSyncWallet ? getCachedCoinBalance() : loadRpg().loveCoins;
 
       if (canSyncWallet && coupleId) {
@@ -1949,21 +1970,21 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
           userId: currentUserId,
           txType: 'spend',
           source: 'redeem',
-          idempotencyKey: redeemCoinKey(couponId),
+          idempotencyKey: redeemCoinKey(coinIdempotencyKey),
           note: normalized.title,
           emoji: normalized.emoji,
           loveCoinDelta: -normalized.cost,
         });
-        if (!spend.ok) return false;
+        if (!spend.ok) return { ok: false };
         balance = spend.snapshot.loveCoinBalance;
         applyGrowthSnapshot(spend.snapshot);
       } else if (balance < normalized.cost) {
-        return false;
+        return { ok: false };
       }
 
       const rewPrev = loadRewards();
       const result = redeemCustomCoupon(rewPrev, input, balance, currentUserId);
-      if (result.error || !result.coupon) return false;
+      if (result.error || !result.coupon) return { ok: false };
 
       if (!canSyncWallet) {
         const nextRpg = normalizeRpgState({
@@ -1976,6 +1997,7 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
 
       saveRewards(result.rewards);
       setRewards(result.rewards);
+      setHighlightCouponId(result.coupon.id);
       const name = actorDisplayName(currentUserId);
       setActivity(appendActivity(formatRedeemFeedLine(name, result.coupon.cardTitle)));
       logTodayActivity({
@@ -1985,7 +2007,7 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
         message: formatLoveCoinActivityMessage(-normalized.cost, result.coupon.cardTitle),
       });
       pushCouponBackground(result.coupon);
-      return true;
+      return { ok: true, couponId: result.coupon.id };
     },
     [
       actorDisplayName,
@@ -2177,10 +2199,12 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
     setRewardCardSyncStatus('syncing');
     setRewardCardSyncError(null);
     try {
-      const cur = loadRewards();
-      const merged = await pullRewardCardsFromRemote(auth.supabase, coupleId, cur);
-      saveRewards(merged);
-      setRewards(merged);
+      const rows = await getRemoteRewardCards(auth.supabase, coupleId);
+      setRewards((prev) => {
+        const merged = applyRemoteRewardRowsToRewards(prev, rows);
+        saveRewards(merged);
+        return merged;
+      });
       setRewardCardSyncStatus('synced');
       setRewardCardSyncError(null);
     } catch (e) {
@@ -2252,11 +2276,13 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
         if (!cancelled) {
           await runRewardCardCleanup(true);
         }
-        const cur = loadRewards();
-        const merged = await pullRewardCardsFromRemote(auth.supabase!, coupleId, cur);
+        const rows = await getRemoteRewardCards(auth.supabase!, coupleId);
         if (cancelled) return;
-        saveRewards(merged);
-        setRewards(merged);
+        setRewards((prev) => {
+          const merged = applyRemoteRewardRowsToRewards(prev, rows);
+          saveRewards(merged);
+          return merged;
+        });
         setRewardCardSyncStatus('synced');
         setRewardCardSyncError(null);
       } catch (e) {
@@ -2426,6 +2452,8 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
       completedCouponsSorted,
       rewardCardSyncStatus,
       rewardCardSyncError,
+      highlightCouponId,
+      clearHighlightCoupon,
       redeemRewardItem: redeemRewardItemFn,
       redeemCustomRewardItem: redeemCustomRewardItemFn,
       useCoupon: useCouponFn,
@@ -2523,6 +2551,8 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
       completedCouponsSorted,
       rewardCardSyncStatus,
       rewardCardSyncError,
+      highlightCouponId,
+      clearHighlightCoupon,
       partnerName,
       partnerEmoji,
     ]

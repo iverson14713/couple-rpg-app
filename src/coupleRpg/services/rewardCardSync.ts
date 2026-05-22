@@ -202,6 +202,20 @@ export function couponToRowPayload(coupon: OwnedCoupon, coupleId: string) {
 }
 
 function mergeTwoCoupons(local: OwnedCoupon, remote: OwnedCoupon): OwnedCoupon {
+  if (local.syncPending) {
+    const localScore = STATUS_PROGRESS[local.status];
+    const remoteScore = STATUS_PROGRESS[remote.status];
+    if (remoteScore <= localScore) {
+      return {
+        ...local,
+        remoteId: remote.remoteId ?? local.remoteId ?? null,
+        remoteUpdatedAt: remote.remoteUpdatedAt ?? local.remoteUpdatedAt,
+        syncPending: !remote.remoteId,
+        syncError: remote.remoteId ? null : local.syncError,
+      };
+    }
+  }
+
   const status = pickPreferredStatus(local.status, remote.status);
   const localScore = STATUS_PROGRESS[local.status];
   const remoteScore = STATUS_PROGRESS[remote.status];
@@ -226,8 +240,17 @@ function mergeTwoCoupons(local: OwnedCoupon, remote: OwnedCoupon): OwnedCoupon {
     needsPartnerComplete: primary.needsPartnerComplete ?? secondary.needsPartnerComplete,
     isCustom: primary.isCustom ?? secondary.isCustom,
     syncPending: false,
+    syncError: null,
     remoteUpdatedAt: preferRemote ? remote.remoteUpdatedAt : local.remoteUpdatedAt,
   };
+}
+
+/** 將遠端列合併進現有 RewardsData（保留本機 optimistic 卡券） */
+export function applyRemoteRewardRowsToRewards(
+  current: RewardsData,
+  remoteRows: RewardCardRecordRow[]
+): RewardsData {
+  return { ...current, coupons: mergeRemoteRewardCards(current.coupons, remoteRows) };
 }
 
 /** @alias mergeRemoteRewardCards */
@@ -283,8 +306,7 @@ export async function pullRewardCardsFromRemote(
   console.log(`${LOG} pulling`);
   const rows = await getRemoteRewardCards(supabase, coupleId);
   console.log(`${LOG} pull count = ${rows.length}`);
-  const merged = mergeRemoteRewardCards(current.coupons, rows);
-  return { ...current, coupons: merged };
+  return applyRemoteRewardRowsToRewards(current, rows);
 }
 
 async function upsertRewardCard(
@@ -342,6 +364,7 @@ export async function pushRewardCardToRemote(
     ...coupon,
     remoteId: remoteId ?? coupon.remoteId ?? null,
     syncPending: false,
+    syncError: null,
     remoteUpdatedAt: new Date().toISOString(),
   };
 }

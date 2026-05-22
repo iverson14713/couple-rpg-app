@@ -85,6 +85,8 @@ export type OwnedCoupon = {
   status: RewardCardStatus;
   /** 待同步到 Supabase */
   syncPending?: boolean;
+  /** 最近一次雲端同步失敗訊息（仍保留本機卡券） */
+  syncError?: string | null;
   /** @deprecated 舊版欄位，載入時遷移 */
   acquiredAt?: string;
 };

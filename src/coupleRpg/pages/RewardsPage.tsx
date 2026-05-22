@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { ChevronDown, ChevronUp, Cloud, Coins, Gift, RefreshCw, Ticket, Wallet } from 'lucide-react';
 import { COMPLETED_REWARD_CARD_RETENTION_DAYS } from '../constants/rewardCardRetention';
 import { REWARD_CATEGORY_LABEL, REWARD_SHOP_ITEMS } from '../data/rewardShopCatalog';
@@ -9,6 +9,7 @@ import { useProFeature } from '../hooks/useProFeature';
 import { NicknameSetupBanner } from '../components/NicknameSetupBanner';
 import { PageHero } from '../components/ui';
 import { useLoveQuest } from '../context/LoveQuestContext';
+import { useToast } from '../../context/ToastContext';
 import { useSupabaseAuth } from '../../useSupabaseAuth';
 import {
   canMarkRewardCardComplete,
@@ -51,6 +52,7 @@ const TAB_META: Record<
 export function RewardsPage({ embedded }: { embedded?: boolean } = {}) {
   const auth = useSupabaseAuth();
   const currentUserId = auth.user?.id ?? null;
+  const { showToast } = useToast();
 
   const {
     rpg,
@@ -68,6 +70,8 @@ export function RewardsPage({ embedded }: { embedded?: boolean } = {}) {
     completedCouponsSorted,
     rewardCardSyncStatus,
     rewardCardSyncError,
+    highlightCouponId,
+    clearHighlightCoupon,
     pullRewardCardsFromCloud,
     syncRewardCards,
     cleanupOldCompletedRewardCards,
@@ -78,6 +82,7 @@ export function RewardsPage({ embedded }: { embedded?: boolean } = {}) {
   const [syncingManual, setSyncingManual] = useState(false);
   const [completedExpanded, setCompletedExpanded] = useState(false);
   const [cleanupMsg, setCleanupMsg] = useState<string | null>(null);
+  const highlightHandledRef = useRef<string | null>(null);
   const syncPro = useProFeature('full_sync');
   const customCardPro = useProFeature('custom_reward_cards');
 
@@ -86,6 +91,30 @@ export function RewardsPage({ embedded }: { embedded?: boolean } = {}) {
       void pullRewardCardsFromCloud();
     }
   }, [tab, pullRewardCardsFromCloud]);
+
+  useEffect(() => {
+    if (tab !== 'coupons' || !highlightCouponId) return;
+    if (highlightHandledRef.current === highlightCouponId) return;
+
+    const inList =
+      redeemedCoupons.some((c) => c.id === highlightCouponId) ||
+      inProgressCoupons.some((c) => c.id === highlightCouponId) ||
+      completedCouponsSorted.some((c) => c.id === highlightCouponId);
+    if (!inList) return;
+
+    highlightHandledRef.current = highlightCouponId;
+    const el = document.querySelector(`[data-coupon-id="${highlightCouponId}"]`);
+    el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    const clearGlow = window.setTimeout(() => clearHighlightCoupon(), 3200);
+    return () => window.clearTimeout(clearGlow);
+  }, [
+    tab,
+    highlightCouponId,
+    redeemedCoupons,
+    inProgressCoupons,
+    completedCouponsSorted,
+    clearHighlightCoupon,
+  ]);
 
   const completedCount = completedCouponsSorted.length;
 
@@ -100,15 +129,30 @@ export function RewardsPage({ embedded }: { embedded?: boolean } = {}) {
   }, []);
 
   const handleRedeem = async (itemId: (typeof REWARD_SHOP_ITEMS)[0]['id']) => {
-    const ok = await redeemRewardItem(itemId);
-    setRedeemMsg(ok ? '兌換成功！已放入我的卡券' : '愛心幣不足喔～');
-    if (ok) setTab('coupons');
+    const result = await redeemRewardItem(itemId);
+    if (result.ok) {
+      setTab('coupons');
+      showToast('已兌換成功，卡券已加入', 'success', { position: 'top' });
+      setRedeemMsg(null);
+      return;
+    }
+    setRedeemMsg('愛心幣不足喔～');
     setTimeout(() => setRedeemMsg(null), 2500);
+  };
+
+  const handleCustomRedeem = async (input: Parameters<typeof redeemCustomRewardItem>[0]) => {
+    const result = await redeemCustomRewardItem(input);
+    if (result.ok) {
+      setTab('coupons');
+      showToast('已兌換成功，卡券已加入', 'success', { position: 'top' });
+      return true;
+    }
+    return false;
   };
 
   const SYNC_STATUS_LABEL = {
     local: '本機保存',
-    syncing: '同步中',
+    syncing: '正在同步卡券…',
     synced: '已同步',
     error: '同步失敗，稍後再試',
   } as const;
@@ -313,7 +357,7 @@ export function RewardsPage({ embedded }: { embedded?: boolean } = {}) {
         <>
           <CustomRewardCardPanel
             loveCoins={rpg.loveCoins}
-            onRedeem={redeemCustomRewardItem}
+            onRedeem={handleCustomRedeem}
             compact
           />
 
@@ -369,6 +413,7 @@ export function RewardsPage({ embedded }: { embedded?: boolean } = {}) {
                 currentUserId={currentUserId}
                 myNickname={coupleExtended.myNickname}
                 partnerNickname={coupleExtended.partnerNickname}
+                highlightCouponId={highlightCouponId}
                 onUse={useCoupon}
               />
             </CouponSection>
@@ -381,6 +426,7 @@ export function RewardsPage({ embedded }: { embedded?: boolean } = {}) {
                 currentUserId={currentUserId}
                 myNickname={coupleExtended.myNickname}
                 partnerNickname={coupleExtended.partnerNickname}
+                highlightCouponId={highlightCouponId}
                 onComplete={completeRewardCard}
               />
             </CouponSection>
@@ -553,6 +599,7 @@ function CouponList({
   currentUserId,
   myNickname,
   partnerNickname,
+  highlightCouponId,
   onUse,
   onComplete,
 }: {
@@ -560,6 +607,7 @@ function CouponList({
   currentUserId: string | null;
   myNickname: string;
   partnerNickname: string;
+  highlightCouponId?: string | null;
   onUse?: (id: string) => void;
   onComplete?: (id: string) => void;
 }) {
@@ -572,6 +620,7 @@ function CouponList({
           currentUserId={currentUserId}
           myNickname={myNickname}
           partnerNickname={partnerNickname}
+          highlighted={highlightCouponId === c.id}
           onUse={onUse}
           onComplete={onComplete}
         />
@@ -585,6 +634,7 @@ function CouponCard({
   currentUserId,
   myNickname,
   partnerNickname,
+  highlighted,
   onUse,
   onComplete,
 }: {
@@ -592,6 +642,7 @@ function CouponCard({
   currentUserId: string | null;
   myNickname: string;
   partnerNickname: string;
+  highlighted?: boolean;
   onUse?: (id: string) => void;
   onComplete?: (id: string) => void;
 }) {
@@ -631,8 +682,15 @@ function CouponCard({
     onComplete &&
     canMarkRewardCardComplete(c, currentUserId);
 
+  const highlightClass = highlighted
+    ? 'ring-2 ring-emerald-400/90 shadow-[0_0_20px_rgba(52,211,153,0.45)] animate-pulse'
+    : '';
+
   return (
-    <li className="rounded-2xl border border-rose-100 bg-white p-3.5 text-[13px] shadow-sm">
+    <li
+      data-coupon-id={c.id}
+      className={`rounded-2xl border border-rose-100 bg-white p-3.5 text-[13px] shadow-sm transition-shadow ${highlightClass}`}
+    >
       <div className="flex items-start justify-between gap-2">
         <span className="text-[15px] font-bold text-stone-900">
           {c.emoji} {c.title}
@@ -685,7 +743,9 @@ function CouponCard({
       </dl>
 
       {c.syncPending ? (
-        <p className="mt-1.5 text-[10px] font-semibold text-amber-600">待同步至雲端</p>
+        <p className="mt-1.5 text-[10px] font-semibold text-amber-600">
+          {c.syncError ? c.syncError : '同步中…'}
+        </p>
       ) : null}
 
       {showUse ? (
