@@ -1,5 +1,5 @@
-import { useMemo, useState, type ReactNode } from 'react';
-import { Heart, Image, Sparkles, Trash2 } from 'lucide-react';
+import { useMemo, useState } from 'react';
+import { Image, Trash2 } from 'lucide-react';
 import { DateItineraryAiSheet } from '../components/DateItineraryAiSheet';
 import { ImportantDateAiSheet } from '../components/ImportantDateAiSheet';
 import { AiFavoriteButton } from '../components/AiFavoriteButton';
@@ -100,50 +100,24 @@ export function AiRecordsPage() {
 
   return (
     <>
-      <p className={`mb-2 text-[12px] leading-relaxed ${lq.textSecondary}`}>
-        {isPro
-          ? '多筆 AI 紀錄保存在本機。可收藏、分享、刪除；查看詳情不扣 AI 次數。'
-          : '免費版各保留最近一次 AI 結果。升級 Pro 可收藏、分享與多筆歷史。'}
+      <p className={`mb-1.5 text-[12px] leading-snug ${lq.textSecondary}`}>
+        {isPro ? '本機保存，查看不扣 AI 次數。' : '免費版各保留最近一筆。'}
       </p>
-      <p
-        className={`mb-3 rounded-xl border border-rose-100/50 bg-rose-50/35 px-3 py-2 text-[11px] leading-relaxed ${lq.textMuted}`}
-      >
-        {AI_RECORD_RETENTION_HINT}
-      </p>
-
-      <ProAiMemoriesHub
-        favCount={favCount}
-        activeFilter={listFilter}
-        onShowFavorites={() => setListFilter('favorites')}
-        onShowAll={() => setListFilter('all')}
-        onShareHint={() => {
-          if (!isPro) {
-            openUpgradeModal('產生 IG 分享卡為 Pro 功能');
-            return;
-          }
-          const first = sortedDate[0] ?? null;
-          const imp = sortedImportant[0] ?? null;
-          if (first) openShare(buildDateItinerarySharePayload(first));
-          else if (imp) openShare(buildImportantDateSharePayload(imp));
-          else openUpgradeModal('請先產生一筆 AI 紀錄');
-        }}
-      />
+      <p className={`mb-2 text-[10px] leading-snug ${lq.textMuted}`}>{AI_RECORD_RETENTION_HINT}</p>
 
       {!empty ? (
-        <>
-          <div className={`mb-2 flex gap-1 rounded-2xl p-1 ${lq.cardSoft}`}>
+        <div className="mb-2 space-y-1.5">
+          <div className={`flex gap-1 rounded-xl p-0.5 ${lq.cardSoft}`}>
             <FilterTab active={listFilter === 'all'} onClick={() => setListFilter('all')} label="全部" />
             <FilterTab
               active={listFilter === 'favorites'}
               onClick={() => setListFilter('favorites')}
-              label={`收藏${favCount > 0 ? ` (${favCount})` : ''}`}
+              label={`收藏${favCount > 0 ? ` ${favCount}` : ''}`}
             />
-          </div>
-          <div className={`mb-3 flex gap-1 rounded-2xl p-1 ${lq.cardSoft}`}>
             <FilterTab
               active={sortMode === 'newest'}
               onClick={() => setSortMode('newest')}
-              label="最新優先"
+              label="最新"
             />
             <FilterTab
               active={sortMode === 'favorites_first'}
@@ -151,8 +125,38 @@ export function AiRecordsPage() {
               label="收藏優先"
             />
           </div>
-        </>
-      ) : null}
+          <ProToolsBar
+            favCount={favCount}
+            favoritesActive={listFilter === 'favorites'}
+            onFavorites={() => setListFilter((f) => (f === 'favorites' ? 'all' : 'favorites'))}
+            onShare={() => {
+              if (!isPro) {
+                openUpgradeModal('產生 IG 分享卡為 Pro 功能');
+                return;
+              }
+              const first = sortedDate[0] ?? null;
+              const imp = sortedImportant[0] ?? null;
+              if (first) openShare(buildDateItinerarySharePayload(first));
+              else if (imp) openShare(buildImportantDateSharePayload(imp));
+              else openUpgradeModal('請先產生一筆 AI 紀錄');
+            }}
+          />
+        </div>
+      ) : (
+        <ProToolsBar
+          favCount={favCount}
+          favoritesActive={listFilter === 'favorites'}
+          onFavorites={() => setListFilter((f) => (f === 'favorites' ? 'all' : 'favorites'))}
+          onShare={() => {
+            if (!isPro) {
+              openUpgradeModal('產生 IG 分享卡為 Pro 功能');
+              return;
+            }
+            openUpgradeModal('請先產生一筆 AI 紀錄');
+          }}
+          className="mb-2"
+        />
+      )}
 
       {empty ? (
         <section className={`p-6 text-center ${lq.card}`}>
@@ -332,96 +336,47 @@ export function AiRecordsPage() {
   );
 }
 
-function ProAiMemoriesHub({
+function ProToolsBar({
   favCount,
-  activeFilter,
-  onShowFavorites,
-  onShowAll,
-  onShareHint,
+  favoritesActive,
+  onFavorites,
+  onShare,
+  className = '',
 }: {
   favCount: number;
-  activeFilter: ListFilter;
-  onShowFavorites: () => void;
-  onShowAll: () => void;
-  onShareHint: () => void;
+  favoritesActive: boolean;
+  onFavorites: () => void;
+  onShare: () => void;
+  className?: string;
 }) {
-  return (
-    <section className="mb-4">
-      <p className={`mb-2 ${lq.sectionTitleSm}`}>Pro AI 回憶收藏</p>
-      <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-        <ProFeatureCard
-          icon={<Heart className="h-5 w-5 text-rose-500" />}
-          title="收藏 AI 建議"
-          description={favCount > 0 ? `已收藏 ${favCount} 筆` : '點 ♡ 留住喜歡的規劃'}
-          badge={favCount > 0 ? String(favCount) : undefined}
-          active={activeFilter === 'favorites'}
-          onClick={onShowFavorites}
-        />
-        <ProFeatureCard
-          icon={<Image className="h-5 w-5 text-rose-500" />}
-          title="分享圖片卡"
-          description="產生分享圖 · 一鍵分享"
-          onClick={onShareHint}
-        />
-        <ProFeatureCard
-          icon={<Sparkles className="h-5 w-5 text-violet-400" />}
-          title="AI 戀愛回憶卡"
-          description="規劃中"
-          disabled
-        />
-      </div>
-      {activeFilter === 'favorites' ? (
-        <button
-          type="button"
-          onClick={onShowAll}
-          className={`mt-2 w-full text-center text-[12px] font-bold text-rose-600`}
-        >
-          ← 返回全部紀錄
-        </button>
-      ) : null}
-    </section>
-  );
-}
+  const toolBtn = (active: boolean) =>
+    `flex flex-1 items-center justify-center gap-1 rounded-lg px-2 py-1.5 text-[12px] font-bold transition active:scale-[0.97] ${
+      active
+        ? 'bg-white/90 text-rose-700 shadow-sm ring-1 ring-rose-200/60'
+        : 'text-[#7a6a74] hover:bg-white/50'
+    }`;
 
-function ProFeatureCard({
-  icon,
-  title,
-  description,
-  onClick,
-  disabled,
-  badge,
-  active,
-}: {
-  icon: ReactNode;
-  title: string;
-  description: string;
-  onClick?: () => void;
-  disabled?: boolean;
-  badge?: string;
-  active?: boolean;
-}) {
   return (
-    <button
-      type="button"
-      onClick={disabled ? undefined : onClick}
-      disabled={disabled}
-      className={`relative flex min-h-[5.75rem] flex-col items-start rounded-2xl border p-3 text-left shadow-[0_8px_28px_-14px_rgba(244,114,182,0.22)] backdrop-blur-sm transition hover:-translate-y-0.5 hover:shadow-[0_12px_32px_-12px_rgba(244,114,182,0.32)] active:scale-[0.98] disabled:cursor-default disabled:opacity-55 disabled:hover:translate-y-0 ${
-        active
-          ? 'border-rose-300/70 bg-gradient-to-br from-rose-50/95 via-white/90 to-pink-50/70 ring-2 ring-rose-200/50'
-          : 'border-rose-200/45 bg-gradient-to-br from-white/85 via-rose-50/50 to-pink-50/40'
-      }`}
+    <div
+      className={`flex items-center gap-2 rounded-xl border border-rose-100/45 bg-white/55 px-2 py-1 ${className}`}
     >
-      {badge ? (
-        <span className="absolute right-2 top-2 rounded-full bg-rose-500 px-1.5 py-0.5 text-[10px] font-bold text-white">
-          {badge}
-        </span>
-      ) : null}
-      <span className="mb-2 flex h-9 w-9 items-center justify-center rounded-xl bg-white/80 ring-1 ring-rose-100/60">
-        {icon}
+      <span className="shrink-0 text-[10px] font-bold uppercase tracking-wide text-rose-500/85">
+        Pro 工具
       </span>
-      <span className={`text-[13px] font-bold ${lq.text}`}>{title}</span>
-      <span className={`mt-0.5 text-[11px] leading-snug ${lq.textMuted}`}>{description}</span>
-    </button>
+      <div className="flex min-w-0 flex-1 gap-1">
+        <button type="button" onClick={onFavorites} className={toolBtn(favoritesActive)}>
+          <span aria-hidden>❤️</span>
+          收藏
+          {favCount > 0 ? (
+            <span className="text-[10px] font-semibold text-rose-500/90">{favCount}</span>
+          ) : null}
+        </button>
+        <button type="button" onClick={onShare} className={toolBtn(false)}>
+          <span aria-hidden>🖼</span>
+          分享卡
+        </button>
+      </div>
+    </div>
   );
 }
 
@@ -438,7 +393,7 @@ function FilterTab({
     <button
       type="button"
       onClick={onClick}
-      className={`min-h-[40px] flex-1 rounded-xl py-2 text-[13px] font-bold transition active:scale-[0.98] ${
+      className={`min-h-[34px] flex-1 rounded-lg py-1.5 text-[11px] font-bold transition active:scale-[0.98] ${
         active ? lq.hubTabActive : lq.hubTabIdle
       }`}
     >
