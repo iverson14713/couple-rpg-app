@@ -182,38 +182,76 @@ export function ShowcaseGamesScreen() {
 
 function ShowcaseMiniGamesContent() {
   const { rpgView } = useLoveQuest();
-  const mode = COUPLE_GAME_MODES[0]!;
+  const selectedId = 'coupleDice' as const;
+  const modeDef = COUPLE_GAME_MODES.find((m) => m.id === selectedId)!;
 
   return (
-    <div className="pb-1">
-      <p className="mb-2 text-[12px] font-bold text-stone-600">🎲 情侶小遊戲</p>
-      <div className={`mb-3 px-3 py-2.5 ${lq.card}`}>
-        <p className="text-[10px] font-bold text-stone-500">今日小遊戲獎勵</p>
-        <p className="text-sm font-extrabold text-rose-700">
-          {rpgView.miniGamesRewardsToday}/{rpgView.miniGamesRewardCap}
-        </p>
+    <div className="flex h-full min-h-0 flex-col">
+      <div className={`mb-2 flex shrink-0 items-start justify-between gap-2 px-2.5 py-2 ${lq.card}`}>
+        <div className="min-w-0">
+          <p className="text-[13px] font-bold text-stone-800">🎲 情侶小遊戲</p>
+          <p className="mt-0.5 text-[11px] font-extrabold text-rose-700">
+            今日獎勵 {rpgView.miniGamesRewardsToday}/{rpgView.miniGamesRewardCap}
+          </p>
+        </div>
+        <span className="shrink-0 rounded-full bg-violet-100/90 px-2 py-0.5 text-[10px] font-bold text-violet-800">
+          7 種玩法
+        </span>
       </div>
-      <p className="mb-1.5 px-0.5 text-[11px] font-semibold tracking-wide text-stone-400">模式選擇</p>
-      <div className="mb-3 grid grid-cols-2 gap-1.5">
-        {COUPLE_GAME_MODES.slice(0, 4).map((m) => (
-          <span
-            key={m.id}
-            className={`rounded-xl px-2 py-2 text-center text-[11px] font-bold ${
-              m.id === mode.id ? lq.hubTabActive : 'bg-white/70 text-stone-500 ring-1 ring-rose-100/50'
-            }`}
-          >
-            {m.emoji} {m.label}
-          </span>
-        ))}
+
+      <p className="mb-1 shrink-0 px-0.5 text-[10px] font-semibold tracking-wide text-stone-400">模式選擇</p>
+      <div className="mb-2 grid shrink-0 grid-cols-2 gap-1.5">
+        {COUPLE_GAME_MODES.map((m) => {
+          const selected = m.id === selectedId;
+          return (
+            <span
+              key={m.id}
+              className={`relative flex min-h-[3.35rem] items-center gap-2 rounded-xl border px-2 py-1.5 ${
+                selected ? lq.hubChipActive : lq.hubChipIdle
+              }`}
+            >
+              {m.proOnly ? (
+                <span className="absolute right-1 top-1 rounded bg-violet-100/90 px-1 py-px text-[7px] font-bold leading-none text-violet-700">
+                  Pro
+                </span>
+              ) : null}
+              <span className="shrink-0 text-[26px] leading-none" aria-hidden>
+                {m.emoji}
+              </span>
+              <span className="min-w-0 flex-1 pr-4">
+                <span
+                  className={`block truncate font-extrabold leading-tight text-stone-900 ${
+                    selected ? 'text-[15px]' : 'text-[14px]'
+                  }`}
+                >
+                  {m.title}
+                </span>
+                <span className="mt-px block truncate text-[9px] font-medium text-stone-500">
+                  {m.description}
+                </span>
+              </span>
+            </span>
+          );
+        })}
       </div>
-      <MiniGamePlayCard
-        phase="revealed"
-        displayEmoji="🎲"
-        displayTitle=""
-        displaySubtitle="晚餐誰決定"
-        displayContent="今晚由運氣決定誰負責規劃晚餐～"
-        showSparkles
-      />
+
+      <section className={`min-h-0 flex-1 p-3 ${lq.cardElevated}`}>
+        <div className="mb-2 flex items-center justify-between gap-2">
+          <h2 className={`text-[14px] font-extrabold ${lq.text}`}>
+            <span className="mr-1">{modeDef.emoji}</span>
+            {modeDef.title}
+          </h2>
+          <span className="text-[9px] font-semibold text-stone-400">題庫 120+ 題</span>
+        </div>
+        <MiniGamePlayCard
+          phase="revealed"
+          displayEmoji={modeDef.emoji}
+          displayTitle="擲骰結果"
+          displaySubtitle="今晚的小驚喜"
+          displayContent="一起完成一件讓彼此微笑的小事吧～"
+          showSparkles
+        />
+      </section>
     </div>
   );
 }

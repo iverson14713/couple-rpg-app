@@ -3,18 +3,20 @@ import {
   LQ_SHOWCASE_FONT,
   LQ_SHOWCASE_GRADIENT,
   SHOWCASE_BRAND_SIZE,
-  SHOWCASE_CANVAS_PB,
   SHOWCASE_DEVICES,
   SHOWCASE_HEADLINE_SIZE,
   SHOWCASE_HERO_PB,
   SHOWCASE_HERO_PT,
   SHOWCASE_HERO_PX,
+  SHOWCASE_PHONE_CROP_RATIO,
   SHOWCASE_PHONE_GAP_TOP,
+  SHOWCASE_PHONE_PUSH_RATIO,
   SHOWCASE_SUBTITLE_SIZE,
   getPhoneMockupOuterSize,
   type ShowcaseDeviceId,
 } from './constants';
 import { ShowcaseBottomDecor } from './components/ShowcaseBottomDecor';
+import { ShowcaseCanvasDecor } from './components/ShowcaseCanvasDecor';
 import { ShowcaseOrbs } from './components/ShowcaseOrbs';
 import { ShowcasePhoneFrame } from './components/ShowcasePhoneFrame';
 
@@ -35,6 +37,8 @@ export function LoveQuestShowcaseSlideCanvas({
   const Screen = slide.Screen;
   const isAppOnly = view === 'app';
   const phone = getPhoneMockupOuterSize(device);
+  const phonePushY = Math.round(h * SHOWCASE_PHONE_PUSH_RATIO);
+  const phoneCropBottom = Math.round(-h * SHOWCASE_PHONE_CROP_RATIO);
 
   if (isAppOnly) {
     return (
@@ -66,6 +70,7 @@ export function LoveQuestShowcaseSlideCanvas({
     >
       <span className="lq-showcase-canvas-spotlight pointer-events-none absolute inset-0 z-[1]" aria-hidden />
       <ShowcaseOrbs />
+      <ShowcaseCanvasDecor />
       <ShowcaseBottomDecor />
 
       <header
@@ -78,25 +83,29 @@ export function LoveQuestShowcaseSlideCanvas({
         }}
       >
         <p
-          className="font-bold tracking-[0.12em] text-white/95"
+          className="font-semibold tracking-[0.06em] text-rose-400"
           style={{ fontSize: SHOWCASE_BRAND_SIZE }}
         >
           LoveQuest
         </p>
+        <span className="mt-1 block text-[28px] leading-none" aria-hidden>
+          💗
+        </span>
         <h2
-          className="lq-showcase-headline mt-[10px] font-extrabold leading-[1.06] tracking-tight text-white"
+          className="lq-showcase-headline mx-auto mt-3 max-w-[1000px] font-extrabold leading-[1.05] tracking-tight text-white"
           style={{
             fontSize: SHOWCASE_HEADLINE_SIZE,
-            textShadow: '0 4px 32px rgba(190,24,93,0.35), 0 2px 8px rgba(0,0,0,0.12)',
+            textShadow:
+              '0 0 40px rgba(251,113,133,0.55), 0 4px 24px rgba(190,24,93,0.35), 0 2px 6px rgba(0,0,0,0.08)',
           }}
         >
           {slide.headline}
         </h2>
         <p
-          className="mx-auto mt-[14px] max-w-[940px] font-semibold leading-[1.28] text-[#fff7fb]"
+          className="mx-auto mt-3 max-w-[920px] font-bold leading-[1.3] text-rose-900/90"
           style={{
             fontSize: SHOWCASE_SUBTITLE_SIZE,
-            textShadow: '0 1px 12px rgba(157,23,77,0.28)',
+            color: '#9f1239',
           }}
         >
           {slide.subtitle}
@@ -104,16 +113,33 @@ export function LoveQuestShowcaseSlideCanvas({
       </header>
 
       <section
-        className="relative z-10 flex min-h-0 flex-1 flex-col items-center justify-start"
-        style={{ paddingTop: SHOWCASE_PHONE_GAP_TOP, paddingBottom: SHOWCASE_CANVAS_PB }}
+        className="relative z-10 flex min-h-0 flex-1 flex-col items-center justify-end overflow-hidden"
+        style={{ paddingTop: SHOWCASE_PHONE_GAP_TOP }}
       >
-        <div className="relative" style={{ width: phone.width, height: phone.height }}>
+        <span
+          className="lq-showcase-phone-backglow pointer-events-none absolute left-1/2 z-[2] -translate-x-1/2"
+          style={{
+            bottom: '8%',
+            width: phone.width * 1.35,
+            height: Math.round(phone.height * 0.55),
+          }}
+          aria-hidden
+        />
+        <div
+          className="relative z-10"
+          style={{
+            width: phone.width,
+            height: phone.height,
+            transform: `translateY(${phonePushY}px)`,
+            marginBottom: phoneCropBottom,
+          }}
+        >
           <span
             className="lq-showcase-phone-glow pointer-events-none absolute left-1/2 z-[2] -translate-x-1/2"
             style={{
-              bottom: '6%',
-              width: phone.width * 1.2,
-              height: Math.round(phone.height * 0.14),
+              bottom: '4%',
+              width: phone.width * 1.15,
+              height: Math.round(phone.height * 0.12),
             }}
             aria-hidden
           />

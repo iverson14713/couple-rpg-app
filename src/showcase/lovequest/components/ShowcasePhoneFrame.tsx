@@ -31,13 +31,13 @@ export function ShowcasePhoneFrame({ children, device }: Props) {
       style={{ width: outerW, height: outerH }}
       aria-hidden
     >
-      {/* 柔和外陰影 */}
+      {/* 柔和外陰影（參考圖：寬、淡） */}
       <span
         className="pointer-events-none absolute inset-0"
         style={{
           borderRadius: frameRadius,
           boxShadow:
-            '0 48px 96px -28px rgba(15, 23, 42, 0.28), 0 20px 40px -20px rgba(190, 24, 93, 0.22)',
+            '0 32px 80px -16px rgba(15, 23, 42, 0.22), 0 12px 36px -12px rgba(190, 24, 93, 0.18)',
         }}
       />
 
@@ -47,9 +47,9 @@ export function ShowcasePhoneFrame({ children, device }: Props) {
         style={{
           borderRadius: frameRadius,
           background:
-            'linear-gradient(155deg, #5c5c62 0%, #3d3d42 12%, #252528 38%, #141416 68%, #09090b 100%)',
+            'linear-gradient(160deg, #6b6b70 0%, #45454a 10%, #2e2e32 32%, #1a1a1d 58%, #0c0c0e 100%)',
           boxShadow:
-            'inset 0 1px 0 rgba(255,255,255,0.28), inset 0 -1px 0 rgba(0,0,0,0.45), inset 1px 0 0 rgba(255,255,255,0.08), inset -1px 0 0 rgba(0,0,0,0.2)',
+            'inset 0 1px 0 rgba(255,255,255,0.32), inset 0 -1px 0 rgba(0,0,0,0.4), inset 1px 0 0 rgba(255,255,255,0.1)',
         }}
       />
 
@@ -63,16 +63,16 @@ export function ShowcasePhoneFrame({ children, device }: Props) {
         }}
       />
 
-      {/* 螢幕開孔 */}
+      {/* 螢幕開孔（極窄黑邊） */}
       <span
-        className="absolute overflow-hidden bg-[#0a0a0a]"
+        className="absolute overflow-hidden bg-black"
         style={{
           left: bezel,
           top: bezel,
           width: screenW,
           height: screenH,
           borderRadius: screenRadius,
-          boxShadow: 'inset 0 0 0 1px rgba(0,0,0,0.65)',
+          boxShadow: 'inset 0 0 0 0.5px rgba(0,0,0,0.5)',
         }}
       >
         {/* 螢幕內容（安全邊距，不貼邊） */}

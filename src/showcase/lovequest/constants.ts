@@ -15,34 +15,32 @@ export const DEVICE_LOGICAL_W = 390;
 
 const BASE_PHONE_SCREEN_W = 612;
 const BASE_PHONE_SCREEN_H = 1328;
-/** 薄邊框（較舊版 44 縮約 41%，接近 iPhone Pro 視覺） */
-const BASE_PHONE_BEZEL = 26;
+/** 極薄邊框 */
+const BASE_PHONE_BEZEL = 14;
 
-/** 6.7" 手機 mockup 放大（約 +15%） */
-const PHONE_MOCKUP_SCALE_67 = 1.72;
-/** 6.5" 略縮，避免裁切且維持上下飽滿 */
-const PHONE_MOCKUP_SCALE_65 = 1.62;
+/** 手機放大：填滿畫面、底部微裁切（參考 App Store 構圖） */
+const PHONE_MOCKUP_SCALE_67 = 1.8;
+const PHONE_MOCKUP_SCALE_65 = 1.7;
 
-/** iPhone 15 Pro 動態島（以 390pt 邏輯寬為基準） */
-const ISLAND_W_LOGICAL = 126;
-const ISLAND_H_LOGICAL = 40;
-const ISLAND_TOP_LOGICAL = 15;
-/** 螢幕內容安全邊距（避免貼邊） */
-const SCREEN_SAFE_INSET_LOGICAL = 3;
+const ISLAND_W_LOGICAL = 124;
+const ISLAND_H_LOGICAL = 38;
+const ISLAND_TOP_LOGICAL = 14;
+const SCREEN_SAFE_INSET_LOGICAL = 2;
 
-/** Hero 區（1290×2796 畫布座標） */
-export const SHOWCASE_HERO_PT = 96;
-export const SHOWCASE_HERO_PB = 20;
-export const SHOWCASE_HERO_PX = 48;
+/** Hero（1290×2796）— 緊湊、標題區偏上但整體飽滿 */
+export const SHOWCASE_HERO_PT = 78;
+export const SHOWCASE_HERO_PB = 10;
+export const SHOWCASE_HERO_PX = 52;
 
-/** 上架圖 typography（全 slide 一致） */
-export const SHOWCASE_BRAND_SIZE = 24;
-export const SHOWCASE_HEADLINE_SIZE = 82;
-export const SHOWCASE_SUBTITLE_SIZE = 35;
+export const SHOWCASE_BRAND_SIZE = 30;
+export const SHOWCASE_HEADLINE_SIZE = 96;
+export const SHOWCASE_SUBTITLE_SIZE = 40;
 
-/** 標題與手機 mockup 間距（縮小中空留白） */
-export const SHOWCASE_PHONE_GAP_TOP = 16;
-export const SHOWCASE_CANVAS_PB = 40;
+export const SHOWCASE_PHONE_GAP_TOP = 6;
+
+/** 畫布底部裁切係數（手機略往下延伸） */
+export const SHOWCASE_PHONE_CROP_RATIO = 0.042;
+export const SHOWCASE_PHONE_PUSH_RATIO = 0.012;
 
 export function getPhoneMockupScale(device: ShowcaseDeviceId): number {
   return device === '6.5' ? PHONE_MOCKUP_SCALE_65 : PHONE_MOCKUP_SCALE_67;
@@ -55,9 +53,8 @@ export function getPhoneMockupMetrics(device: ShowcaseDeviceId) {
   const bezel = Math.round(BASE_PHONE_BEZEL * scale);
   const logicalScale = screenW / DEVICE_LOGICAL_W;
 
-  /** 外框圓角略大於螢幕，比例接近 iPhone Pro 連續曲線 */
-  const screenRadius = Math.round(screenW * 0.078);
-  const frameRadius = Math.round(screenRadius + bezel * 0.42);
+  const screenRadius = Math.round(screenW * 0.082);
+  const frameRadius = Math.round(screenRadius + bezel * 0.32);
 
   return {
     scale,
@@ -76,7 +73,6 @@ export function getPhoneMockupMetrics(device: ShowcaseDeviceId) {
   };
 }
 
-/** @deprecated 使用 getPhoneMockupMetrics(device) */
 export function getPhoneMockupOuterSize(device: ShowcaseDeviceId = '6.7'): {
   width: number;
   height: number;
@@ -85,8 +81,9 @@ export function getPhoneMockupOuterSize(device: ShowcaseDeviceId = '6.7'): {
   return { width: m.outerW, height: m.outerH };
 }
 
+/** 淺粉漸層 + 中部光暈（對齊參考圖） */
 export const LQ_SHOWCASE_GRADIENT =
-  'linear-gradient(165deg, #fff5f9 0%, #fce7f3 16%, #fbcfe8 38%, #f9a8d4 62%, #f472b6 92%, #ec4899 100%)';
+  'linear-gradient(180deg, #fff9fc 0%, #fff0f7 18%, #fde4f0 42%, #f8c9e0 68%, #f3aed4 88%, #eea3cc 100%)';
 
 export const LQ_SHOWCASE_FONT =
   '-apple-system, BlinkMacSystemFont, "PingFang TC", "Microsoft JhengHei", "Noto Sans TC", "Segoe UI", sans-serif';
