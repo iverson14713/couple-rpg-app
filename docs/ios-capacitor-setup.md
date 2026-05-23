@@ -114,7 +114,7 @@ Supabase Dashboard → **Authentication** → **URL Configuration** → **Redire
 
 ```
 https://lovequest.app/auth/callback
-com.lovequest.app://auth/callback
+lovequest://auth/callback
 ```
 
 （若仍有 Vercel 網域，請保留 production URL，例如：）
@@ -128,8 +128,8 @@ https://<your-vercel-domain>/auth/callback
 ### OAuth 行為說明
 
 - App 內 WebView：`https://lovequest.app/...` 由 Capacitor 提供，`/auth/callback` 由 `AuthCallbackPage` + PKCE 兌換 session。
-- 若 OAuth 改由系統瀏覽器完成並以 **`com.lovequest.app://auth/callback?code=...`** 回到 App，`src/native/capacitorAuthBridge.ts` 會轉成 in-app `/auth/callback` 並觸發路由。
-- `Info.plist` 已註冊 URL Schemes：`com.lovequest.app`、`LoveQuest`。
+- 若 OAuth 改由系統瀏覽器完成並以 **`lovequest://auth/callback?code=...`** 回到 App，`src/native/capacitorAuthBridge.ts` 會轉成 in-app `/auth/callback` 並觸發路由。
+- `Info.plist` 已註冊 URL Schemes：`lovequest`（OAuth 回 App）、`LoveQuest`（Capacitor）。
 
 ---
 
@@ -194,7 +194,7 @@ server: {
 | `/auth/callback` MIME text/html | Vercel 用了 `base: './'` | 網頁部署用 `npm run build`（`base: '/'`） |
 | OAuth 後回不来 | Redirect URL 未加 | 補 Supabase 兩條 callback URL |
 | callback 白屏 | env 未打入 build | Mac 上 `.env` 存在後重新 `npm run build:ios` |
-| Google 登入失敗 | WebView 限制 | 改用系統瀏覽器 + `com.lovequest.app://` scheme（已支援 bridge） |
+| Google 登入失敗 | WebView 限制 | 改用系統瀏覽器 + `lovequest://auth/callback` scheme（見 `docs/google-oauth-ios-deeplink.md`） |
 | `cap open ios` 失敗 | 不在 Mac | 只能在 macOS 開 Xcode |
 
 ---

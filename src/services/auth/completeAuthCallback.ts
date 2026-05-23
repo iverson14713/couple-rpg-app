@@ -57,8 +57,9 @@ export async function completeAuthCallback(
 ): Promise<AuthCallbackOutcome> {
   const lang = detectLang();
   const pendingAppleCallback = peekOAuthProvider() === 'apple';
+  authLog('AuthCallbackPage.start', { phase: 'completeAuthCallback' });
   if (pendingAppleCallback) {
-    authLog('apple.callback', { phase: 'AuthCallbackPage.start' });
+    authLog('apple.callback', { phase: 'completeAuthCallback' });
   }
   logCallbackUrlState('start');
 

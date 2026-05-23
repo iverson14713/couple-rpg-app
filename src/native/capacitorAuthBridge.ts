@@ -1,21 +1,11 @@
 import { App, type URLOpenListenerEvent } from '@capacitor/app';
 import { authLog, isAuthNativeClient } from '../services/auth/authDebug';
+import { NATIVE_OAUTH_URL_SCHEME } from '../services/auth/authRedirect';
 import { notifyAuthRouteChange } from '../services/auth/authRoute';
+import { isNativeOAuthCallbackUrl } from '../services/auth/nativeOAuthUrl';
 import { peekOAuthProvider } from '../services/auth/oauthSessionHint';
 
 const CALLBACK_PATH = '/auth/callback';
-
-function isAuthCallbackUrl(url: string): boolean {
-  try {
-    const u = new URL(url);
-    if (u.pathname === CALLBACK_PATH || u.pathname.endsWith(CALLBACK_PATH)) return true;
-    if (u.host === 'auth' && u.pathname === '/callback') return true;
-    if (u.protocol === 'com.lovequest.app:') return true;
-    return false;
-  } catch {
-    return url.includes('auth/callback') || url.includes('auth%2Fcallback');
-  }
-}
 
 function parseCallbackParams(rawUrl: string): Record<string, string | null> {
   try {
@@ -80,8 +70,19 @@ function navigateToAuthCallback(rawUrl: string): void {
   }
 }
 
+function handleIncomingUrl(rawUrl: string, source: 'appUrlOpen' | 'getLaunchUrl'): void {
+  const matches = isNativeOAuthCallbackUrl(rawUrl);
+  authLog(source, {
+    url: rawUrl,
+    matchesCallback: matches,
+  });
+  if (matches) {
+    navigateToAuthCallback(rawUrl);
+  }
+}
+
 /**
- * Handles OAuth / email links that open the app via URL scheme (e.g. com.lovequest.app://auth/callback?code=).
+ * Handles OAuth / email links that open the app via URL scheme (e.g. lovequest://auth/callback?code=).
  */
 export function initCapacitorAuthBridge(): void {
   if (!isAuthNativeClient()) {
@@ -91,26 +92,23 @@ export function initCapacitorAuthBridge(): void {
 
   authLog('bridge.init', {
     message: '監聽 appUrlOpen / getLaunchUrl',
-    infoPlistScheme: 'com.lovequest.app',
+    infoPlistScheme: NATIVE_OAUTH_URL_SCHEME,
+    expectedRedirect: `${NATIVE_OAUTH_URL_SCHEME}://auth/callback`,
   });
 
   void App.addListener('appUrlOpen', (event: URLOpenListenerEvent) => {
-    authLog('appUrlOpen', {
-      url: event?.url ?? null,
-      matchesCallback: event?.url ? isAuthCallbackUrl(event.url) : false,
-    });
-    if (event?.url && isAuthCallbackUrl(event.url)) {
-      navigateToAuthCallback(event.url);
+    if (event?.url) {
+      handleIncomingUrl(event.url, 'appUrlOpen');
+    } else {
+      authLog('appUrlOpen', { url: null, matchesCallback: false });
     }
   });
 
   void App.getLaunchUrl().then((launch) => {
-    authLog('getLaunchUrl', {
-      url: launch?.url ?? null,
-      matchesCallback: launch?.url ? isAuthCallbackUrl(launch.url) : false,
-    });
-    if (launch?.url && isAuthCallbackUrl(launch.url)) {
-      navigateToAuthCallback(launch.url);
+    if (launch?.url) {
+      handleIncomingUrl(launch.url, 'getLaunchUrl');
+    } else {
+      authLog('getLaunchUrl', { url: null, matchesCallback: false });
     }
   });
 }

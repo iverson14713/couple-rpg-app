@@ -4,7 +4,7 @@ import type { CapacitorConfig } from '@capacitor/cli';
  * Native WebView origin: https://lovequest.app
  * Add to Supabase → Authentication → URL Configuration → Redirect URLs:
  *   https://lovequest.app/auth/callback
- *   com.lovequest.app://auth/callback
+ *   lovequest://auth/callback
  *
  * Google OAuth on iOS must use external browser (see oauthNative.ts), not WebView.
  */

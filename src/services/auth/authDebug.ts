@@ -1,5 +1,6 @@
 import { Capacitor } from '@capacitor/core';
-import { CAPACITOR_AUTH_SCHEME_CALLBACK } from './authRedirect';
+import { CAPACITOR_AUTH_SCHEME_CALLBACK, NATIVE_OAUTH_URL_SCHEME } from './authRedirect';
+import { nativeOAuthSchemeChecklist } from './nativeOAuthUrl';
 
 const LOG_PREFIX = '[LQ_AUTH]';
 const MAX_LOG_LINES = 80;
@@ -87,12 +88,14 @@ export function getAuthEnvironmentSnapshot(): Record<string, unknown> {
     windowHref: href,
     windowPath: typeof window !== 'undefined' ? window.location.pathname : '',
     expectedSchemeCallback: CAPACITOR_AUTH_SCHEME_CALLBACK,
+    nativeOAuthScheme: NATIVE_OAUTH_URL_SCHEME,
     supabaseRedirectUrlsChecklist: [
-      CAPACITOR_AUTH_SCHEME_CALLBACK,
+      ...nativeOAuthSchemeChecklist(),
       'https://couple-rpg-app.vercel.app/auth/callback',
       'https://lovequest.app/auth/callback',
     ],
-    infoPlistSchemeNote: 'Info.plist CFBundleURLSchemes should include com.lovequest.app',
+    infoPlistSchemeNote:
+      'Info.plist CFBundleURLSchemes must include lovequest (not com.lovequest.app — dots break Safari OAuth return)',
     callbackSearchKeys: searchKeys,
     callbackHashKeys: hashKeys,
     callbackHasCode: Boolean(code),

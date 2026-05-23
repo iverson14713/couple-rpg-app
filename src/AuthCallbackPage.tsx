@@ -100,6 +100,12 @@ export function AuthCallbackPage() {
           }
         }
 
+        authLog('AuthCallbackPage.start', {
+          href: window.location.href,
+          search: window.location.search,
+          hash: window.location.hash,
+        });
+
         const outcome = await completeAuthCallback(sb);
 
         scrubAuthCallbackUrl();

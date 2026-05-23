@@ -1,6 +1,6 @@
 # LoveQuest — Sign in with Apple（iOS / Supabase）
 
-App 已提供 Google 第三方登入，**iOS 上架須提供 Sign in with Apple**。LoveQuest iOS 版使用與 Google 相同流程：Supabase OAuth → 外部瀏覽器 → `com.lovequest.app://auth/callback`。
+App 已提供 Google 第三方登入，**iOS 上架須提供 Sign in with Apple**。LoveQuest iOS 版使用與 Google 相同流程：Supabase OAuth → 外部瀏覽器 → `lovequest://auth/callback`。
 
 ---
 
@@ -63,7 +63,7 @@ Supabase 文件：[Login with Apple](https://supabase.com/docs/guides/auth/socia
 **Redirect URLs** 須包含（與 Google 共用）：
 
 ```
-com.lovequest.app://auth/callback
+lovequest://auth/callback
 https://lovequest.app/auth/callback
 https://couple-rpg-app.vercel.app/auth/callback
 ```
@@ -111,5 +111,5 @@ VITE_APPLE_OAUTH_ENABLED=true
 |------|----------|
 | `Provider apple is not enabled` | Supabase Apple Provider 未開啟 |
 | `invalid_client` | Services ID / Secret / Return URL 與 Supabase 不一致 |
-| 回到 App 但沒登入 | Redirect URLs 缺少 `com.lovequest.app://auth/callback` |
+| 回到 App 但沒登入 | Redirect URLs 缺少 `lovequest://auth/callback` |
 | 無法開啟瀏覽器 | 非 Capacitor 原生環境 |

@@ -8,8 +8,19 @@ const RETURN_KEY = 'lq_auth_return';
 /** Must match capacitor.config.ts `server.hostname` */
 export const CAPACITOR_AUTH_ORIGIN = 'https://lovequest.app';
 
-/** Custom URL scheme fallback when OAuth opens system browser (Info.plist URL Types) */
-export const CAPACITOR_AUTH_SCHEME_CALLBACK = 'com.lovequest.app://auth/callback';
+/**
+ * iOS custom URL scheme (Info.plist CFBundleURLSchemes).
+ * Use a short scheme without dots — Safari may not open `com.bundle.id://` from OAuth.
+ */
+export const NATIVE_OAUTH_URL_SCHEME = 'lovequest';
+
+/** Native OAuth redirect — must match Supabase Redirect URLs exactly. */
+export const CAPACITOR_AUTH_SCHEME_CALLBACK = `${NATIVE_OAUTH_URL_SCHEME}://auth/callback`;
+
+/** Previous scheme (detect only); remove from Supabase after migration. */
+export const LEGACY_NATIVE_OAUTH_URL_SCHEME = 'com.lovequest.app';
+
+export const LEGACY_CAPACITOR_AUTH_SCHEME_CALLBACK = `${LEGACY_NATIVE_OAUTH_URL_SCHEME}://auth/callback`;
 
 /** Email 確認信等導回（WebView / 通用連結，須列入 Supabase Redirect URLs） */
 export function getAuthCallbackUrl(): string {
