@@ -755,7 +755,7 @@ function normalizeDateItinerarySegment(raw) {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
   const o = /** @type {Record<string, unknown>} */ (raw);
   const periodRaw = dateItineraryCoerceString(o.period ?? o.time ?? o.時段);
-  const period = canonicalDatePeriod(periodRaw) ?? periodRaw || '下午';
+  const period = canonicalDatePeriod(periodRaw) ?? (periodRaw || '下午');
   const place = dateItineraryCoerceString(o.place ?? o.location ?? o.地點);
   const headline = dateItineraryCoerceString(o.headline ?? o.title ?? (place !== '—' ? place : ''));
   const narrative = dateItineraryCoerceString(
