@@ -69,7 +69,13 @@ function navigateToAuthCallback(rawUrl: string): void {
     authLog('navigateToAuthCallback.fallback', {
       error: e instanceof Error ? e.message : String(e),
     });
-    window.location.replace(CALLBACK_PATH);
+    try {
+      const incoming = new URL(rawUrl);
+      const suffix = `${incoming.search || ''}${incoming.hash || ''}`;
+      window.location.replace(`${CALLBACK_PATH}${suffix}`);
+    } catch {
+      window.location.replace(CALLBACK_PATH);
+    }
     notifyAuthRouteChange('navigateToAuthCallback.fallback');
   }
 }

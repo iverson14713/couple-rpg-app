@@ -1,4 +1,3 @@
-import { isAuthCallbackPath } from '../../authCallbackEntry';
 import { authLog } from './authDebug';
 
 export const AUTH_ROUTE_EVENT = 'lq:auth-route';
@@ -22,8 +21,9 @@ export function hasOAuthCallbackParams(location: Location = window.location): bo
   return false;
 }
 
+/** 僅在 URL 已帶 OAuth 參數時掛載 callback 頁，避免 /auth/callback 空頁先跑完並顯示失敗。 */
 export function shouldRenderAuthCallback(location: Location = window.location): boolean {
-  return isAuthCallbackPath(location.pathname) || hasOAuthCallbackParams(location);
+  return hasOAuthCallbackParams(location);
 }
 
 /** Notify Root / AuthCallbackPage that the in-app URL changed (custom scheme → /auth/callback). */

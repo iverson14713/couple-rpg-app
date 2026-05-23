@@ -1,7 +1,7 @@
 import type { EmailOtpType, SupabaseClient } from '@supabase/supabase-js';
 import { authLog } from './authDebug';
 import { mapOAuthCallbackError } from './authErrors';
-import { markPkceCodeExchanged, wasPkceCodeExchanged } from './authCallbackLock';
+import { exchangePkceCodeOnce } from './authCallbackLock';
 import { consumeOAuthProvider, peekOAuthProvider } from './oauthSessionHint';
 import { waitForPersistedSession } from './authSession';
 
@@ -65,12 +65,14 @@ export async function completeAuthCallback(
   const hash = parseHash();
   const search = parseSearch();
 
+  const codeInUrl = search.get('code') || hash.get('code');
+
   const existing = await client.auth.getSession();
   if (existing.error) {
     authLog('AuthCallbackPage.getSession.initial.error', { message: existing.error.message });
     return { ok: false, message: existing.error.message };
   }
-  if (existing.data.session?.access_token) {
+  if (existing.data.session?.access_token && !codeInUrl) {
     authLog('AuthCallbackPage.getSession.initial.ok', {
       userId: existing.data.session.user.id,
       skipExchange: true,
@@ -109,42 +111,19 @@ export async function completeAuthCallback(
 
   const code = search.get('code');
   if (code) {
-    if (wasPkceCodeExchanged(code)) {
-      authLog('AuthCallbackPage.exchangeCodeForSession.skip', { reason: 'already_exchanged' });
-      const session = await waitForPersistedSession(client);
-      if (!session) {
-        return {
-          ok: false,
-          message:
-            lang === 'zh'
-              ? '登入碼已使用，請再試一次 Google 登入。'
-              : 'Sign-in code already used. Please try Google sign-in again.',
-        };
-      }
-      return { ok: true, flow: 'oauth' };
-    }
-    authLog('AuthCallbackPage.exchangeCodeForSession', { codeLength: code.length });
-    markPkceCodeExchanged(code);
-    const { data, error } = await client.auth.exchangeCodeForSession(code);
+    const { session, error } = await exchangePkceCodeOnce(client, code);
     if (error) {
-      authLog('AuthCallbackPage.exchangeCodeForSession.error', { message: error.message });
       return { ok: false, message: error.message };
     }
-    if (!data.session) {
-      const session = await waitForPersistedSession(client);
-      if (!session) {
-        return {
-          ok: false,
-          message:
-            lang === 'zh'
-              ? '登入兌換成功但 session 尚未就緒，請再試一次。'
-              : 'Sign-in exchanged but session is not ready yet. Please try again.',
-        };
-      }
+    if (!session) {
+      return {
+        ok: false,
+        message:
+          lang === 'zh'
+            ? '登入兌換成功但 session 尚未就緒，請再試一次。'
+            : 'Sign-in exchanged but session is not ready yet. Please try again.',
+      };
     }
-    authLog('AuthCallbackPage.exchangeCodeForSession.ok', {
-      userId: data.session?.user.id ?? (await client.auth.getSession()).data.session?.user.id,
-    });
     if (pendingAppleCallback && consumeOAuthProvider() === 'apple') {
       authLog('apple.callback', { phase: 'exchangeCodeForSession.ok' });
     }

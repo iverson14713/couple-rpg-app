@@ -3,7 +3,8 @@ import { AuthDebugPanel } from './components/AuthDebugPanel';
 import { completeAuthCallback, type AuthCallbackFlow } from './services/auth/completeAuthCallback';
 import { authLog, isAuthNativeClient } from './services/auth/authDebug';
 import { redirectAfterAuthSuccess, scrubAuthCallbackUrl } from './services/auth/authRedirect';
-import { AUTH_ROUTE_EVENT } from './services/auth/authRoute';
+import { AUTH_ROUTE_EVENT, hasOAuthCallbackParams } from './services/auth/authRoute';
+import { waitForOAuthCallbackParams } from './services/auth/waitForOAuthCallbackParams';
 import { getSupabaseClient } from './supabaseClient';
 
 type Status = 'pending' | 'ok' | 'fail';
@@ -85,16 +86,45 @@ export function AuthCallbackPage() {
 
     const run = async () => {
       try {
+        if (!hasOAuthCallbackParams()) {
+          const ready = await waitForOAuthCallbackParams();
+          if (cancelled) return;
+          if (!ready) {
+            setFailMessage(
+              lang === 'zh'
+                ? '未取得登入回傳參數，請再試一次 Google 登入。'
+                : 'Missing sign-in callback parameters. Please try Google sign-in again.'
+            );
+            setStatus('fail');
+            return;
+          }
+        }
+
         const outcome = await completeAuthCallback(sb);
-        if (cancelled) return;
 
         scrubAuthCallbackUrl();
 
         if (!outcome.ok) {
+          const { data: { session: recovered } } = await sb.auth.getSession();
+          if (recovered?.access_token) {
+            authLog('AuthCallbackPage.recover_session_after_fail', {
+              message: outcome.message,
+            });
+            setFlow('oauth');
+            setStatus('ok');
+            await redirectAfterAuthSuccess(sb);
+            return;
+          }
+          if (cancelled) return;
           setFailMessage(outcome.message);
           setStatus('fail');
           authLog('AuthCallbackPage.fail', { message: outcome.message });
           return;
+        }
+
+        if (cancelled) {
+          const { data: { session: recovered } } = await sb.auth.getSession();
+          if (!recovered?.access_token) return;
         }
 
         setFlow(outcome.flow);
@@ -102,8 +132,16 @@ export function AuthCallbackPage() {
         authLog('AuthCallbackPage.success', { flow: outcome.flow });
         await redirectAfterAuthSuccess(sb);
       } catch (err) {
-        if (cancelled) return;
         const msg = err instanceof Error ? err.message : String(err);
+        const { data: { session: recovered } } = await sb.auth.getSession();
+        if (recovered?.access_token) {
+          authLog('AuthCallbackPage.recover_session_after_exception', { message: msg });
+          setFlow('oauth');
+          setStatus('ok');
+          await redirectAfterAuthSuccess(sb);
+          return;
+        }
+        if (cancelled) return;
         authLog('AuthCallbackPage.exception', { message: msg });
         setFailMessage(lang === 'zh' ? `登入處理失敗：${msg}` : `Sign-in failed: ${msg}`);
         setStatus('fail');
