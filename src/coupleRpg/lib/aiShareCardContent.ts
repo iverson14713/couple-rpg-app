@@ -35,7 +35,8 @@ export function buildDateItinerarySharePayload(record: SavedDateItineraryAi): Ai
   if (plan.mood) lines.push(`💕 ${plan.mood}`);
   const tip = plan.aiReminders?.[0] ?? plan.tips?.[0];
   if (tip) lines.push(`✨ ${tip}`);
-  if (plan.budgetTier || plan.budgetNote || plan.budget) {
+  if (plan.estimatedTotal) lines.push(`💰 總計 ${plan.estimatedTotal}`);
+  else if (plan.budgetTier || plan.budgetNote || plan.budget) {
     lines.push(`💰 ${plan.budgetTier ?? ''} ${plan.budgetNote ?? plan.budget ?? ''}`.trim());
   }
 

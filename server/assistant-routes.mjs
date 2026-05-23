@@ -41,7 +41,7 @@ const DATE_ITINERARY_SYSTEM_ZH =
   '你是會幫朋友安排約會的企劃人。只回傳 JSON 物件，禁止 Markdown。繁體中文。' +
   '時間軸 segments 的 period 只能使用「下午」「傍晚」「晚餐」「晚間收尾」各至多一次、順序固定，禁止重複「晚上」。' +
   '每段需含 headline、narrative（2～4句有情緒）、purpose、transition、conversationCue。' +
-  '另含 mood、moodTags、aiReminders、partnerLines、rainPlan、tiredPlan、budgetTier（$|$$|$$$）、budgetNote、surprise、outfit。';
+  '另含 mood、moodTags、aiReminders、partnerLines、rainPlan、tiredPlan、budgetTier（$|$$|$$$）、estimatedTotal（NT$總計兩人）、budgetBreakdown（分項NT$）、各 segment.estimatedCost、surprise、outfit。金額必須含 NT$ 與數字。';
 
 const IMPORTANT_DATE_SYSTEM_ZH =
   '你是情侶重要日子驚喜顧問。只回傳 JSON 物件，禁止 Markdown（不得使用 #、##、###、---、** 等符號）。所有字串為繁體中文純文字。';
@@ -764,6 +764,16 @@ function normalizeDateItinerarySegment(raw) {
   const purpose = dateItineraryCoerceString(o.purpose ?? o.why ?? o.目的);
   const conversationCue = dateItineraryCoerceString(o.conversationCue ?? o.conversation ?? o.對話建議);
   const transition = dateItineraryCoerceString(o.transition ?? o.轉場);
+  let estimatedCost = dateItineraryCoerceString(
+    o.estimatedCost ?? o.cost ?? o.花費 ?? o.amount
+  );
+  if (!estimatedCost && typeof o.amountMin === 'number') {
+    const max = typeof o.amountMax === 'number' ? o.amountMax : o.amountMin;
+    estimatedCost = `NT$ ${o.amountMin}–${max}`;
+  }
+  if (estimatedCost && !/NT\$|元/.test(estimatedCost) && /^\d/.test(estimatedCost)) {
+    estimatedCost = `NT$ ${estimatedCost}`;
+  }
   if (!period && !place && !narrative && !headline) return null;
   return {
     period,
@@ -773,8 +783,22 @@ function normalizeDateItinerarySegment(raw) {
     purpose: purpose || '讓約會節奏自然推進',
     conversationCue: conversationCue || undefined,
     transition: transition || undefined,
+    estimatedCost: estimatedCost || undefined,
     activity: dateItineraryCoerceString(o.activity ?? o.活動) || undefined,
   };
+}
+
+function normalizeBudgetLineItemServer(raw) {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
+  const o = /** @type {Record<string, unknown>} */ (raw);
+  const label = dateItineraryCoerceString(o.label ?? o.item ?? o.項目);
+  let amount = dateItineraryCoerceString(o.amount ?? o.cost ?? o.金額);
+  if (!amount && typeof o.amountMin === 'number') {
+    const max = typeof o.amountMax === 'number' ? o.amountMax : o.amountMin;
+    amount = `NT$ ${o.amountMin}–${max}`;
+  }
+  if (!label || !amount) return null;
+  return { label, amount };
 }
 
 function dedupeDateItinerarySegments(segments) {
@@ -830,6 +854,28 @@ function normalizeDateItineraryFromParsed(parsed) {
   const outfit = dateItineraryCoerceString(obj.outfit ?? obj.穿搭) || undefined;
   const surprise = dateItineraryCoerceString(obj.surprise ?? obj.小驚喜) || undefined;
 
+  const rawBreakdown = obj.budgetBreakdown ?? obj.budgetItems ?? obj.costBreakdown;
+  /** @type {{ label: string, amount: string }[]} */
+  let budgetBreakdown = Array.isArray(rawBreakdown)
+    ? rawBreakdown.map(normalizeBudgetLineItemServer).filter(Boolean)
+    : [];
+  if (budgetBreakdown.length === 0) {
+    budgetBreakdown = segments
+      .filter((s) => s.estimatedCost)
+      .map((s) => ({
+        label: `${s.period} · ${s.headline || s.place}`,
+        amount: s.estimatedCost,
+      }));
+  }
+
+  let estimatedTotal = dateItineraryCoerceString(
+    obj.estimatedTotal ?? obj.totalCost ?? obj.總計
+  );
+  if (!estimatedTotal || !/NT\$|元/.test(estimatedTotal)) {
+    const m = budgetNote.match(/(NT\$[\d,]+(?:\s*[–\-~]\s*NT\$[\d,]+)?(?:\s*（[^）]+）)?)/);
+    if (m) estimatedTotal = m[1];
+  }
+
   return {
     title,
     mood,
@@ -840,7 +886,9 @@ function normalizeDateItineraryFromParsed(parsed) {
     rainPlan,
     tiredPlan,
     budgetTier,
-    budgetNote,
+    estimatedTotal: estimatedTotal || '',
+    budgetBreakdown,
+    budgetNote: budgetNote || estimatedTotal || '依實際消費調整',
     outfit,
     surprise,
     tips: aiReminders,

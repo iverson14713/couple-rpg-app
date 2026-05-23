@@ -1,10 +1,18 @@
 import {
+  extractNtAmountFromText,
+  formatNtRange,
+  hasConcreteNtAmount,
+  type DateBudgetLineItem,
+} from './dateItineraryBudget';
+import {
   canonicalDateItineraryPeriod,
   DATE_ITINERARY_TIMELINE_SLOTS,
   type DateItineraryTimelineLabel,
 } from './dateItineraryPeriods';
 
 export type DateBudgetTier = '$' | '$$' | '$$$';
+
+export type { DateBudgetLineItem };
 
 export type DateItinerarySegment = {
   period: string;
@@ -14,6 +22,8 @@ export type DateItinerarySegment = {
   purpose: string;
   conversationCue?: string;
   transition?: string;
+  /** 該時段兩人預估花費，例：NT$ 350–500 */
+  estimatedCost?: string;
   /** Legacy flat activity text */
   activity?: string;
 };
@@ -28,6 +38,10 @@ export type DateItineraryPlan = {
   rainPlan: string;
   tiredPlan?: string;
   budgetTier: DateBudgetTier | string;
+  /** 兩人總計，例：NT$ 2,200–2,800（兩人） */
+  estimatedTotal: string;
+  /** 分項金額 */
+  budgetBreakdown: DateBudgetLineItem[];
   budgetNote: string;
   outfit?: string;
   surprise?: string;
@@ -109,6 +123,18 @@ function normalizeSegment(raw: unknown): DateItinerarySegment | null {
   const purpose = coerceString(o.purpose ?? o.why ?? o.goal ?? o.目的 ?? o.安排目的);
   const conversationCue = coerceString(o.conversationCue ?? o.conversation ?? o.talk ?? o.對話建議);
   const transition = coerceString(o.transition ?? o.next ?? o.轉場 ?? o.銜接);
+  let estimatedCost = coerceString(
+    o.estimatedCost ?? o.cost ?? o.costEstimate ?? o.花費 ?? o.預估花費 ?? o.amount
+  );
+  if (!estimatedCost && typeof o.amountMin === 'number') {
+    estimatedCost = formatNtRange(
+      Number(o.amountMin),
+      typeof o.amountMax === 'number' ? Number(o.amountMax) : undefined
+    );
+  }
+  if (estimatedCost && !/NT\$|元/.test(estimatedCost) && /^\d/.test(estimatedCost)) {
+    estimatedCost = `NT$ ${estimatedCost}`;
+  }
 
   const legacyActivity = coerceString(o.activity ?? o.活動);
   if (!narrative && legacyActivity) {
@@ -120,6 +146,7 @@ function normalizeSegment(raw: unknown): DateItinerarySegment | null {
       purpose: purpose || '讓兩人自然進入這個時段的氛圍',
       conversationCue: conversationCue || undefined,
       transition: transition || undefined,
+      estimatedCost: estimatedCost || undefined,
       activity: legacyActivity,
     };
   }
@@ -134,8 +161,63 @@ function normalizeSegment(raw: unknown): DateItinerarySegment | null {
     purpose: purpose || '延續約會節奏，讓氣氛自然升溫',
     conversationCue: conversationCue || undefined,
     transition: transition || undefined,
+    estimatedCost: estimatedCost || undefined,
     activity: legacyActivity || undefined,
   };
+}
+
+function normalizeBudgetLineItem(raw: unknown): DateBudgetLineItem | null {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
+  const o = raw as Record<string, unknown>;
+  const label = coerceString(o.label ?? o.item ?? o.name ?? o.項目 ?? o.category);
+  let amount = coerceString(o.amount ?? o.cost ?? o.price ?? o.金額 ?? o.estimate);
+  if (!amount && typeof o.amountMin === 'number') {
+    amount = formatNtRange(
+      Number(o.amountMin),
+      typeof o.amountMax === 'number' ? Number(o.amountMax) : undefined
+    );
+  }
+  if (amount && !/NT\$|元/.test(amount) && /^\d/.test(amount)) {
+    amount = `NT$ ${amount}`;
+  }
+  if (!label || !amount) return null;
+  return { label, amount };
+}
+
+function normalizeBudgetBreakdown(v: unknown, segments: DateItinerarySegment[]): DateBudgetLineItem[] {
+  const items: DateBudgetLineItem[] = [];
+  if (Array.isArray(v)) {
+    for (const raw of v) {
+      const row = normalizeBudgetLineItem(raw);
+      if (row) items.push(row);
+    }
+  }
+  if (items.length > 0) return items;
+
+  for (const seg of segments) {
+    if (seg.estimatedCost) {
+      items.push({
+        label: `${seg.period} · ${seg.headline || seg.place}`,
+        amount: seg.estimatedCost,
+      });
+    }
+  }
+  return items;
+}
+
+function resolveEstimatedTotal(
+  raw: string,
+  breakdown: DateBudgetLineItem[],
+  budgetNote: string
+): string {
+  const fromField = coerceString(raw);
+  if (fromField && hasConcreteNtAmount(fromField)) return fromField;
+  const fromNote = extractNtAmountFromText(budgetNote);
+  if (fromNote) return fromNote;
+  if (breakdown.length > 0) {
+    return '詳見下方分項（兩人）';
+  }
+  return '';
 }
 
 function mergeSegmentContent(a: DateItinerarySegment, b: DateItinerarySegment): DateItinerarySegment {
@@ -185,7 +267,7 @@ export function parseDateItineraryPlan(
 ): DateItineraryPlan | null {
   if (itineraryField && typeof itineraryField === 'object' && !Array.isArray(itineraryField)) {
     const fromObj = normalizePlanObject(itineraryField as Record<string, unknown>);
-    if (fromObj) return fromObj;
+    if (fromObj) return hydrateDateItineraryPlan(fromObj);
   }
 
   const trimmed = answer.trim();
@@ -195,7 +277,7 @@ export function parseDateItineraryPlan(
     const parsed = JSON.parse(trimmed) as unknown;
     if (parsed && typeof parsed === 'object') {
       const fromJson = normalizePlanObject(parsed as Record<string, unknown>);
-      if (fromJson) return fromJson;
+      if (fromJson) return hydrateDateItineraryPlan(fromJson);
     }
   } catch {
     /* not JSON */
@@ -207,7 +289,7 @@ export function parseDateItineraryPlan(
     try {
       const parsed = JSON.parse(trimmed.slice(jsonStart, jsonEnd + 1)) as Record<string, unknown>;
       const fromJson = normalizePlanObject(parsed);
-      if (fromJson) return fromJson;
+      if (fromJson) return hydrateDateItineraryPlan(fromJson);
     } catch {
       /* ignore */
     }
@@ -239,33 +321,75 @@ function normalizePlanObject(obj: Record<string, unknown>): DateItineraryPlan | 
     obj.rainPlan ?? obj.rainyPlan ?? obj.backup ?? obj.雨天備案 ?? obj.備案模式
   );
   const tiredPlan = coerceString(obj.tiredPlan ?? obj.tiredBackup ?? obj.累了備案);
-  const budgetTier = normalizeBudgetTier(obj.budgetTier ?? obj.budget_level ?? obj.預估花費);
-  const budgetNote = coerceString(
-    obj.budgetNote ?? obj.budgetDetail ?? obj.budget ?? obj.預算 ?? obj.budgetEstimate
+  const budgetTier = normalizeBudgetTier(obj.budgetTier ?? obj.budget_level);
+  let budgetNote = coerceString(
+    obj.budgetNote ?? obj.budgetDetail ?? obj.預算說明 ?? obj.budgetEstimate
   );
+  const legacyBudget = coerceString(obj.budget ?? obj.預算);
+  if (!budgetNote && legacyBudget) budgetNote = legacyBudget;
+
+  const sortedSegments = sortSegments(segments);
+  const budgetBreakdown = normalizeBudgetBreakdown(
+    obj.budgetBreakdown ?? obj.budgetItems ?? obj.costBreakdown ?? obj.花費明細,
+    sortedSegments
+  );
+  let estimatedTotal = resolveEstimatedTotal(
+    coerceString(obj.estimatedTotal ?? obj.totalCost ?? obj.總計 ?? obj.預估總額),
+    budgetBreakdown,
+    budgetNote
+  );
+  if (!estimatedTotal && !hasConcreteNtAmount(budgetNote)) {
+    budgetNote =
+      budgetNote ||
+      '各項費用依實際店家的與交通方式調整；建議重新產生以取得新台幣估算。';
+  }
+
   const outfit = coerceString(obj.outfit ?? obj.穿搭 ?? obj.穿搭建議);
   const surprise = coerceString(obj.surprise ?? obj.小驚喜);
 
-  if (!title && segments.length === 0 && !mood && aiReminders.length === 0) return null;
+  if (!title && sortedSegments.length === 0 && !mood && aiReminders.length === 0) return null;
 
   const legacyTips = normalizeTips(obj.tips);
   const mergedReminders = aiReminders.length > 0 ? aiReminders : legacyTips;
 
-  return {
+  return hydrateDateItineraryPlan({
     title: title || '今日約會企劃',
     mood: mood || (moodTags.length ? moodTags.join(' · ') : '溫柔而有儀式感'),
     moodTags: moodTags.length ? moodTags : mood ? [mood] : ['溫柔'],
-    segments: sortSegments(segments),
+    segments: sortedSegments,
     aiReminders: mergedReminders,
     partnerLines,
     rainPlan: rainPlan || tiredPlan || '改為室內咖啡或電影，保留聊天與陪伴的品質。',
     tiredPlan: tiredPlan || undefined,
     budgetTier,
-    budgetNote: budgetNote || '依實際選擇的餐廳與交通調整',
+    estimatedTotal,
+    budgetBreakdown,
+    budgetNote: budgetNote || estimatedTotal || '依實際選擇的餐廳與交通調整',
     outfit: outfit || undefined,
     surprise: surprise || undefined,
     tips: mergedReminders,
     budget: budgetNote,
+  });
+}
+
+/** 補齊舊紀錄缺少的預算欄位 */
+export function hydrateDateItineraryPlan(plan: DateItineraryPlan): DateItineraryPlan {
+  const segments = plan.segments ?? [];
+  const budgetBreakdown =
+    plan.budgetBreakdown?.length > 0
+      ? plan.budgetBreakdown
+      : normalizeBudgetBreakdown([], segments);
+  const budgetNote = plan.budgetNote || plan.budget || '';
+  const estimatedTotal =
+    plan.estimatedTotal ||
+    extractNtAmountFromText(budgetNote) ||
+    (budgetBreakdown.length > 0 ? '詳見下方分項（兩人）' : '');
+  return {
+    ...plan,
+    budgetBreakdown,
+    estimatedTotal,
+    budgetNote: budgetNote || estimatedTotal,
+    budget: plan.budget ?? budgetNote,
   };
 }
 
@@ -311,7 +435,7 @@ function parsePlainTextItinerary(text: string): DateItineraryPlan | null {
   }
 
   if (segments.length === 0 && lines.length > 0) {
-    return {
+    return hydrateDateItineraryPlan({
       title: title || '今日約會企劃',
       mood: '輕鬆甜蜜',
       moodTags: ['輕鬆'],
@@ -328,10 +452,12 @@ function parsePlainTextItinerary(text: string): DateItineraryPlan | null {
       partnerLines: [],
       rainPlan: '雨天可改室內行程',
       budgetTier: '$$',
+      estimatedTotal: '',
+      budgetBreakdown: [],
       budgetNote: budget || '依實際消費調整',
       tips,
       budget: budget || '依實際消費調整',
-    };
+    });
   }
 
   return normalizePlanObject({

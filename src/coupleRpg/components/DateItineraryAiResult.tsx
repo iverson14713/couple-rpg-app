@@ -1,4 +1,10 @@
-import type { DateBudgetTier, DateItineraryPlan, DateItinerarySegment } from '../lib/dateItineraryAiModel';
+import { hasConcreteNtAmount } from '../lib/dateItineraryBudget';
+import {
+  hydrateDateItineraryPlan,
+  type DateBudgetTier,
+  type DateItineraryPlan,
+  type DateItinerarySegment,
+} from '../lib/dateItineraryAiModel';
 import { timelineIconForPeriod } from '../lib/dateItineraryPeriods';
 import { lq } from '../theme';
 
@@ -66,6 +72,11 @@ function TimelineSegmentCard({
       >
         <div className="flex flex-wrap items-center gap-2">
           <span className={`${lq.badgeAccent} shrink-0`}>{seg.period}</span>
+          {seg.estimatedCost ? (
+            <span className="rounded-lg bg-emerald-50 px-2 py-0.5 text-[11px] font-bold text-emerald-800 ring-1 ring-emerald-100">
+              {seg.estimatedCost}
+            </span>
+          ) : null}
           {seg.transition && !isLast ? (
             <span className="text-[10px] font-medium text-stone-400">→ 下一段</span>
           ) : null}
@@ -98,7 +109,60 @@ function TimelineSegmentCard({
   );
 }
 
-export function DateItineraryAiResult({ plan, animateIn }: Props) {
+function BudgetSection({ plan }: { plan: DateItineraryPlan }) {
+  const total =
+    plan.estimatedTotal ||
+    (hasConcreteNtAmount(plan.budgetNote) ? plan.budgetNote : '') ||
+    (hasConcreteNtAmount(plan.budget ?? '') ? plan.budget : '');
+  const breakdown = plan.budgetBreakdown ?? [];
+  const showNote =
+    plan.budgetNote &&
+    plan.budgetNote !== total &&
+    !breakdown.some((row) => row.amount === plan.budgetNote);
+
+  return (
+    <div className="rounded-2xl border border-emerald-100/80 bg-gradient-to-br from-emerald-50/90 to-teal-50/45 p-3.5 ring-1 ring-emerald-100/50">
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <div>
+          <p className="text-[12px] font-bold text-emerald-800">預估花費（兩人）</p>
+          <span className="text-[11px] font-semibold text-emerald-700/90">
+            {budgetTierLabel(plan.budgetTier)}
+          </span>
+        </div>
+        <span className="rounded-lg bg-emerald-600/10 px-2 py-0.5 text-[13px] font-black text-emerald-800">
+          {plan.budgetTier}
+        </span>
+      </div>
+
+      {total ? (
+        <p className="mt-2 text-[22px] font-black tabular-nums tracking-tight text-emerald-950">{total}</p>
+      ) : (
+        <p className="mt-2 text-[14px] font-semibold text-emerald-900">請重新產生以取得新台幣估算</p>
+      )}
+
+      {breakdown.length > 0 ? (
+        <ul className="mt-3 space-y-1.5 border-t border-emerald-100/80 pt-3">
+          {breakdown.map((row, i) => (
+            <li
+              key={`${row.label}-${i}`}
+              className="flex items-start justify-between gap-3 text-[13px] leading-snug"
+            >
+              <span className="min-w-0 flex-1 font-medium text-emerald-950">{row.label}</span>
+              <span className="shrink-0 font-bold tabular-nums text-emerald-800">{row.amount}</span>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+
+      {showNote ? (
+        <p className="mt-2 text-[11px] leading-relaxed text-emerald-800/90">{plan.budgetNote}</p>
+      ) : null}
+    </div>
+  );
+}
+
+export function DateItineraryAiResult({ plan: rawPlan, animateIn }: Props) {
+  const plan = hydrateDateItineraryPlan(rawPlan);
   const stagger = animateIn ? 'ai-result-enter-stagger date-plan-enter' : '';
   const reminders = plan.aiReminders.length > 0 ? plan.aiReminders : plan.tips ?? [];
 
@@ -189,20 +253,7 @@ export function DateItineraryAiResult({ plan, animateIn }: Props) {
         ) : null}
       </div>
 
-      <div className="rounded-2xl border border-emerald-100/80 bg-gradient-to-br from-emerald-50/85 to-teal-50/40 p-3.5 ring-1 ring-emerald-100/50">
-        <div className="flex flex-wrap items-center gap-2">
-          <p className="text-[12px] font-bold text-emerald-800">預估花費</p>
-          <span className="rounded-lg bg-emerald-600/10 px-2 py-0.5 text-[15px] font-black tracking-wide text-emerald-800">
-            {plan.budgetTier}
-          </span>
-          <span className="text-[11px] font-semibold text-emerald-700/90">
-            {budgetTierLabel(plan.budgetTier)}
-          </span>
-        </div>
-        <p className="mt-1.5 text-[13px] leading-relaxed text-emerald-950">
-          {plan.budgetNote || plan.budget}
-        </p>
-      </div>
+      <BudgetSection plan={plan} />
 
       {plan.outfit ? (
         <div className={`rounded-2xl border border-stone-200/70 bg-stone-50/80 p-3.5 ${lq.cardSoft}`}>

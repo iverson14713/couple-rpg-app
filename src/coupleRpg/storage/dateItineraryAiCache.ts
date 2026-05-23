@@ -1,5 +1,5 @@
 import { formatDateShort, todayKey } from '../lib/dates';
-import type { DateItineraryPlan } from '../lib/dateItineraryAiModel';
+import { hydrateDateItineraryPlan, type DateItineraryPlan } from '../lib/dateItineraryAiModel';
 import type {
   DateAiBudgetChoice,
   DateAiStyleChoice,
@@ -70,7 +70,9 @@ export function savedSuggestionToDateSuggestion(snap: SavedDateItinerarySuggesti
 function isValidDateItineraryRecord(
   raw: SavedDateItineraryAi | null | undefined
 ): raw is SavedDateItineraryAi {
-  return Boolean(raw?.plan?.title && raw.suggestion?.title);
+  if (!raw?.plan?.title || !raw.suggestion?.title) return false;
+  raw.plan = hydrateDateItineraryPlan(raw.plan);
+  return true;
 }
 
 export function loadLastDateItineraryAi(): SavedDateItineraryAi | null {
