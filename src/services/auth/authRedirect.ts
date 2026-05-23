@@ -1,4 +1,6 @@
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { authLog, isAuthNativeClient } from './authDebug';
+import { waitForPersistedSession } from './authSession';
 
 const RETURN_KEY = 'lq_auth_return';
 
@@ -54,11 +56,30 @@ export function consumeAuthReturnPath(): string {
   }
 }
 
-export function redirectAfterAuthSuccess(delayMs = 1200): void {
+/** SPA 導回（不整頁 reload，保留 SupabaseAuthProvider 內的 session 狀態） */
+export function navigateAfterAuthSuccess(target: string): void {
+  const path = target.startsWith('/') ? target : `/${target}`;
+  window.history.replaceState({}, document.title, path);
+  window.dispatchEvent(new PopStateEvent('popstate'));
+  authLog('navigateAfterAuthSuccess', { path });
+}
+
+/**
+ * 等待 session 寫入後再導回遊戲（修正第一次 OAuth 回來仍顯示未登入）。
+ */
+export async function redirectAfterAuthSuccess(
+  client: SupabaseClient,
+  delayMs = 400
+): Promise<void> {
+  const session = await waitForPersistedSession(client);
+  if (!session) {
+    authLog('redirectAfterAuthSuccess.no_session', {});
+  }
   const target = consumeAuthReturnPath();
-  window.setTimeout(() => {
-    window.location.replace(target);
-  }, delayMs);
+  if (delayMs > 0) {
+    await new Promise((r) => setTimeout(r, delayMs));
+  }
+  navigateAfterAuthSuccess(target);
 }
 
 /** 清除 callback URL 上的 token / code，避免留在瀏覽紀錄 */

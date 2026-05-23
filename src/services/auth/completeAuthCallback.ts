@@ -1,6 +1,7 @@
 import type { EmailOtpType, SupabaseClient } from '@supabase/supabase-js';
 import { authLog } from './authDebug';
 import { mapOAuthCallbackError } from './authErrors';
+import { waitForPersistedSession } from './authSession';
 
 export type AuthCallbackFlow = 'email' | 'oauth' | 'unknown';
 
@@ -87,12 +88,26 @@ export async function completeAuthCallback(
   const code = search.get('code');
   if (code) {
     authLog('AuthCallbackPage.exchangeCodeForSession', { codeLength: code.length });
-    const { error } = await client.auth.exchangeCodeForSession(code);
+    const { data, error } = await client.auth.exchangeCodeForSession(code);
     if (error) {
       authLog('AuthCallbackPage.exchangeCodeForSession.error', { message: error.message });
       return { ok: false, message: error.message };
     }
-    authLog('AuthCallbackPage.exchangeCodeForSession.ok', {});
+    if (!data.session) {
+      const session = await waitForPersistedSession(client);
+      if (!session) {
+        return {
+          ok: false,
+          message:
+            lang === 'zh'
+              ? '登入兌換成功但 session 尚未就緒，請再試一次。'
+              : 'Sign-in exchanged but session is not ready yet. Please try again.',
+        };
+      }
+    }
+    authLog('AuthCallbackPage.exchangeCodeForSession.ok', {
+      userId: data.session?.user.id ?? (await client.auth.getSession()).data.session?.user.id,
+    });
     return { ok: true, flow: 'oauth' };
   }
 
@@ -108,6 +123,7 @@ export async function completeAuthCallback(
       authLog('AuthCallbackPage.setSession.error', { message: error.message });
       return { ok: false, message: error.message };
     }
+    await waitForPersistedSession(client);
     return { ok: true, flow: flowFromType(hash.get('type')) };
   }
 

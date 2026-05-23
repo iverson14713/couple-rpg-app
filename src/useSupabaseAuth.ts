@@ -1,5 +1,14 @@
-import type { Session } from '@supabase/supabase-js';
-import { useCallback, useEffect, useState } from 'react';
+import type { Session, SupabaseClient } from '@supabase/supabase-js';
+import {
+  createContext,
+  createElement,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from 'react';
 import { getAuthCallbackUrl, getOAuthRedirectUrl, saveAuthReturnPath } from './services/auth/authRedirect';
 import { isAppleOAuthEnabled } from './services/auth/appleSignIn';
 import { signInWithGoogleOAuth } from './services/auth/googleSignIn';
@@ -12,7 +21,36 @@ export type UserProfile = {
   display_name: string | null;
 };
 
-export function useSupabaseAuth() {
+export type SupabaseAuthValue = {
+  supabase: SupabaseClient | null;
+  configured: boolean;
+  session: Session | null;
+  user: Session['user'] | null;
+  profile: UserProfile | null;
+  authReady: boolean;
+  appleOAuthEnabled: boolean;
+  loadProfile: (userId: string) => Promise<UserProfile | null>;
+  updateDisplayName: (displayName: string) => Promise<{ error: Error | null }>;
+  signInWithEmail: (
+    email: string,
+    password: string
+  ) => ReturnType<SupabaseClient['auth']['signInWithPassword']>;
+  signUpWithEmail: (
+    email: string,
+    password: string,
+    displayName?: string
+  ) => ReturnType<SupabaseClient['auth']['signUp']>;
+  signInWithGoogle: () => Promise<{ data: null; error: Error | null }>;
+  signInWithApple: () => Promise<
+    | { data: null; error: Error | null }
+    | Awaited<ReturnType<SupabaseClient['auth']['signInWithOAuth']>>
+  >;
+  signOut: () => ReturnType<SupabaseClient['auth']['signOut']>;
+};
+
+const SupabaseAuthContext = createContext<SupabaseAuthValue | null>(null);
+
+export function SupabaseAuthProvider({ children }: { children: ReactNode }) {
   const supabase = getSupabaseClient();
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
@@ -66,7 +104,8 @@ export function useSupabaseAuth() {
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, s) => {
+    } = supabase.auth.onAuthStateChange((event, s) => {
+      authLog('auth.onAuthStateChange', { event, hasSession: Boolean(s) });
       setSession(s);
       setReady(true);
     });
@@ -180,20 +219,45 @@ export function useSupabaseAuth() {
     [supabase, session?.user, loadProfile]
   );
 
-  return {
-    supabase,
-    configured: supabase !== null,
-    session,
-    user: session?.user ?? null,
-    profile,
-    authReady: ready,
-    appleOAuthEnabled: isAppleOAuthEnabled(),
-    loadProfile,
-    updateDisplayName,
-    signInWithEmail,
-    signUpWithEmail,
-    signInWithGoogle,
-    signInWithApple,
-    signOut,
-  };
+  const value = useMemo<SupabaseAuthValue>(
+    () => ({
+      supabase,
+      configured: supabase !== null,
+      session,
+      user: session?.user ?? null,
+      profile,
+      authReady: ready,
+      appleOAuthEnabled: isAppleOAuthEnabled(),
+      loadProfile,
+      updateDisplayName,
+      signInWithEmail,
+      signUpWithEmail,
+      signInWithGoogle,
+      signInWithApple,
+      signOut,
+    }),
+    [
+      supabase,
+      session,
+      profile,
+      ready,
+      loadProfile,
+      updateDisplayName,
+      signInWithEmail,
+      signUpWithEmail,
+      signInWithGoogle,
+      signInWithApple,
+      signOut,
+    ]
+  );
+
+  return createElement(SupabaseAuthContext.Provider, { value }, children);
+}
+
+export function useSupabaseAuth(): SupabaseAuthValue {
+  const ctx = useContext(SupabaseAuthContext);
+  if (!ctx) {
+    throw new Error('useSupabaseAuth must be used within SupabaseAuthProvider');
+  }
+  return ctx;
 }

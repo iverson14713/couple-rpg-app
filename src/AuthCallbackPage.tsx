@@ -86,7 +86,7 @@ export function AuthCallbackPage() {
         setFlow(outcome.flow);
         setStatus('ok');
         authLog('AuthCallbackPage.success', { flow: outcome.flow });
-        redirectAfterAuthSuccess(1400);
+        await redirectAfterAuthSuccess(sb);
       } catch (err) {
         if (cancelled) return;
         const msg = err instanceof Error ? err.message : String(err);

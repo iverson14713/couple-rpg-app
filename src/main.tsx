@@ -6,6 +6,7 @@ import { initAuthDebug } from './services/auth/authDebug.ts';
 import { initCapacitorAuthBridge } from './native/capacitorAuthBridge.ts';
 import { repairCorruptedLocalStorage } from './safeStorage.ts';
 import { Root } from './Root.tsx';
+import { SupabaseAuthProvider } from './useSupabaseAuth.ts';
 import './index.css';
 
 repairCorruptedLocalStorage();
@@ -20,7 +21,9 @@ if (!rootEl) {
   const tree = (
     <AppErrorBoundary>
       <ToastProvider>
-        <Root />
+        <SupabaseAuthProvider>
+          <Root />
+        </SupabaseAuthProvider>
       </ToastProvider>
     </AppErrorBoundary>
   );
