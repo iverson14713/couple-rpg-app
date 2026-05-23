@@ -1,6 +1,7 @@
 import { parseDateItineraryPlan, type DateItineraryPlan } from './dateItineraryAiModel';
 import { parseImportantDatePlan, type ImportantDatePlan } from './importantDateAiModel';
 import { aiQuotaExhaustedMessage } from './aiUsageLimits';
+import { loveQuestApiUrl } from './loveQuestApiOrigin';
 
 export type CoupleAssistantAuth = {
   userId: string;
@@ -39,17 +40,19 @@ type CoupleAssistantErrorBody = {
  * Production → same-origin `/api/assistant/...`.
  */
 export function resolveLoveQuestQuotaUrl(): string {
+  const absolute = loveQuestApiUrl('/api/assistant/lovequest-quota');
+  if (absolute.startsWith('http')) {
+    return absolute;
+  }
+
   if (import.meta.env.PROD) {
-    return '/api/assistant/lovequest-quota';
+    return absolute;
   }
-  const override = import.meta.env.VITE_ASSISTANT_SERVER_URL?.trim().replace(/\/$/, '');
-  if (override) {
-    return `${override}/api/assistant/lovequest-quota`;
-  }
+
   if (typeof window !== 'undefined') {
     const host = window.location.hostname;
     if (host !== 'localhost' && host !== '127.0.0.1') {
-      return '/api/assistant/lovequest-quota';
+      return absolute;
     }
   }
   return `${COUPLE_ASSISTANT_DEV_BASE}/api/assistant/lovequest-quota`;
@@ -57,19 +60,19 @@ export function resolveLoveQuestQuotaUrl(): string {
 
 export function resolveCoupleAssistantUrl(endpoint: CoupleAssistantEndpoint): string {
   const path = `/api/assistant/${endpoint}`;
-  if (import.meta.env.PROD) {
-    return path;
+  const absolute = loveQuestApiUrl(path);
+  if (absolute.startsWith('http')) {
+    return absolute;
   }
 
-  const override = import.meta.env.VITE_ASSISTANT_SERVER_URL?.trim().replace(/\/$/, '');
-  if (override) {
-    return `${override}${path}`;
+  if (import.meta.env.PROD) {
+    return absolute;
   }
 
   if (typeof window !== 'undefined') {
     const host = window.location.hostname;
     if (host !== 'localhost' && host !== '127.0.0.1') {
-      return path;
+      return absolute;
     }
   }
 
@@ -122,7 +125,21 @@ function errorMessageZh(
     const detail = body.detail?.trim();
     return detail ? `${body.error.trim()}（${detail}）` : body.error.trim();
   }
+  if (networkDetail?.trim()) {
+    return networkDetail.trim();
+  }
   return `請求失敗（HTTP ${status}）`;
+}
+
+function nonJsonResponseDetail(res: Response): string | undefined {
+  const ct = (res.headers.get('content-type') ?? '').toLowerCase();
+  if (res.status === 200 && ct.includes('text/html')) {
+    return '收到網頁而非 API 回應。iOS 請重新執行 npm run build:ios（原生 App 需連線遠端助理 API）。';
+  }
+  if (res.status === 200) {
+    return '無法解析 API 回應，請稍後再試。';
+  }
+  return undefined;
 }
 
 function assistantPostBody(prompt: string, auth: CoupleAssistantAuth) {
@@ -160,7 +177,10 @@ export async function postCoupleAssistant(
   try {
     body = (await res.json()) as CoupleAssistantSuccess & CoupleAssistantErrorBody;
   } catch {
-    return { ok: false, message: errorMessageZh({}, res.status, url) };
+    return {
+      ok: false,
+      message: errorMessageZh({}, res.status, url, nonJsonResponseDetail(res)),
+    };
   }
 
   if (!res.ok) {
@@ -213,7 +233,10 @@ export async function postDateItineraryAssistant(
   try {
     body = (await res.json()) as DateItineraryApiBody;
   } catch {
-    return { ok: false, message: errorMessageZh({}, res.status, url) };
+    return {
+      ok: false,
+      message: errorMessageZh({}, res.status, url, nonJsonResponseDetail(res)),
+    };
   }
 
   if (!res.ok) {
@@ -270,7 +293,10 @@ export async function postImportantDateAssistant(
   try {
     body = (await res.json()) as ImportantDateApiBody;
   } catch {
-    return { ok: false, message: errorMessageZh({}, res.status, url) };
+    return {
+      ok: false,
+      message: errorMessageZh({}, res.status, url, nonJsonResponseDetail(res)),
+    };
   }
 
   if (!res.ok) {

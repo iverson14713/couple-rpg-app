@@ -195,6 +195,7 @@ server: {
 | OAuth 後回不来 | Redirect URL 未加 | 補 Supabase 兩條 callback URL |
 | callback 白屏 | env 未打入 build | Mac 上 `.env` 存在後重新 `npm run build:ios` |
 | Google 登入失敗 | WebView 限制 | 改用系統瀏覽器 + `lovequest://auth/callback` scheme（見 `docs/google-oauth-ios-deeplink.md`） |
+| AI 顯示「請求失敗 HTTP 200」 | 打到本機 `index.html` 而非 API | 重新 `npm run build:ios`（原生會連 `couple-rpg-app.vercel.app`）；本機測 API 可設 `VITE_ASSISTANT_SERVER_URL=http://<Mac IP>:8788` |
 | `cap open ios` 失敗 | 不在 Mac | 只能在 macOS 開 Xcode |
 
 ---
