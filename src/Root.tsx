@@ -1,6 +1,6 @@
 import { lazy, Suspense, useEffect, useState, type ReactNode } from 'react';
 import { AuthCallbackPage } from './AuthCallbackPage.tsx';
-import { isAuthCallbackPath } from './authCallbackEntry.ts';
+import { AUTH_ROUTE_EVENT, shouldRenderAuthCallback } from './services/auth/authRoute.ts';
 import { PrivacyPolicyPage } from './pages/PrivacyPolicyPage.tsx';
 import { TermsPage } from './pages/TermsPage.tsx';
 import { getShowcaseSlideById } from './showcase/lovequest/slides.ts';
@@ -44,16 +44,26 @@ function normalizePath(pathname: string): string {
   return p;
 }
 
+function readAppPath(): string {
+  if (shouldRenderAuthCallback()) return '/auth/callback';
+  return normalizePath(window.location.pathname);
+}
+
 export function Root() {
-  const [path, setPath] = useState(() => normalizePath(window.location.pathname));
+  const [path, setPath] = useState(() => readAppPath());
 
   useEffect(() => {
-    const sync = () => setPath(normalizePath(window.location.pathname));
+    const sync = () => setPath(readAppPath());
+    sync();
     window.addEventListener('popstate', sync);
-    return () => window.removeEventListener('popstate', sync);
+    window.addEventListener(AUTH_ROUTE_EVENT, sync);
+    return () => {
+      window.removeEventListener('popstate', sync);
+      window.removeEventListener(AUTH_ROUTE_EVENT, sync);
+    };
   }, []);
 
-  if (path === '/auth/callback' || isAuthCallbackPath(window.location.pathname)) {
+  if (shouldRenderAuthCallback()) {
     return <AuthCallbackPage />;
   }
 

@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { authLog, isAuthNativeClient } from './authDebug';
+import { notifyAuthSessionSync } from './authRoute';
 import { waitForPersistedSession } from './authSession';
 
 const RETURN_KEY = 'lq_auth_return';
@@ -74,6 +75,13 @@ export async function redirectAfterAuthSuccess(
   const session = await waitForPersistedSession(client);
   if (!session) {
     authLog('redirectAfterAuthSuccess.no_session', {});
+  } else {
+    notifyAuthSessionSync('redirectAfterAuthSuccess');
+  }
+  try {
+    sessionStorage.setItem('lq_skip_splash_once', '1');
+  } catch {
+    /* ignore */
   }
   const target = consumeAuthReturnPath();
   if (delayMs > 0) {

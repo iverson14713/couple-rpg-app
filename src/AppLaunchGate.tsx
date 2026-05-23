@@ -30,6 +30,14 @@ export function AppLaunchGate() {
       document.body.style.overflow = 'hidden';
       const started = Date.now();
 
+      let skipMinSplash = false;
+      try {
+        skipMinSplash = sessionStorage.getItem('lq_skip_splash_once') === '1';
+        if (skipMinSplash) sessionStorage.removeItem('lq_skip_splash_once');
+      } catch {
+        /* ignore */
+      }
+
       let result: AppBootstrapResult;
       try {
         const [boot] = await Promise.all([runSplashBootstrap(), ensureAppStoreFontsReady()]);
@@ -40,7 +48,7 @@ export function AppLaunchGate() {
       }
 
       const elapsed = Date.now() - started;
-      if (elapsed < SPLASH_MIN_MS) {
+      if (!skipMinSplash && elapsed < SPLASH_MIN_MS) {
         await delay(SPLASH_MIN_MS - elapsed);
       }
 

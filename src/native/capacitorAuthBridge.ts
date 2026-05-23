@@ -1,5 +1,6 @@
 import { App, type URLOpenListenerEvent } from '@capacitor/app';
 import { authLog, isAuthNativeClient } from '../services/auth/authDebug';
+import { notifyAuthRouteChange } from '../services/auth/authRoute';
 import { peekOAuthProvider } from '../services/auth/oauthSessionHint';
 
 const CALLBACK_PATH = '/auth/callback';
@@ -58,6 +59,7 @@ function navigateToAuthCallback(rawUrl: string): void {
     const path = `${target.pathname}${target.search}${hash ? `#${hash}` : ''}`;
     window.history.replaceState({}, document.title, path);
     window.dispatchEvent(new PopStateEvent('popstate'));
+    notifyAuthRouteChange('navigateToAuthCallback');
     authLog('navigateToAuthCallback.done', {
       targetPath: path,
       afterHref: window.location.href,
@@ -68,6 +70,7 @@ function navigateToAuthCallback(rawUrl: string): void {
       error: e instanceof Error ? e.message : String(e),
     });
     window.location.replace(CALLBACK_PATH);
+    notifyAuthRouteChange('navigateToAuthCallback.fallback');
   }
 }
 

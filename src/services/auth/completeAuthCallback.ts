@@ -1,6 +1,7 @@
 import type { EmailOtpType, SupabaseClient } from '@supabase/supabase-js';
 import { authLog } from './authDebug';
 import { mapOAuthCallbackError } from './authErrors';
+import { markPkceCodeExchanged, wasPkceCodeExchanged } from './authCallbackLock';
 import { consumeOAuthProvider, peekOAuthProvider } from './oauthSessionHint';
 import { waitForPersistedSession } from './authSession';
 
@@ -64,6 +65,19 @@ export async function completeAuthCallback(
   const hash = parseHash();
   const search = parseSearch();
 
+  const existing = await client.auth.getSession();
+  if (existing.error) {
+    authLog('AuthCallbackPage.getSession.initial.error', { message: existing.error.message });
+    return { ok: false, message: existing.error.message };
+  }
+  if (existing.data.session?.access_token) {
+    authLog('AuthCallbackPage.getSession.initial.ok', {
+      userId: existing.data.session.user.id,
+      skipExchange: true,
+    });
+    return { ok: true, flow: flowFromType(search.get('type') || hash.get('type')) };
+  }
+
   const errCode = search.get('error') || hash.get('error') || search.get('error_code');
   const errDesc =
     search.get('error_description') || hash.get('error_description') || search.get('error_message');
@@ -95,7 +109,22 @@ export async function completeAuthCallback(
 
   const code = search.get('code');
   if (code) {
+    if (wasPkceCodeExchanged(code)) {
+      authLog('AuthCallbackPage.exchangeCodeForSession.skip', { reason: 'already_exchanged' });
+      const session = await waitForPersistedSession(client);
+      if (!session) {
+        return {
+          ok: false,
+          message:
+            lang === 'zh'
+              ? '登入碼已使用，請再試一次 Google 登入。'
+              : 'Sign-in code already used. Please try Google sign-in again.',
+        };
+      }
+      return { ok: true, flow: 'oauth' };
+    }
     authLog('AuthCallbackPage.exchangeCodeForSession', { codeLength: code.length });
+    markPkceCodeExchanged(code);
     const { data, error } = await client.auth.exchangeCodeForSession(code);
     if (error) {
       authLog('AuthCallbackPage.exchangeCodeForSession.error', { message: error.message });

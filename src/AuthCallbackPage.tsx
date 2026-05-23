@@ -3,6 +3,7 @@ import { AuthDebugPanel } from './components/AuthDebugPanel';
 import { completeAuthCallback, type AuthCallbackFlow } from './services/auth/completeAuthCallback';
 import { authLog, isAuthNativeClient } from './services/auth/authDebug';
 import { redirectAfterAuthSuccess, scrubAuthCallbackUrl } from './services/auth/authRedirect';
+import { AUTH_ROUTE_EVENT } from './services/auth/authRoute';
 import { getSupabaseClient } from './supabaseClient';
 
 type Status = 'pending' | 'ok' | 'fail';
@@ -47,16 +48,27 @@ function CallbackSpinner() {
   );
 }
 
+function callbackUrlKey(): string {
+  return `${window.location.search}|${window.location.hash}`;
+}
+
 export function AuthCallbackPage() {
   const [status, setStatus] = useState<Status>('pending');
   const [failMessage, setFailMessage] = useState<string | null>(null);
   const [flow, setFlow] = useState<AuthCallbackFlow>('unknown');
+  const [urlKey, setUrlKey] = useState(() => callbackUrlKey());
   const lang = detectLang();
   const t = copy[lang];
   const showDebug = isAuthNativeClient();
 
   useEffect(() => {
-    authLog('AuthCallbackPage.mount', { href: window.location.href });
+    authLog('AuthCallbackPage.mount', { href: window.location.href, urlKey });
+  }, [urlKey]);
+
+  useEffect(() => {
+    const sync = () => setUrlKey(callbackUrlKey());
+    window.addEventListener(AUTH_ROUTE_EVENT, sync);
+    return () => window.removeEventListener(AUTH_ROUTE_EVENT, sync);
   }, []);
 
   useEffect(() => {
@@ -68,6 +80,8 @@ export function AuthCallbackPage() {
     }
 
     let cancelled = false;
+    setStatus('pending');
+    setFailMessage(null);
 
     const run = async () => {
       try {
@@ -100,7 +114,7 @@ export function AuthCallbackPage() {
     return () => {
       cancelled = true;
     };
-  }, [lang, t.noClient]);
+  }, [lang, t.noClient, urlKey]);
 
   return (
     <div className="flex min-h-[100dvh] flex-col items-center justify-center bg-gradient-to-b from-rose-50/95 via-[#fef8fa] to-pink-50/90 px-6 py-12 text-[#3a2e34]">

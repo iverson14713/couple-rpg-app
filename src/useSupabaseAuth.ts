@@ -17,6 +17,7 @@ import {
 } from './services/auth/appleSignIn';
 import { signInWithGoogleOAuth } from './services/auth/googleSignIn';
 import { authLog } from './services/auth/authDebug';
+import { AUTH_ROUTE_EVENT, AUTH_SESSION_SYNC_EVENT } from './services/auth/authRoute';
 import { getSupabaseClient } from './supabaseClient';
 
 export type UserProfile = {
@@ -117,6 +118,27 @@ export function SupabaseAuthProvider({ children }: { children: ReactNode }) {
     return () => {
       cancelled = true;
       subscription.unsubscribe();
+    };
+  }, [supabase]);
+
+  useEffect(() => {
+    if (!supabase) return;
+    const refreshFromStorage = () => {
+      void supabase.auth.getSession().then(({ data: { session: s }, error }) => {
+        if (error) {
+          authLog('auth.refreshSession.error', { message: error.message });
+          return;
+        }
+        setSession(s);
+        setReady(true);
+        authLog('auth.refreshSession', { hasSession: Boolean(s) });
+      });
+    };
+    window.addEventListener(AUTH_ROUTE_EVENT, refreshFromStorage);
+    window.addEventListener(AUTH_SESSION_SYNC_EVENT, refreshFromStorage);
+    return () => {
+      window.removeEventListener(AUTH_ROUTE_EVENT, refreshFromStorage);
+      window.removeEventListener(AUTH_SESSION_SYNC_EVENT, refreshFromStorage);
     };
   }, [supabase]);
 
