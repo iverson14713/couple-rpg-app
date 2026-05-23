@@ -9,11 +9,14 @@ import {
   useState,
   type ReactNode,
 } from 'react';
-import { getAuthCallbackUrl, getOAuthRedirectUrl, saveAuthReturnPath } from './services/auth/authRedirect';
-import { isAppleOAuthEnabled } from './services/auth/appleSignIn';
+import { getAuthCallbackUrl } from './services/auth/authRedirect';
+import {
+  isAppleOAuthEnabled,
+  isAppleSignInNativeUi,
+  signInWithAppleOAuth,
+} from './services/auth/appleSignIn';
 import { signInWithGoogleOAuth } from './services/auth/googleSignIn';
-import { authLog, isAuthNativeClient } from './services/auth/authDebug';
-import { openOAuthInExternalBrowser } from './services/auth/oauthNative';
+import { authLog } from './services/auth/authDebug';
 import { getSupabaseClient } from './supabaseClient';
 
 export type UserProfile = {
@@ -29,6 +32,7 @@ export type SupabaseAuthValue = {
   profile: UserProfile | null;
   authReady: boolean;
   appleOAuthEnabled: boolean;
+  appleSignInNativeUi: boolean;
   loadProfile: (userId: string) => Promise<UserProfile | null>;
   updateDisplayName: (displayName: string) => Promise<{ error: Error | null }>;
   signInWithEmail: (
@@ -168,39 +172,11 @@ export function SupabaseAuthProvider({ children }: { children: ReactNode }) {
 
   const signInWithApple = useCallback(async () => {
     if (!supabase) return { data: null, error: new Error('not_configured') };
-    if (!isAppleOAuthEnabled()) {
-      return { data: null, error: new Error('apple_not_enabled') };
+    if (!isAppleSignInNativeUi()) {
+      return { data: null, error: new Error('apple_web_coming_soon') };
     }
-    saveAuthReturnPath();
-    const redirectTo = getOAuthRedirectUrl();
-    const isNative = isAuthNativeClient();
-    authLog('apple.click', { isNative, redirectTo, skipBrowserRedirect: isNative });
-    if (isNative) {
-      const { data, error } = await supabase.auth.signInWithOAuth({
-        provider: 'apple',
-        options: {
-          redirectTo,
-          skipBrowserRedirect: true,
-          scopes: 'name email',
-        },
-      });
-      if (error) return { data: null, error };
-      if (!data?.url) return { data: null, error: new Error('no_oauth_url') };
-      authLog('apple.signInWithOAuth.response', { oauthUrl: data.url });
-      try {
-        await openOAuthInExternalBrowser(data.url);
-      } catch (e) {
-        return { data: null, error: e instanceof Error ? e : new Error(String(e)) };
-      }
-      return { data: null, error: null };
-    }
-    return supabase.auth.signInWithOAuth({
-      provider: 'apple',
-      options: {
-        redirectTo,
-        scopes: 'name email',
-      },
-    });
+    const { error } = await signInWithAppleOAuth(supabase);
+    return { data: null, error };
   }, [supabase]);
 
   const updateDisplayName = useCallback(
@@ -228,6 +204,7 @@ export function SupabaseAuthProvider({ children }: { children: ReactNode }) {
       profile,
       authReady: ready,
       appleOAuthEnabled: isAppleOAuthEnabled(),
+    appleSignInNativeUi: isAppleSignInNativeUi(),
       loadProfile,
       updateDisplayName,
       signInWithEmail,

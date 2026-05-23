@@ -14,6 +14,9 @@ const zh: Record<string, string> = {
   no_session: '無法完成登入，請回到 App 再試一次。',
   no_client: '無法連線驗證服務，請稍後再試。',
   apple_coming_soon: 'Apple 登入即將開放，請先使用 Google 或 Email。',
+  apple_web_coming_soon: 'Apple 登入即將開放，請先使用 Google 或 Email。',
+  apple_provider_not_ready:
+    'Apple 登入尚未完成後台設定。請至 Supabase 啟用 Apple Provider，並設定 VITE_APPLE_OAUTH_ENABLED=true 後重新 build:ios。',
 };
 
 const en: Record<string, string> = {
@@ -30,6 +33,9 @@ const en: Record<string, string> = {
   no_session: 'Could not finish sign-in. Go back to the app and try again.',
   no_client: 'Verification service is unavailable. Please try again later.',
   apple_coming_soon: 'Sign in with Apple is coming soon. Use Google or email for now.',
+  apple_web_coming_soon: 'Sign in with Apple is coming soon. Use Google or email for now.',
+  apple_provider_not_ready:
+    'Sign in with Apple is not configured. Enable Apple in Supabase and set VITE_APPLE_OAUTH_ENABLED=true, then rebuild the iOS app.',
 };
 
 function dict(lang: AuthLang): Record<string, string> {
@@ -45,7 +51,10 @@ export function mapAuthErrorMessage(
     if (err.message === 'not_configured') return d.not_configured;
     if (err.message === 'no_session') return d.no_session;
     if (err.message === 'missing_fields') return d.missing_fields;
-    if (err.message === 'apple_not_enabled') return d.apple_coming_soon;
+    if (err.message === 'apple_not_enabled' || err.message === 'apple_web_coming_soon') {
+      return d.apple_coming_soon;
+    }
+    if (err.message === 'apple_provider_not_ready') return d.apple_provider_not_ready;
     const low = err.message.toLowerCase();
     if (low.includes('invalid login credentials')) return d.invalid_credentials;
     if (low.includes('email not confirmed')) return d.email_not_confirmed;

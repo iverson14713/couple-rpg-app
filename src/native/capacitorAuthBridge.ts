@@ -1,5 +1,6 @@
 import { App, type URLOpenListenerEvent } from '@capacitor/app';
 import { authLog, isAuthNativeClient } from '../services/auth/authDebug';
+import { peekOAuthProvider } from '../services/auth/oauthSessionHint';
 
 const CALLBACK_PATH = '/auth/callback';
 
@@ -39,6 +40,9 @@ function navigateToAuthCallback(rawUrl: string): void {
     ...params,
     beforeHref: window.location.href,
   });
+  if (peekOAuthProvider() === 'apple') {
+    authLog('apple.callback', { phase: 'appUrlOpen', rawUrl, ...params });
+  }
 
   void import('../services/auth/oauthNative').then(({ closeOAuthBrowserIfOpen }) =>
     closeOAuthBrowserIfOpen()

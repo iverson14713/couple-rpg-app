@@ -8,7 +8,13 @@ import { AppleSignInButton } from '../../components/AppleSignInButton';
 import { SkeletonCard } from '../../components/SkeletonCard';
 import { Spinner } from '../../components/SkeletonCard';
 import { useSupabaseAuth } from '../../useSupabaseAuth';
-import { handleAppleSignIn, isAppleSignInAvailable } from '../../services/auth/appleSignIn';
+import {
+  getAppleProviderNotReadyMessage,
+  handleAppleSignIn,
+  isAppleOAuthEnabled,
+  isAppleSignInNativeUi,
+  isAppleSignInWebComingSoon,
+} from '../../services/auth/appleSignIn';
 import { mapAuthErrorMessage } from '../../services/auth/authErrors';
 import { useLoveQuest } from '../context/LoveQuestContext';
 import { useCoupleRpgNav } from '../context/CoupleRpgNavContext';
@@ -32,7 +38,9 @@ export function AuthSettingsSection() {
   const [message, setMessage] = useState<string | null>(null);
   const [appleNotice, setAppleNotice] = useState<string | null>(null);
 
-  const appleEnabled = isAppleSignInAvailable(auth.supabase);
+  const appleNativeUi = isAppleSignInNativeUi();
+  const appleWebComingSoon = isAppleSignInWebComingSoon();
+  const appleProviderReady = isAppleOAuthEnabled();
   const showAuthDebug = isAuthNativeClient();
 
   useEffect(() => {
@@ -96,11 +104,16 @@ export function AuthSettingsSection() {
   const handleApple = useCallback(async () => {
     setError(null);
     setAppleNotice(null);
-    if (!appleEnabled) {
+    if (appleWebComingSoon) {
       setAppleNotice('Apple 登入即將開放，請先使用 Google 或 Email。');
       return;
     }
+    if (!appleProviderReady) {
+      setError(getAppleProviderNotReadyMessage('zh'));
+      return;
+    }
     setAppleBusy(true);
+    authLog('apple.ui.click', { href: window.location.href });
     const result = await handleAppleSignIn(auth.supabase);
     setAppleBusy(false);
     if (result.message === 'coming_soon') {
@@ -108,9 +121,10 @@ export function AuthSettingsSection() {
       return;
     }
     if (!result.ok && result.message) {
-      setError(mapAuthErrorMessage(new Error(result.message)));
+      authLog('apple.ui.error', { message: result.message, code: result.code });
+      setError(result.message || mapAuthErrorMessage(new Error(result.message)));
     }
-  }, [appleEnabled, auth.supabase]);
+  }, [appleProviderReady, appleWebComingSoon, auth.supabase]);
 
   if (!auth.configured) {
     return (
@@ -172,11 +186,13 @@ export function AuthSettingsSection() {
           disabled={busy || googleBusy || appleBusy}
           onClick={() => void handleGoogle()}
         />
-        <AppleSignInButton
-          label={appleEnabled ? '使用 Apple 登入' : '使用 Apple 登入（即將開放）'}
-          disabled={busy || googleBusy || appleBusy || !appleEnabled}
-          onClick={() => void handleApple()}
-        />
+        {appleNativeUi || appleWebComingSoon ? (
+          <AppleSignInButton
+            label={appleNativeUi ? '使用 Apple 登入' : '使用 Apple 登入（即將開放）'}
+            disabled={busy || googleBusy || appleBusy || appleWebComingSoon}
+            onClick={() => void handleApple()}
+          />
+        ) : null}
       </div>
       {appleNotice ? (
         <p className="mb-2 text-center text-[12px] text-stone-600">{appleNotice}</p>
@@ -251,7 +267,7 @@ export function AuthSettingsSection() {
         Supabase Redirect URLs 需包含{' '}
         <span className="font-mono text-stone-500">/auth/callback</span> 與{' '}
         <span className="font-mono text-stone-500">{CAPACITOR_AUTH_SCHEME_CALLBACK}</span>
-        。iOS 版 Google 登入會以外部瀏覽器開啟，完成後自動回到 App。
+        。iOS 版 Google / Apple 登入會以外部瀏覽器開啟，完成後自動回到 App。
       </p>
       <p className="mt-2 text-[10px] leading-relaxed text-amber-800/90">{GOOGLE_CONSENT_SCREEN_HINT}</p>
       {showAuthDebug ? <AuthDebugPanel title="Google 登入 Debug（Xcode: [LQ_AUTH]）" /> : null}

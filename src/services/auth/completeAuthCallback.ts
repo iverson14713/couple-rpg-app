@@ -1,6 +1,7 @@
 import type { EmailOtpType, SupabaseClient } from '@supabase/supabase-js';
 import { authLog } from './authDebug';
 import { mapOAuthCallbackError } from './authErrors';
+import { consumeOAuthProvider, peekOAuthProvider } from './oauthSessionHint';
 import { waitForPersistedSession } from './authSession';
 
 export type AuthCallbackFlow = 'email' | 'oauth' | 'unknown';
@@ -54,6 +55,10 @@ export async function completeAuthCallback(
   client: SupabaseClient
 ): Promise<AuthCallbackOutcome> {
   const lang = detectLang();
+  const pendingAppleCallback = peekOAuthProvider() === 'apple';
+  if (pendingAppleCallback) {
+    authLog('apple.callback', { phase: 'AuthCallbackPage.start' });
+  }
   logCallbackUrlState('start');
 
   const hash = parseHash();
@@ -64,6 +69,9 @@ export async function completeAuthCallback(
     search.get('error_description') || hash.get('error_description') || search.get('error_message');
   if (errCode || errDesc) {
     authLog('AuthCallbackPage.oauth_error_params', { errCode, errDesc });
+    if (pendingAppleCallback && consumeOAuthProvider() === 'apple') {
+      authLog('apple.callback', { phase: 'oauth_error', errCode, errDesc });
+    }
     return {
       ok: false,
       message: mapOAuthCallbackError(errCode, errDesc, lang),
@@ -108,6 +116,9 @@ export async function completeAuthCallback(
     authLog('AuthCallbackPage.exchangeCodeForSession.ok', {
       userId: data.session?.user.id ?? (await client.auth.getSession()).data.session?.user.id,
     });
+    if (pendingAppleCallback && consumeOAuthProvider() === 'apple') {
+      authLog('apple.callback', { phase: 'exchangeCodeForSession.ok' });
+    }
     return { ok: true, flow: 'oauth' };
   }
 
