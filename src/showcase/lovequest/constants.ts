@@ -17,28 +17,58 @@ const BASE_PHONE_SCREEN_W = 612;
 const BASE_PHONE_SCREEN_H = 1328;
 const BASE_PHONE_BEZEL = 44;
 
-/** 放大 mockup，目標佔 canvas 高度約 75–78%（App Store 常見比例） */
-export const PHONE_MOCKUP_SCALE = 1.5;
+/** 6.7" 手機 mockup 放大（約 +15%） */
+const PHONE_MOCKUP_SCALE_67 = 1.72;
+/** 6.5" 略縮，避免裁切且維持上下飽滿 */
+const PHONE_MOCKUP_SCALE_65 = 1.62;
 
-export const PHONE_SCREEN_W = Math.round(BASE_PHONE_SCREEN_W * PHONE_MOCKUP_SCALE);
-export const PHONE_SCREEN_H = Math.round(BASE_PHONE_SCREEN_H * PHONE_MOCKUP_SCALE);
-export const PHONE_BEZEL = Math.round(BASE_PHONE_BEZEL * PHONE_MOCKUP_SCALE);
-export const PHONE_FRAME_RADIUS = Math.round(56 * PHONE_MOCKUP_SCALE);
-export const PHONE_SCREEN_RADIUS = Math.round(44 * PHONE_MOCKUP_SCALE);
-export const SCREEN_SCALE = PHONE_SCREEN_W / DEVICE_LOGICAL_W;
+/** Hero 區（1290×2796 畫布座標） */
+export const SHOWCASE_HERO_PT = 96;
+export const SHOWCASE_HERO_PB = 20;
+export const SHOWCASE_HERO_PX = 48;
 
-/** 手機貼近底部，避免下方大片空白 */
-export const PHONE_MOCKUP_BOTTOM = 44;
+/** 上架圖 typography（全 slide 一致） */
+export const SHOWCASE_BRAND_SIZE = 24;
+export const SHOWCASE_HEADLINE_SIZE = 82;
+export const SHOWCASE_SUBTITLE_SIZE = 35;
 
-export function getPhoneMockupOuterSize(): { width: number; height: number } {
+/** 標題與手機 mockup 間距（縮小中空留白） */
+export const SHOWCASE_PHONE_GAP_TOP = 16;
+export const SHOWCASE_CANVAS_PB = 40;
+
+export function getPhoneMockupScale(device: ShowcaseDeviceId): number {
+  return device === '6.5' ? PHONE_MOCKUP_SCALE_65 : PHONE_MOCKUP_SCALE_67;
+}
+
+export function getPhoneMockupMetrics(device: ShowcaseDeviceId) {
+  const scale = getPhoneMockupScale(device);
+  const screenW = Math.round(BASE_PHONE_SCREEN_W * scale);
+  const screenH = Math.round(BASE_PHONE_SCREEN_H * scale);
+  const bezel = Math.round(BASE_PHONE_BEZEL * scale);
   return {
-    width: PHONE_SCREEN_W + PHONE_BEZEL * 2,
-    height: PHONE_SCREEN_H + PHONE_BEZEL * 2,
+    scale,
+    screenW,
+    screenH,
+    bezel,
+    frameRadius: Math.round(56 * scale),
+    screenRadius: Math.round(44 * scale),
+    screenScale: screenW / DEVICE_LOGICAL_W,
+    outerW: screenW + bezel * 2,
+    outerH: screenH + bezel * 2,
   };
 }
 
+/** @deprecated 使用 getPhoneMockupMetrics(device) */
+export function getPhoneMockupOuterSize(device: ShowcaseDeviceId = '6.7'): {
+  width: number;
+  height: number;
+} {
+  const m = getPhoneMockupMetrics(device);
+  return { width: m.outerW, height: m.outerH };
+}
+
 export const LQ_SHOWCASE_GRADIENT =
-  'linear-gradient(165deg, #fff5f9 0%, #fce7f3 18%, #fbcfe8 42%, #f9a8d4 68%, #f472b6 100%)';
+  'linear-gradient(165deg, #fff5f9 0%, #fce7f3 16%, #fbcfe8 38%, #f9a8d4 62%, #f472b6 92%, #ec4899 100%)';
 
 export const LQ_SHOWCASE_FONT =
   '-apple-system, BlinkMacSystemFont, "PingFang TC", "Microsoft JhengHei", "Noto Sans TC", "Segoe UI", sans-serif';
