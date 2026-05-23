@@ -186,27 +186,62 @@ export function assertLoveQuestMinuteRate(userId) {
 }
 
 /**
+ * Reserve one daily AI use (atomic). Call before OpenAI; refund on failure.
  * @param {string} userId
  * @param {string} usageDate
+ * @param {'free' | 'pro'} plan
+ * @returns {Promise<{ ok: true, used: number } | { ok: false, used: number, limit: number }>}
  */
-export async function incrementLoveQuestDailyUsed(userId, usageDate) {
+export async function reserveLoveQuestDailyUsed(userId, usageDate, plan) {
+  const admin = getSupabaseAdmin();
+  const limit = getLoveQuestDailyLimit(plan);
+  if (!admin) {
+    const used = await peekLoveQuestDailyUsed(userId, usageDate);
+    if (used >= limit) return { ok: false, used, limit };
+    return { ok: true, used: used + 1 };
+  }
+
+  const { data, error } = await admin.rpc('increment_lovequest_ai_daily_usage', {
+    p_user_id: userId,
+    p_usage_date: usageDate,
+    p_limit: limit,
+  });
+
+  if (error) {
+    console.error('[lovequest-ai-quota] reserve rpc failed', error.message);
+    const used = await peekLoveQuestDailyUsed(userId, usageDate);
+    if (used >= limit) return { ok: false, used, limit };
+    return { ok: true, used: used + 1 };
+  }
+
+  const row = data && typeof data === 'object' ? data : {};
+  const used = Number(row.used_count);
+  const incremented = row.incremented === true;
+  const safeUsed = Number.isFinite(used) && used >= 0 ? Math.floor(used) : await peekLoveQuestDailyUsed(userId, usageDate);
+
+  if (!incremented) {
+    return { ok: false, used: safeUsed, limit };
+  }
+  return { ok: true, used: safeUsed };
+}
+
+/** Undo a reserved use when OpenAI fails after reserve. */
+export async function refundLoveQuestDailyUsed(userId, usageDate) {
   const admin = getSupabaseAdmin();
   if (!admin) return;
 
-  const used = await peekLoveQuestDailyUsed(userId, usageDate);
-  const next = used + 1;
-  const { error } = await admin.from('lovequest_ai_daily_usage').upsert(
-    {
-      user_id: userId,
-      usage_date: usageDate,
-      used_count: next,
-      updated_at: new Date().toISOString(),
-    },
-    { onConflict: 'user_id,usage_date' }
-  );
+  const { error } = await admin.rpc('decrement_lovequest_ai_daily_usage', {
+    p_user_id: userId,
+    p_usage_date: usageDate,
+  });
   if (error) {
-    console.error('[lovequest-ai-quota] increment failed', error.message);
+    console.error('[lovequest-ai-quota] refund rpc failed', error.message);
   }
+}
+
+/** @deprecated Prefer reserveLoveQuestDailyUsed — kept for legacy callers */
+export async function incrementLoveQuestDailyUsed(userId, usageDate, plan = 'free') {
+  await reserveLoveQuestDailyUsed(userId, usageDate, plan);
 }
 
 /**

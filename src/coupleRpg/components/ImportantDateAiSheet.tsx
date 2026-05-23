@@ -127,7 +127,11 @@ export function ImportantDateAiSheet({
     return buildImportantDateAiPrompt(input);
   }, [event, budget, customBudget, style, partnerPrefs]);
 
-  const generateDisabled = loading || !aiUsage.canUseAi;
+  const generateDisabled = loading || aiUsage.aiCallInFlight || !aiUsage.canUseAi;
+
+  useEffect(() => {
+    void aiUsage.refreshAiQuota();
+  }, [aiUsage.refreshAiQuota]);
 
   useEffect(() => {
     if (!plan) return;

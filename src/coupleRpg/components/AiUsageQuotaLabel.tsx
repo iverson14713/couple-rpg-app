@@ -7,7 +7,7 @@ type Props = {
 };
 
 export function AiUsageQuotaLabel({ className = '', variant = 'inline' }: Props) {
-  const { isLoggedIn, remainingLine, canUseAi } = useAiUsage();
+  const { isLoggedIn, remainingLine, canUseAi, quotaSynced, loading } = useAiUsage();
 
   if (!isLoggedIn) {
     return (
@@ -15,14 +15,21 @@ export function AiUsageQuotaLabel({ className = '', variant = 'inline' }: Props)
     );
   }
 
+  const line =
+    !quotaSynced || loading ? '同步 AI 次數…' : remainingLine;
+
   if (variant === 'badge') {
     return (
       <span
         className={`rounded-full px-2 py-0.5 text-[10px] font-bold tabular-nums ${
-          canUseAi ? 'bg-violet-100 text-violet-800' : 'bg-amber-100 text-amber-900'
+          !quotaSynced || loading
+            ? 'bg-stone-100 text-stone-600'
+            : canUseAi
+              ? 'bg-violet-100 text-violet-800'
+              : 'bg-amber-100 text-amber-900'
         } ${className}`}
       >
-        {remainingLine}
+        {line}
       </span>
     );
   }
@@ -30,10 +37,14 @@ export function AiUsageQuotaLabel({ className = '', variant = 'inline' }: Props)
   return (
     <span
       className={`text-[11px] font-semibold tabular-nums ${
-        canUseAi ? 'text-violet-700' : 'text-amber-800'
+        !quotaSynced || loading
+          ? 'text-stone-500'
+          : canUseAi
+            ? 'text-violet-700'
+            : 'text-amber-800'
       } ${className}`}
     >
-      {remainingLine}
+      {line}
     </span>
   );
 }

@@ -17,7 +17,6 @@ import {
 } from './guard.mjs';
 import { appendUsageLog } from './usage-log.mjs';
 import {
-  incrementLoveQuestDailyUsed,
   lovequestAssistantRateAndQuota,
   lovequestDailyQuotaFields,
   parseLoveQuestAiAuth,
@@ -1075,11 +1074,34 @@ async function assistCouplePromptPOST(body, feature, catId, maxTokens) {
  */
 async function runLoveQuestAssistantOpenAiCounted(opts) {
   const { userId, coupleId, usageDate, plan, feature, catId, run } = opts;
+  const { reserveLoveQuestDailyUsed, refundLoveQuestDailyUsed } = await import(
+    './lovequest-ai-quota.mjs'
+  );
+
+  const reserved = await reserveLoveQuestDailyUsed(userId, usageDate, plan);
+  if (!reserved.ok) {
+    const errorZh =
+      plan === 'pro'
+        ? `今日 AI 次數已達上限（${reserved.limit} 次），請明天再試`
+        : '今日免費 AI 次數已用完，升級 Pro 可每日使用 30 次';
+    return {
+      status: 429,
+      json: {
+        error: errorZh,
+        code: 'QUOTA',
+        limit: reserved.limit,
+        used: reserved.used,
+        remaining: 0,
+        planEffective: plan,
+        feature,
+      },
+    };
+  }
+
   try {
     const out = await run();
     const usage = out.usage;
     const { usage: _u, ...jsonPayload } = out;
-    await incrementLoveQuestDailyUsed(userId, usageDate);
     const estUsd = estUsdFromUsage(usage);
     logLine({
       userId,
@@ -1099,6 +1121,7 @@ async function runLoveQuestAssistantOpenAiCounted(opts) {
       json: { ...jsonPayload, ...quotaFields },
     };
   } catch (e) {
+    await refundLoveQuestDailyUsed(userId, usageDate);
     const msg = e instanceof Error ? e.message : String(e);
     logLine({
       userId,

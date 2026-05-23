@@ -11,6 +11,7 @@ import { CoupleRpgNavProvider, useCoupleRpgNav, type CoupleNavTabId } from './co
 import { CoupleSpaceProvider } from './context/CoupleSpaceContext';
 import { LoveQuestProvider } from './context/LoveQuestContext';
 import { AiToastProvider } from './context/AiToastContext';
+import { AiUsageProvider } from './hooks/useAiUsage';
 import { UserPlanProvider } from './context/UserPlanContext';
 import { DinnerPage } from './pages/DinnerPage';
 import { HouseworkPage } from './pages/HouseworkPage';
@@ -31,13 +32,15 @@ export default function CoupleRpgApp() {
     <OnboardingProvider>
       <CoupleSpaceProvider>
         <UserPlanProvider>
-          <AiToastProvider>
-            <LoveQuestProvider>
-              <CoupleRpgNavProvider>
-                <CoupleRpgShell />
-              </CoupleRpgNavProvider>
-            </LoveQuestProvider>
-          </AiToastProvider>
+          <AiUsageProvider>
+            <AiToastProvider>
+              <LoveQuestProvider>
+                <CoupleRpgNavProvider>
+                  <CoupleRpgShell />
+                </CoupleRpgNavProvider>
+              </LoveQuestProvider>
+            </AiToastProvider>
+          </AiUsageProvider>
         </UserPlanProvider>
       </CoupleSpaceProvider>
     </OnboardingProvider>

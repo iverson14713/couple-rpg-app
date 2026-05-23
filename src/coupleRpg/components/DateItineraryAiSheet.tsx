@@ -125,7 +125,11 @@ export function DateItineraryAiSheet({ suggestion: suggestionProp, onClose, save
   const preview = useMemo(() => getDateItineraryPreview(suggestion), [suggestion]);
   const inResultMode = plan !== null;
 
-  const generateDisabled = loading || !aiUsage.canUseAi;
+  const generateDisabled = loading || aiUsage.aiCallInFlight || !aiUsage.canUseAi;
+
+  useEffect(() => {
+    void aiUsage.refreshAiQuota();
+  }, [aiUsage.refreshAiQuota]);
 
   useEffect(() => {
     if (!plan) return;
