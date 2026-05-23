@@ -30,7 +30,7 @@ export const QA_MAX_TOKENS = 1500;
 export const VET_REPORT_MAX_TOKENS = 900;
 export const WEEKLY_REPORT_MAX_TOKENS = 2000;
 export const COUPLE_PROMPT_MAX_CHARS = 16_000;
-export const DATE_ITINERARY_MAX_TOKENS = 3200;
+export const DATE_ITINERARY_MAX_TOKENS = 2400;
 export const IMPORTANT_DATE_MAX_TOKENS = 1800;
 
 const COUPLE_SYSTEM_ZH =
@@ -901,7 +901,7 @@ async function handleDateItinerary(prompt) {
       { role: 'system', content: DATE_ITINERARY_SYSTEM_ZH },
       { role: 'user', content: prompt },
     ],
-    temperature: 0.55,
+    temperature: 0.48,
     maxTokens: DATE_ITINERARY_MAX_TOKENS,
     jsonMode: true,
   });

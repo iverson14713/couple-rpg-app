@@ -4,6 +4,7 @@ import type { SavedDateItineraryAi } from '../storage/dateItineraryAiCache';
 import { formatSavedItineraryDate } from '../storage/dateItineraryAiCache';
 import type { SavedImportantDateAi } from '../storage/importantDateAiCache';
 import { formatSavedImportantDateLabel } from '../storage/importantDateAiCache';
+import { isSavedImportantItineraryPlan } from './importantDateItineraryPlan';
 
 export type AiShareCardPayload = {
   kind: 'date_itinerary' | 'important_date';
@@ -55,13 +56,26 @@ export function buildDateItinerarySharePayload(record: SavedDateItineraryAi): Ai
 export function buildImportantDateSharePayload(record: SavedImportantDateAi): AiShareCardPayload {
   const plan = record.plan;
   const lines: string[] = [];
-  if (plan.dateIdeas) lines.push(plan.dateIdeas);
-  if (plan.timeline[0]) {
-    const t = plan.timeline[0];
-    lines.push(`${t.period} · ${t.activity}`);
+
+  if (isSavedImportantItineraryPlan(plan)) {
+    for (const seg of plan.segments.slice(0, 3)) {
+      const label = seg.headline || seg.place;
+      const detail = seg.narrative || seg.activity || '';
+      lines.push(`${seg.period}｜${label}${detail ? `：${detail.slice(0, 48)}` : ''}`);
+    }
+    if (plan.mood) lines.push(`💕 ${plan.mood}`);
+    const tip = plan.aiReminders?.[0] ?? plan.tips?.[0];
+    if (tip) lines.push(`✨ ${tip}`);
+    if (plan.estimatedTotal) lines.push(`💰 總計 ${plan.estimatedTotal}`);
+  } else {
+    if (plan.dateIdeas) lines.push(plan.dateIdeas);
+    if (plan.timeline[0]) {
+      const t = plan.timeline[0];
+      lines.push(`${t.period} · ${t.activity}`);
+    }
+    if (plan.phrase) lines.push(`💬 ${plan.phrase}`);
+    if (plan.gifts[0]) lines.push(`🎁 ${plan.gifts[0]}`);
   }
-  if (plan.phrase) lines.push(`💬 ${plan.phrase}`);
-  if (plan.gifts[0]) lines.push(`🎁 ${plan.gifts[0]}`);
 
   return {
     kind: 'important_date',

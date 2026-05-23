@@ -1,3 +1,5 @@
+import { budgetAmountGuidance } from './dateItineraryBudget';
+import type { DateAiBudgetChoice } from './dateItineraryAiPrompt';
 import type { ImportantDateEvent } from './importantDateEvents';
 import { formatYmdLabel } from './importantDateEvents';
 
@@ -109,4 +111,46 @@ export function buildImportantDateAiPrompt(input: AiPromptInput): string {
 - gifts 2～3 項；timeline 3～5 個時段；tips 2～4 則
 - 不必虛構真實店名；語氣溫暖具體可執行
 - 風格符合「${styleLine(style)}」`;
+}
+
+function mapBudgetToItinerary(budget: AiBudgetChoice): DateAiBudgetChoice {
+  return budget;
+}
+
+/** 重要日子：與約會頁相同的完整一日行程 JSON（下午→傍晚→晚餐→晚間收尾） */
+export function buildImportantDateItineraryPrompt(input: AiPromptInput): string {
+  const { event, budget, customBudget, style, partnerPrefs } = input;
+  const prefs = partnerPrefs.trim() || '（未填寫，請依一般情侶互動給建議）';
+  const budgetGuide = budgetAmountGuidance(mapBudgetToItinerary(budget), customBudget ?? '');
+  const depart = '（依台灣都會區，可註明從住家或約定地點出發）';
+
+  return `你是「會幫朋友安排約會」的企劃人。這是「重要日子」專屬的一日驚喜行程，不是簡短條列。
+
+【重要日子】
+- 類型：${event.typeLabel}
+- 名稱：${event.displayTitle}
+- 日期：${formatYmdLabel(event.dateYmd)}（${event.dateYmd}）
+- 距離今天：${daysLine(event)}
+
+【規劃條件】
+- 預算：${budgetLine(budget, customBudget)}
+- 風格：${styleLine(style)}
+- 對方喜好／限制：${prefs}
+- 出發地：${depart}
+- 交通：大眾運輸或開車擇一合理即可
+
+【時間軸 — 極重要】
+segments 只能使用以下 4 個 period，各出現「恰好一次」，順序固定：
+1. "下午"  2. "傍晚"  3. "晚餐"  4. "晚間收尾"
+
+【輸出】
+只回傳一個 JSON 物件，禁止 Markdown。欄位與約會一日企劃相同：
+title, mood, moodTags, segments（含 period/place/headline/narrative/purpose/transition/conversationCue/estimatedCost）,
+aiReminders, partnerLines, rainPlan, tiredPlan, budgetTier, estimatedTotal, budgetBreakdown, budgetNote, outfit, surprise。
+
+【預估花費】
+${budgetGuide}
+每段 estimatedCost 與 budgetBreakdown 須含 NT$ 與數字；estimatedTotal 為兩人總計。
+
+語氣溫暖具體；呼應「${event.displayTitle}」；風格符合「${styleLine(style)}」。`;
 }

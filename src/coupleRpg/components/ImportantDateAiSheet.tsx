@@ -5,13 +5,16 @@ import {
   AI_BUDGET_OPTIONS,
   AI_STYLE_OPTIONS,
   STATIC_GIFT_IDEAS,
-  buildImportantDateAiPrompt,
+  buildImportantDateItineraryPrompt,
   type AiBudgetChoice,
   type AiPromptInput,
   type AiStyleChoice,
 } from '../lib/importantDateAiPrompt';
-import { callImportantDateAssistant } from '../lib/callCoupleAssistant';
+import { callDateItineraryAssistant } from '../lib/callCoupleAssistant';
+import type { DateItineraryPlan } from '../lib/dateItineraryAiModel';
 import type { ImportantDatePlan } from '../lib/importantDateAiModel';
+import { isSavedImportantItineraryPlan } from '../lib/importantDateItineraryPlan';
+import { DateItineraryAiResult } from './DateItineraryAiResult';
 import { ImportantDateAiResult } from './ImportantDateAiResult';
 import type { ImportantDateEvent } from '../lib/importantDateEvents';
 import { buildImportantDateSharePayload } from '../lib/aiShareCardContent';
@@ -46,7 +49,7 @@ function resolveInitialImportantState(
   initialPrefs: string,
   savedRecord?: SavedImportantDateAi | null
 ): {
-  plan: ImportantDatePlan | null;
+  plan: DateItineraryPlan | ImportantDatePlan | null;
   budget: AiBudgetChoice;
   customBudget: string;
   style: AiStyleChoice;
@@ -64,7 +67,7 @@ function resolveInitialImportantState(
     };
   }
   const last = loadLastImportantDateAi();
-  if (last && last.event.id === event.id) {
+  if (last && last.event.id === event.id && isSavedImportantItineraryPlan(last.plan)) {
     return {
       plan: last.plan,
       budget: last.settings.budget,
@@ -105,7 +108,7 @@ export function ImportantDateAiSheet({
   const [customBudget, setCustomBudget] = useState(initial.customBudget);
   const [style, setStyle] = useState<AiStyleChoice>(initial.style);
   const [partnerPrefs, setPartnerPrefs] = useState(initial.partnerPrefs);
-  const [plan, setPlan] = useState<ImportantDatePlan | null>(initial.plan);
+  const [plan, setPlan] = useState<DateItineraryPlan | ImportantDatePlan | null>(initial.plan);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [settingsExpanded, setSettingsExpanded] = useState(!initial.plan);
@@ -124,7 +127,7 @@ export function ImportantDateAiSheet({
 
   const prompt = useMemo(() => {
     const input: AiPromptInput = { event, budget, customBudget, style, partnerPrefs };
-    return buildImportantDateAiPrompt(input);
+    return buildImportantDateItineraryPrompt(input);
   }, [event, budget, customBudget, style, partnerPrefs]);
 
   const generateDisabled = loading || aiUsage.aiCallInFlight || !aiUsage.canUseAi;
@@ -156,7 +159,7 @@ export function ImportantDateAiSheet({
     setPlan(null);
     setResultAnimateIn(false);
     try {
-      const result = await callImportantDateAssistant(prompt, aiUsage);
+      const result = await callDateItineraryAssistant(prompt, aiUsage);
       if (!result.ok) {
         setError(result.message);
         showError(result.message);
@@ -244,9 +247,13 @@ export function ImportantDateAiSheet({
                 aria-live="polite"
               >
                 <p className={`mb-2 flex items-center gap-1.5 ${lq.sectionTitleSm}`}>
-                  ✨ 你的專屬安排
+                  ✨ 你的專屬一日行程
                 </p>
-                <ImportantDateAiResult plan={plan} />
+                {isSavedImportantItineraryPlan(plan) ? (
+                  <DateItineraryAiResult plan={plan} />
+                ) : (
+                  <ImportantDateAiResult plan={plan as ImportantDatePlan} />
+                )}
               </div>
 
               <button
@@ -286,7 +293,7 @@ export function ImportantDateAiSheet({
           ) : (
             <>
               <p className={`mb-3 text-[12px] ${lq.textSecondary}`}>
-                選擇條件後由 AI 直接產生約會與驚喜建議。
+                選擇條件後由 AI 產生完整一日行程（下午→晚餐→晚間）。
               </p>
               <SettingsFields
                 event={event}
@@ -345,16 +352,16 @@ export function ImportantDateAiSheet({
             {loading ? (
               <>
                 <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
-                正在產生建議…
+                正在產生行程…
               </>
             ) : !aiUsage.isLoggedIn ? (
               '請先登入使用 AI'
             ) : !aiUsage.canUseAi ? (
               '今日 AI 次數已用完'
             ) : inResultMode ? (
-              '✨ 重新產生建議'
+              '✨ 重新產生行程'
             ) : (
-              '✨ 產生 AI 建議'
+              '✨ 產生 AI 一日行程'
             )}
           </button>
         </div>

@@ -3,7 +3,8 @@ import { importantDateRecordId } from '../lib/aiRecordIds';
 import { AI_RECORD_HISTORY_CAP_PRO, dispatchAiRecordsChanged } from '../lib/aiRecordsConfig';
 import { removeAiFavoriteById } from './aiFavoritesStore';
 import { maintainImportantDateAiStorage } from './aiRecordMaintenance';
-import type { ImportantDatePlan } from '../lib/importantDateAiModel';
+import type { SavedImportantDatePlan } from '../lib/importantDateItineraryPlan';
+import { isSavedImportantItineraryPlan } from '../lib/importantDateItineraryPlan';
 import type { AiBudgetChoice, AiStyleChoice } from '../lib/importantDateAiPrompt';
 import type { ImportantDateEvent } from '../lib/importantDateEvents';
 import { LQ_KEYS } from './keys';
@@ -28,7 +29,7 @@ export type SavedImportantDateAi = {
   savedAt: string;
   dateKey: string;
   event: SavedImportantDateEventSnap;
-  plan: ImportantDatePlan;
+  plan: SavedImportantDatePlan;
   settings: SavedImportantDateSettings;
 };
 
@@ -57,7 +58,11 @@ export function savedEventToImportantDateEvent(snap: SavedImportantDateEventSnap
 }
 
 function isValidImportantDateRecord(raw: SavedImportantDateAi | null | undefined): raw is SavedImportantDateAi {
-  return Boolean(raw?.plan?.title && raw.event?.displayTitle);
+  if (!raw?.event?.displayTitle || !raw.plan?.title) return false;
+  if (isSavedImportantItineraryPlan(raw.plan)) {
+    return raw.plan.segments.length > 0;
+  }
+  return true;
 }
 
 export function loadLastImportantDateAi(): SavedImportantDateAi | null {

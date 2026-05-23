@@ -138,7 +138,7 @@ export function ImportantDateRemindersSection({ showBack, compactHero }: Props) 
     [offsetDrafts, patchImportantDateReminder, closeEdit, flashSaved]
   );
 
-  const aiButtonLabel = !aiUsage.canUseAi ? 'AI 次數已用完' : 'AI 安排';
+  const aiButtonLabel = !aiUsage.canUseAi ? 'AI 次數已用完' : 'AI 行程';
 
   return (
     <section id={IMPORTANT_DATE_REMINDERS_ANCHOR_ID} className={compactHero ? '' : 'mb-4'}>

@@ -116,14 +116,18 @@ export function AiUsageProvider({ children }: { children: ReactNode }) {
     });
     if (a.coupleId) params.set('coupleId', a.coupleId);
 
-    const base = resolveLoveQuestQuotaUrl();
-    const res = await fetch(`${base}?${params.toString()}`, {
-      headers: { Authorization: `Bearer ${a.accessToken}` },
-    });
-    const body = (await res.json()) as AiQuotaApiFields & { error?: string };
-    if (res.ok) {
-      applyQuotaFromResponse(body);
-      return;
+    try {
+      const base = resolveLoveQuestQuotaUrl();
+      const res = await fetch(`${base}?${params.toString()}`, {
+        headers: { Authorization: `Bearer ${a.accessToken}` },
+      });
+      const body = (await res.json()) as AiQuotaApiFields & { error?: string };
+      if (res.ok) {
+        applyQuotaFromResponse(body);
+        return;
+      }
+    } catch (e) {
+      console.warn('[ai-usage] quota fetch failed', e);
     }
 
     if (auth.supabase) {

@@ -209,9 +209,7 @@ export async function reserveLoveQuestDailyUsed(userId, usageDate, plan) {
 
   if (error) {
     console.error('[lovequest-ai-quota] reserve rpc failed', error.message);
-    const used = await peekLoveQuestDailyUsed(userId, usageDate);
-    if (used >= limit) return { ok: false, used, limit };
-    return { ok: true, used: used + 1 };
+    return upsertLoveQuestDailyUsed(userId, usageDate, plan);
   }
 
   const row = data && typeof data === 'object' ? data : {};
@@ -237,6 +235,40 @@ export async function refundLoveQuestDailyUsed(userId, usageDate) {
   if (error) {
     console.error('[lovequest-ai-quota] refund rpc failed', error.message);
   }
+}
+
+/**
+ * Fallback when RPC is unavailable (migration not applied). Persists via upsert.
+ * @param {string} userId
+ * @param {string} usageDate
+ * @param {'free' | 'pro'} plan
+ */
+async function upsertLoveQuestDailyUsed(userId, usageDate, plan) {
+  const admin = getSupabaseAdmin();
+  const limit = getLoveQuestDailyLimit(plan);
+  if (!admin) {
+    const used = await peekLoveQuestDailyUsed(userId, usageDate);
+    if (used >= limit) return { ok: false, used, limit };
+    return { ok: true, used: used + 1 };
+  }
+
+  const used = await peekLoveQuestDailyUsed(userId, usageDate);
+  if (used >= limit) return { ok: false, used, limit };
+  const next = used + 1;
+  const { error } = await admin.from('lovequest_ai_daily_usage').upsert(
+    {
+      user_id: userId,
+      usage_date: usageDate,
+      used_count: next,
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: 'user_id,usage_date' }
+  );
+  if (error) {
+    console.error('[lovequest-ai-quota] upsert increment failed', error.message);
+    return { ok: false, used, limit };
+  }
+  return { ok: true, used: next };
 }
 
 /** @deprecated Prefer reserveLoveQuestDailyUsed — kept for legacy callers */
