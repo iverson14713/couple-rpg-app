@@ -18,16 +18,12 @@ const BASE_PHONE_SCREEN_H = 1328;
 /** 極薄邊框 */
 const BASE_PHONE_BEZEL = 14;
 
-/** 手機放大：填滿畫面、底部微裁切（參考 App Store 構圖） */
-const PHONE_MOCKUP_SCALE_67 = 1.8;
-const PHONE_MOCKUP_SCALE_65 = 1.7;
-
 const ISLAND_W_LOGICAL = 124;
 const ISLAND_H_LOGICAL = 38;
 const ISLAND_TOP_LOGICAL = 14;
 const SCREEN_SAFE_INSET_LOGICAL = 2;
 
-/** Hero（1290×2796）— 緊湊、標題區偏上但整體飽滿 */
+/** Hero（1290×2796） */
 export const SHOWCASE_HERO_PT = 78;
 export const SHOWCASE_HERO_PB = 10;
 export const SHOWCASE_HERO_PX = 52;
@@ -37,13 +33,33 @@ export const SHOWCASE_HEADLINE_SIZE = 96;
 export const SHOWCASE_SUBTITLE_SIZE = 40;
 
 export const SHOWCASE_PHONE_GAP_TOP = 6;
+/** 手機底部留白，確保整機完整露出 */
+export const SHOWCASE_CANVAS_BOTTOM_PAD = 44;
 
-/** 畫布底部裁切係數（手機略往下延伸） */
-export const SHOWCASE_PHONE_CROP_RATIO = 0.042;
-export const SHOWCASE_PHONE_PUSH_RATIO = 0.012;
+/** 估算 Hero 區高度（與 LoveQuestShowcaseSlide 排版一致） */
+function estimateHeroBlockHeight(): number {
+  return (
+    SHOWCASE_HERO_PT +
+    SHOWCASE_HERO_PB +
+    SHOWCASE_BRAND_SIZE +
+    28 +
+    12 +
+    Math.ceil(SHOWCASE_HEADLINE_SIZE * 1.06) +
+    12 +
+    Math.ceil(SHOWCASE_SUBTITLE_SIZE * 1.3)
+  );
+}
 
+/**
+ * 依畫布高度計算 mockup 縮放，保證整支手機不被裁切。
+ */
 export function getPhoneMockupScale(device: ShowcaseDeviceId): number {
-  return device === '6.5' ? PHONE_MOCKUP_SCALE_65 : PHONE_MOCKUP_SCALE_67;
+  const { h } = SHOWCASE_DEVICES[device];
+  const heroBlock = estimateHeroBlockHeight();
+  const available = h - heroBlock - SHOWCASE_PHONE_GAP_TOP - SHOWCASE_CANVAS_BOTTOM_PAD;
+  const baseOuterH = BASE_PHONE_SCREEN_H + BASE_PHONE_BEZEL * 2;
+  const fitScale = (available / baseOuterH) * 0.992;
+  return Math.max(1.15, Math.min(1.82, fitScale));
 }
 
 export function getPhoneMockupMetrics(device: ShowcaseDeviceId) {
@@ -81,7 +97,6 @@ export function getPhoneMockupOuterSize(device: ShowcaseDeviceId = '6.7'): {
   return { width: m.outerW, height: m.outerH };
 }
 
-/** 淺粉漸層 + 中部光暈（對齊參考圖） */
 export const LQ_SHOWCASE_GRADIENT =
   'linear-gradient(180deg, #fff9fc 0%, #fff0f7 18%, #fde4f0 42%, #f8c9e0 68%, #f3aed4 88%, #eea3cc 100%)';
 

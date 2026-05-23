@@ -7,10 +7,9 @@ import {
   SHOWCASE_HEADLINE_SIZE,
   SHOWCASE_HERO_PB,
   SHOWCASE_HERO_PT,
+  SHOWCASE_CANVAS_BOTTOM_PAD,
   SHOWCASE_HERO_PX,
-  SHOWCASE_PHONE_CROP_RATIO,
   SHOWCASE_PHONE_GAP_TOP,
-  SHOWCASE_PHONE_PUSH_RATIO,
   SHOWCASE_SUBTITLE_SIZE,
   getPhoneMockupOuterSize,
   type ShowcaseDeviceId,
@@ -37,8 +36,6 @@ export function LoveQuestShowcaseSlideCanvas({
   const Screen = slide.Screen;
   const isAppOnly = view === 'app';
   const phone = getPhoneMockupOuterSize(device);
-  const phonePushY = Math.round(h * SHOWCASE_PHONE_PUSH_RATIO);
-  const phoneCropBottom = Math.round(-h * SHOWCASE_PHONE_CROP_RATIO);
 
   if (isAppOnly) {
     return (
@@ -113,8 +110,11 @@ export function LoveQuestShowcaseSlideCanvas({
       </header>
 
       <section
-        className="relative z-10 flex min-h-0 flex-1 flex-col items-center justify-end overflow-hidden"
-        style={{ paddingTop: SHOWCASE_PHONE_GAP_TOP }}
+        className="relative z-10 flex min-h-0 flex-1 flex-col items-center justify-end"
+        style={{
+          paddingTop: SHOWCASE_PHONE_GAP_TOP,
+          paddingBottom: SHOWCASE_CANVAS_BOTTOM_PAD,
+        }}
       >
         <span
           className="lq-showcase-phone-backglow pointer-events-none absolute left-1/2 z-[2] -translate-x-1/2"
@@ -125,15 +125,7 @@ export function LoveQuestShowcaseSlideCanvas({
           }}
           aria-hidden
         />
-        <div
-          className="relative z-10"
-          style={{
-            width: phone.width,
-            height: phone.height,
-            transform: `translateY(${phonePushY}px)`,
-            marginBottom: phoneCropBottom,
-          }}
-        >
+        <div className="relative z-10" style={{ width: phone.width, height: phone.height }}>
           <span
             className="lq-showcase-phone-glow pointer-events-none absolute left-1/2 z-[2] -translate-x-1/2"
             style={{
