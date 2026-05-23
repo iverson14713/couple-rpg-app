@@ -92,7 +92,7 @@ export async function callImportantDateAssistant(
   return runCoupleAiCall(usage, () => {
     const auth = usage.getCoupleAssistantAuth();
     if (!auth) {
-      return Promise.resolve({ ok: false, message: '請先登入後再使用 AI', code: 'AUTH' };
+      return Promise.resolve({ ok: false, message: '請先登入後再使用 AI', code: 'AUTH' });
     }
     return postImportantDateAssistant(prompt, auth);
   });
