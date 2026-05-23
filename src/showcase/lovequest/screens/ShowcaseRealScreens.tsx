@@ -142,7 +142,7 @@ export function ShowcaseRemindersScreen() {
     <ShowcaseProviders>
       <ShowcaseMockShell>
         <ShowcaseScrollClip>
-          <ImportantDateRemindersSection showBack={false} showcase />
+          <ImportantDateRemindersSection showBack={false} />
         </ShowcaseScrollClip>
       </ShowcaseMockShell>
     </ShowcaseProviders>
@@ -160,7 +160,7 @@ export function ShowcaseRpgScreen() {
             <h2 className={lq.pageTitle}>情侶狀態</h2>
             <p className={`text-[12px] ${lq.textSecondary}`}>等級 · LoveCoin · 默契</p>
           </div>
-          <ProfileStatsPanel showcase />
+          <ProfileStatsPanel hideAccountChrome />
         </ShowcaseScrollClip>
       </ShowcaseMockShell>
     </ShowcaseProviders>

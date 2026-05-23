@@ -29,8 +29,6 @@ export const IMPORTANT_DATE_REMINDERS_ANCHOR_ID = 'lq-important-date-reminders';
 type Props = {
   showBack?: boolean;
   compactHero?: boolean;
-  /** 上架截圖：隱藏返回、精簡 chrome */
-  showcase?: boolean;
 };
 
 function copyOffsets(offsets: ReminderOffsetDays[]): ReminderOffsetDays[] {
@@ -144,7 +142,7 @@ export function ImportantDateRemindersSection({ showBack, compactHero }: Props) 
 
   return (
     <section id={IMPORTANT_DATE_REMINDERS_ANCHOR_ID} className={compactHero ? '' : 'mb-4'}>
-      {showBack && !showcase ? (
+      {showBack ? (
         <button
           type="button"
           onClick={() => navigateTo('home')}
@@ -155,7 +153,7 @@ export function ImportantDateRemindersSection({ showBack, compactHero }: Props) 
         </button>
       ) : null}
 
-      {showBack && !showcase ? (
+      {showBack ? (
         <RecentImportantDateAiCard onView={setSavedImportantView} className="mb-3" />
       ) : null}
 
@@ -174,6 +172,20 @@ export function ImportantDateRemindersSection({ showBack, compactHero }: Props) 
           <div className="mt-2">
             <AiUsageQuotaLabel variant="badge" />
           </div>
+          {showBack ? (
+            <button
+              type="button"
+              onClick={() =>
+                navigateTo('profile', {
+                  profileSection: 'settings',
+                  scrollToElementId: 'lq-couple-profile',
+                })
+              }
+              className="mt-3 text-[12px] font-bold text-rose-600 active:opacity-70"
+            >
+              ＋ 新增 / 編輯重要日子
+            </button>
+          ) : null}
         </header>
       ) : (
         <div className={`mb-3 flex items-center gap-2 px-0.5`}>
@@ -230,6 +242,22 @@ export function ImportantDateRemindersSection({ showBack, compactHero }: Props) 
           title="還沒有重要日子"
           hint="請先在情侶資料填寫另一半生日與紀念日"
           className={lq.card}
+          action={
+            showBack ? (
+              <button
+                type="button"
+                onClick={() =>
+                  navigateTo('profile', {
+                    profileSection: 'settings',
+                    scrollToElementId: 'lq-couple-profile',
+                  })
+                }
+                className="mt-3 rounded-xl bg-rose-500 px-4 py-2.5 text-[13px] font-bold text-white active:opacity-90"
+              >
+                前往情侶資料新增
+              </button>
+            ) : undefined
+          }
         />
       ) : (
         <ul className="space-y-2.5">

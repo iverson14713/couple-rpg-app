@@ -7,14 +7,15 @@ import { PlanStatusPill } from './ProBadge';
 import { useUserPlan } from '../context/UserPlanContext';
 import { lq } from '../theme';
 
-export function ProfileStatsPanel({ showcase }: { showcase?: boolean } = {}) {
+/** `hideAccountChrome` — 僅用於截圖預覽，正式 App 請勿傳入 */
+export function ProfileStatsPanel({ hideAccountChrome }: { hideAccountChrome?: boolean } = {}) {
   const { couple, rpg, rpgView, weeklyTitles, todayCoinEarned, activity } = useLoveQuest();
   const { isPro } = useUserPlan();
 
   return (
     <>
-      {!showcase ? <UpgradeCard compact className="mb-3" /> : null}
-      {!showcase ? <NicknameSetupBanner /> : null}
+      {!hideAccountChrome ? <UpgradeCard compact className="mb-3" /> : null}
+      {!hideAccountChrome ? <NicknameSetupBanner /> : null}
       <section className={`mb-3 overflow-hidden p-4 ${lq.card}`}>
         <div className="flex items-center gap-3">
           <div className="flex -space-x-1">
@@ -52,7 +53,7 @@ export function ProfileStatsPanel({ showcase }: { showcase?: boolean } = {}) {
         </div>
       </section>
 
-      {!showcase ? <CoupleBindSection /> : null}
+      {!hideAccountChrome ? <CoupleBindSection /> : null}
 
       <RpgMiniStats compact />
 
