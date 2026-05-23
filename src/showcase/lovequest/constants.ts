@@ -15,12 +15,20 @@ export const DEVICE_LOGICAL_W = 390;
 
 const BASE_PHONE_SCREEN_W = 612;
 const BASE_PHONE_SCREEN_H = 1328;
-const BASE_PHONE_BEZEL = 44;
+/** 薄邊框（較舊版 44 縮約 41%，接近 iPhone Pro 視覺） */
+const BASE_PHONE_BEZEL = 26;
 
 /** 6.7" 手機 mockup 放大（約 +15%） */
 const PHONE_MOCKUP_SCALE_67 = 1.72;
 /** 6.5" 略縮，避免裁切且維持上下飽滿 */
 const PHONE_MOCKUP_SCALE_65 = 1.62;
+
+/** iPhone 15 Pro 動態島（以 390pt 邏輯寬為基準） */
+const ISLAND_W_LOGICAL = 126;
+const ISLAND_H_LOGICAL = 40;
+const ISLAND_TOP_LOGICAL = 15;
+/** 螢幕內容安全邊距（避免貼邊） */
+const SCREEN_SAFE_INSET_LOGICAL = 3;
 
 /** Hero 區（1290×2796 畫布座標） */
 export const SHOWCASE_HERO_PT = 96;
@@ -45,14 +53,24 @@ export function getPhoneMockupMetrics(device: ShowcaseDeviceId) {
   const screenW = Math.round(BASE_PHONE_SCREEN_W * scale);
   const screenH = Math.round(BASE_PHONE_SCREEN_H * scale);
   const bezel = Math.round(BASE_PHONE_BEZEL * scale);
+  const logicalScale = screenW / DEVICE_LOGICAL_W;
+
+  /** 外框圓角略大於螢幕，比例接近 iPhone Pro 連續曲線 */
+  const screenRadius = Math.round(screenW * 0.078);
+  const frameRadius = Math.round(screenRadius + bezel * 0.42);
+
   return {
     scale,
     screenW,
     screenH,
     bezel,
-    frameRadius: Math.round(56 * scale),
-    screenRadius: Math.round(44 * scale),
-    screenScale: screenW / DEVICE_LOGICAL_W,
+    frameRadius,
+    screenRadius,
+    screenScale: logicalScale,
+    screenSafeInset: Math.max(2, Math.round(SCREEN_SAFE_INSET_LOGICAL * logicalScale)),
+    islandW: Math.round(ISLAND_W_LOGICAL * logicalScale),
+    islandH: Math.round(ISLAND_H_LOGICAL * logicalScale),
+    islandTop: Math.round(ISLAND_TOP_LOGICAL * logicalScale),
     outerW: screenW + bezel * 2,
     outerH: screenH + bezel * 2,
   };
