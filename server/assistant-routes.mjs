@@ -31,14 +31,17 @@ export const QA_MAX_TOKENS = 1500;
 export const VET_REPORT_MAX_TOKENS = 900;
 export const WEEKLY_REPORT_MAX_TOKENS = 2000;
 export const COUPLE_PROMPT_MAX_CHARS = 16_000;
-export const DATE_ITINERARY_MAX_TOKENS = 2200;
+export const DATE_ITINERARY_MAX_TOKENS = 3200;
 export const IMPORTANT_DATE_MAX_TOKENS = 1800;
 
 const COUPLE_SYSTEM_ZH =
   '你是專業、貼心的情侶生活顧問。請依使用者指示，用繁體中文、條列清楚、具體可執行地回覆。';
 
 const DATE_ITINERARY_SYSTEM_ZH =
-  '你是情侶約會行程規劃師。只回傳 JSON 物件，禁止 Markdown（不得使用 #、##、###、---、** 等符號）。所有字串為繁體中文純文字。';
+  '你是會幫朋友安排約會的企劃人。只回傳 JSON 物件，禁止 Markdown。繁體中文。' +
+  '時間軸 segments 的 period 只能使用「下午」「傍晚」「晚餐」「晚間收尾」各至多一次、順序固定，禁止重複「晚上」。' +
+  '每段需含 headline、narrative（2～4句有情緒）、purpose、transition、conversationCue。' +
+  '另含 mood、moodTags、aiReminders、partnerLines、rainPlan、tiredPlan、budgetTier（$|$$|$$$）、budgetNote、surprise、outfit。';
 
 const IMPORTANT_DATE_SYSTEM_ZH =
   '你是情侶重要日子驚喜顧問。只回傳 JSON 物件，禁止 Markdown（不得使用 #、##、###、---、** 等符號）。所有字串為繁體中文純文字。';
@@ -737,18 +740,52 @@ function dateItineraryCoerceString(v) {
   return stripMarkdownPlain(careBundleCoerceString(v));
 }
 
+function canonicalDatePeriod(raw) {
+  const t = dateItineraryCoerceString(raw);
+  if (!t) return null;
+  if (/下午|afternoon/i.test(t)) return '下午';
+  if (/傍晚|黃昏|dusk/i.test(t)) return '傍晚';
+  if (/晚餐|dinner/i.test(t)) return '晚餐';
+  if (/晚間|晚上|夜|收尾/i.test(t)) return '晚間收尾';
+  if (/上午|中午|morning/i.test(t)) return '下午';
+  return null;
+}
+
 function normalizeDateItinerarySegment(raw) {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
   const o = /** @type {Record<string, unknown>} */ (raw);
-  const period = dateItineraryCoerceString(o.period ?? o.time ?? o.時段);
+  const periodRaw = dateItineraryCoerceString(o.period ?? o.time ?? o.時段);
+  const period = canonicalDatePeriod(periodRaw) ?? periodRaw || '下午';
   const place = dateItineraryCoerceString(o.place ?? o.location ?? o.地點);
-  const activity = dateItineraryCoerceString(o.activity ?? o.活動 ?? o.content);
-  if (!period && !place && !activity) return null;
+  const headline = dateItineraryCoerceString(o.headline ?? o.title ?? (place !== '—' ? place : ''));
+  const narrative = dateItineraryCoerceString(
+    o.narrative ?? o.mood ?? o.description ?? o.activity ?? o.活動 ?? o.content
+  );
+  const purpose = dateItineraryCoerceString(o.purpose ?? o.why ?? o.目的);
+  const conversationCue = dateItineraryCoerceString(o.conversationCue ?? o.conversation ?? o.對話建議);
+  const transition = dateItineraryCoerceString(o.transition ?? o.轉場);
+  if (!period && !place && !narrative && !headline) return null;
   return {
-    period: period || '行程',
+    period,
     place: place || '—',
-    activity: activity || '—',
+    headline: headline || place || '約會景點',
+    narrative: narrative || '—',
+    purpose: purpose || '讓約會節奏自然推進',
+    conversationCue: conversationCue || undefined,
+    transition: transition || undefined,
+    activity: dateItineraryCoerceString(o.activity ?? o.活動) || undefined,
   };
+}
+
+function dedupeDateItinerarySegments(segments) {
+  const order = ['下午', '傍晚', '晚餐', '晚間收尾'];
+  const map = new Map();
+  for (const seg of segments) {
+    const key = canonicalDatePeriod(seg.period) ?? seg.period;
+    const normalized = { ...seg, period: key };
+    if (!map.has(key)) map.set(key, normalized);
+  }
+  return order.map((k) => map.get(k)).filter(Boolean);
 }
 
 function normalizeDateItineraryTips(v) {
@@ -771,18 +808,44 @@ function normalizeDateItineraryFromParsed(parsed) {
     parsed && typeof parsed === 'object' && !Array.isArray(parsed)
       ? /** @type {Record<string, unknown>} */ (parsed)
       : {};
-  const title = dateItineraryCoerceString(obj.title ?? obj.行程標題) || '今日約會行程';
-  const budget = dateItineraryCoerceString(obj.budget ?? obj.預算) || '依實際消費調整';
+  const title = dateItineraryCoerceString(obj.title ?? obj.theme ?? obj.行程標題) || '今日約會企劃';
+  const mood = dateItineraryCoerceString(obj.mood ?? obj.約會氛圍) || '溫柔而有儀式感';
+  const moodTags = normalizeDateItineraryTips(obj.moodTags ?? obj.氛圍標籤).slice(0, 4);
+  const budgetNote = dateItineraryCoerceString(obj.budgetNote ?? obj.budget ?? obj.預算) || '依實際消費調整';
+  let budgetTier = dateItineraryCoerceString(obj.budgetTier ?? obj.預估花費);
+  if (budgetTier !== '$' && budgetTier !== '$$' && budgetTier !== '$$$') budgetTier = '$$';
 
-  const rawSeg = obj.segments ?? obj.schedule ?? obj.時段;
-  /** @type {{ period: string, place: string, activity: string }[]} */
-  const segments = Array.isArray(rawSeg)
-    ? rawSeg.map(normalizeDateItinerarySegment).filter(Boolean)
-    : [];
+  const rawSeg = obj.segments ?? obj.schedule ?? obj.timeline ?? obj.時段;
+  const segments = dedupeDateItinerarySegments(
+    Array.isArray(rawSeg) ? rawSeg.map(normalizeDateItinerarySegment).filter(Boolean) : []
+  );
 
-  const tips = normalizeDateItineraryTips(obj.tips ?? obj.貼心提醒 ?? obj.注意事項);
+  const aiReminders = normalizeDateItineraryTips(
+    obj.aiReminders ?? obj.tips ?? obj.貼心提醒 ?? obj.注意事項
+  );
+  const partnerLines = normalizeDateItineraryTips(obj.partnerLines ?? obj.可以對伴侶說).slice(0, 4);
+  const rainPlan =
+    dateItineraryCoerceString(obj.rainPlan ?? obj.雨天備案) || '改為室內咖啡或電影，保留陪伴品質';
+  const tiredPlan = dateItineraryCoerceString(obj.tiredPlan ?? obj.累了備案) || undefined;
+  const outfit = dateItineraryCoerceString(obj.outfit ?? obj.穿搭) || undefined;
+  const surprise = dateItineraryCoerceString(obj.surprise ?? obj.小驚喜) || undefined;
 
-  return { title, segments, tips, budget };
+  return {
+    title,
+    mood,
+    moodTags: moodTags.length ? moodTags : [mood],
+    segments,
+    aiReminders,
+    partnerLines,
+    rainPlan,
+    tiredPlan,
+    budgetTier,
+    budgetNote,
+    outfit,
+    surprise,
+    tips: aiReminders,
+    budget: budgetNote,
+  };
 }
 
 async function handleDateItinerary(prompt) {
@@ -791,7 +854,7 @@ async function handleDateItinerary(prompt) {
       { role: 'system', content: DATE_ITINERARY_SYSTEM_ZH },
       { role: 'user', content: prompt },
     ],
-    temperature: 0.4,
+    temperature: 0.55,
     maxTokens: DATE_ITINERARY_MAX_TOKENS,
     jsonMode: true,
   });
@@ -806,9 +869,12 @@ async function handleDateItinerary(prompt) {
 
   const answer = [
     itinerary.title,
-    ...itinerary.segments.map((s) => `${s.period}：${s.place} — ${s.activity}`),
-    itinerary.budget ? `預算：${itinerary.budget}` : '',
-    itinerary.tips.length ? `提醒：${itinerary.tips.join('；')}` : '',
+    itinerary.mood ? `氛圍：${itinerary.mood}` : '',
+    ...itinerary.segments.map(
+      (s) => `${s.period}｜${s.headline}：${s.narrative}`
+    ),
+    itinerary.budgetNote ? `預算：${itinerary.budgetTier} ${itinerary.budgetNote}` : '',
+    itinerary.aiReminders?.length ? `提醒：${itinerary.aiReminders.join('；')}` : '',
   ]
     .filter(Boolean)
     .join('\n');

@@ -1255,6 +1255,48 @@ select {
   animation-delay: 0.34s;
 }
 
+.date-plan-enter .date-timeline-item {
+  animation: date-timeline-slide 0.55s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.date-plan-enter .date-timeline-item:nth-child(1) {
+  animation-delay: 0.08s;
+}
+.date-plan-enter .date-timeline-item:nth-child(2) {
+  animation-delay: 0.16s;
+}
+.date-plan-enter .date-timeline-item:nth-child(3) {
+  animation-delay: 0.24s;
+}
+.date-plan-enter .date-timeline-item:nth-child(4) {
+  animation-delay: 0.32s;
+}
+
+.date-timeline-node {
+  animation: date-node-pulse 2.4s ease-in-out infinite;
+}
+
+@keyframes date-timeline-slide {
+  from {
+    opacity: 0;
+    transform: translateX(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes date-node-pulse {
+  0%,
+  100% {
+    box-shadow: 0 4px 14px rgba(244, 114, 182, 0.35);
+  }
+  50% {
+    box-shadow: 0 6px 20px rgba(244, 114, 182, 0.5);
+  }
+}
+
 @keyframes ai-result-fade-scale {
   from {
     opacity: 0;

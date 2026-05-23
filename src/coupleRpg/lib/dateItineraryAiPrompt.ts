@@ -130,7 +130,7 @@ export function buildDateItineraryAiPrompt(input: DateItineraryAiInput): string 
   const depart = departure.trim() || '（未填寫，請依台灣常見都會區假設並註明）';
   const prefs = partnerPrefs.trim() || '（未填寫，請依一般情侶互動給建議）';
 
-  return `你是專業的情侶約會行程規劃師。請根據以下資訊規劃整天約會行程。
+  return `你是「會幫朋友安排約會」的企劃人，不是列點機器人。請寫出像真人規劃的完整約會流程：有轉場、有情緒、有「為什麼這樣排」。
 
 【約會主題】${suggestion.emoji} ${suggestion.title}
 【主題標籤】${tags}
@@ -143,21 +143,48 @@ export function buildDateItineraryAiPrompt(input: DateItineraryAiInput): string 
 【想要風格】${styleLine(style)}
 【伴侶喜好／限制】${prefs}
 
-【輸出格式 — 極重要】
-只回傳一個 JSON 物件，不要 Markdown、不要代碼區塊、不要任何 ### ## # --- ** 粗體或標題符號。
-欄位如下（皆繁體中文純文字）：
+【時間軸 — 極重要】
+segments 只能使用以下 4 個 period，各出現「恰好一次」，順序固定，禁止重複、禁止三個「晚上」：
+1. period: "下午"
+2. period: "傍晚"
+3. period: "晚餐"
+4. period: "晚間收尾"
+若總時長較短，可省略 1 個時段，但已寫的 period 仍不可重複。
+
+【寫作風格】
+- 不要像 GPT 條列；每段 narrative 2～4 句，有畫面與情緒
+- headline 是精簡場景名（例：文青咖啡館、河濱散步）
+- purpose 說明「為什麼安排在這個時段」
+- transition 寫如何銜接到下一段（交通／氛圍轉換）
+- conversationCue 給 1 句自然、不尷尬的聊天方向
+- 不必虛構真實店名；用區域＋類型即可
+
+【輸出格式】
+只回傳一個 JSON 物件，禁止 Markdown。繁體中文：
 {
-  "title": "行程標題（一句話，15字內）",
+  "title": "約會主題（一句話，有記憶點）",
+  "mood": "整體氛圍一句話",
+  "moodTags": ["溫柔","輕鬆"],
   "segments": [
-    { "period": "上午|中午|下午|傍晚", "place": "地點類型或區域", "activity": "具體活動與停留時間感" }
+    {
+      "period": "下午",
+      "place": "區域或地點類型",
+      "headline": "場景簡稱",
+      "narrative": "2～4句，描述氣氛與兩人可以做什麼",
+      "purpose": "此段安排目的",
+      "transition": "前往下一段的轉場感",
+      "conversationCue": "可以聊的方向"
+    }
   ],
-  "tips": ["貼心提醒1", "貼心提醒2"],
-  "budget": "預算粗估（分項＋總計區間，純文字一句話或多句）"
+  "aiReminders": ["記得提前訂位","可準備小卡片"],
+  "partnerLines": ["自然、不肉麻的一句話"],
+  "rainPlan": "下雨時的完整備案（仍保有約會感）",
+  "tiredPlan": "對方累了時的輕鬆收尾",
+  "budgetTier": "$ 或 $$ 或 $$$",
+  "budgetNote": "花費方向說明（不需精確數字）",
+  "outfit": "穿搭建議（可選，一句）",
+  "surprise": "一個具體小驚喜點子"
 }
 
-規則：
-- segments 至少含上午、中午、下午、傍晚四個時段（可依主題調整文案）
-- tips 含交通、天氣、體力、小驚喜或對伴侶說的一句話等 2～4 則
-- 不必虛構真實店名；地點用類型描述即可
-- 與「${suggestion.title}」主題一致，風格符合「${styleLine(style)}」，交通考量「${transportLine(transport)}」`;
+與「${suggestion.title}」主題一致；風格符合「${styleLine(style)}」；交通依「${transportLine(transport)}」安排轉場。`;
 }

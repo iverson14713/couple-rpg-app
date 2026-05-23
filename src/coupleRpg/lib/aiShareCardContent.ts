@@ -27,11 +27,17 @@ export function buildDateItinerarySharePayload(record: SavedDateItineraryAi): Ai
   const lines: string[] = [];
   if (plan.segments.length > 0) {
     for (const seg of plan.segments.slice(0, 3)) {
-      lines.push(`${seg.period} · ${seg.place}${seg.activity ? `：${seg.activity}` : ''}`);
+      const label = seg.headline || seg.place;
+      const detail = seg.narrative || seg.activity || '';
+      lines.push(`${seg.period}｜${label}${detail ? `：${detail.slice(0, 48)}` : ''}`);
     }
   }
-  if (plan.tips[0]) lines.push(`✨ ${plan.tips[0]}`);
-  if (plan.budget) lines.push(`💰 ${plan.budget}`);
+  if (plan.mood) lines.push(`💕 ${plan.mood}`);
+  const tip = plan.aiReminders?.[0] ?? plan.tips?.[0];
+  if (tip) lines.push(`✨ ${tip}`);
+  if (plan.budgetTier || plan.budgetNote || plan.budget) {
+    lines.push(`💰 ${plan.budgetTier ?? ''} ${plan.budgetNote ?? plan.budget ?? ''}`.trim());
+  }
 
   return {
     kind: 'date_itinerary',
