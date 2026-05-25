@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { ChevronLeft } from 'lucide-react';
 import { goHome } from '../legalNavigate';
-import { LEGAL_CONTACT_EMAIL } from './legalConfig';
+import { LEGAL_APP_NAME, LEGAL_CONTACT_EMAIL, LEGAL_DEVELOPER_NAME } from './legalConfig';
 
 type LegalPageLayoutProps = {
   title: string;
@@ -35,7 +35,7 @@ export function LegalPageLayout({
         </button>
 
         <header className="mb-5 rounded-3xl border border-rose-200/50 bg-white/90 px-5 py-6 shadow-[0_10px_36px_-14px_rgba(244,114,182,0.22)] backdrop-blur-sm">
-          <p className="text-[11px] font-bold uppercase tracking-wide text-rose-500">LoveQuest</p>
+          <p className="text-[11px] font-bold uppercase tracking-wide text-rose-500">{LEGAL_APP_NAME}</p>
           <h1 className="mt-1.5 text-[1.4rem] font-extrabold leading-snug tracking-tight text-[#3a2e34]">
             {title}
           </h1>
@@ -46,6 +46,9 @@ export function LegalPageLayout({
 
         <footer className="mt-8 space-y-3 rounded-2xl border border-rose-200/45 bg-gradient-to-br from-rose-50/95 via-white/90 to-pink-50/80 px-4 py-5 text-center shadow-[0_6px_24px_-12px_rgba(244,114,182,0.18)]">
           <p className="text-[13px] leading-relaxed text-[#5c4d55]">{footerNote}</p>
+          <p className="text-[12px] font-medium text-[#8a7a84]">
+            開發者：{LEGAL_DEVELOPER_NAME}
+          </p>
           <p className="text-[12px] font-medium text-[#8a7a84]">{lastUpdatedLabel}</p>
           <p className="text-[13px] text-[#5c4d55]">
             {contactLabel}{' '}

@@ -4,6 +4,7 @@ import { OfflineBanner } from '../components/OfflineBanner';
 import { useOnlineStatus } from '../hooks/useOnlineStatus';
 import { useSupabaseAuth } from '../useSupabaseAuth';
 import { useLoveQuest } from './context/LoveQuestContext';
+import { AppLegalFooter } from './components/AppLegalFooter';
 import { BottomNav } from './components/BottomNav';
 import { TabPageHeader } from './components/TabPageHeader';
 import { OnboardingProvider } from './context/OnboardingContext';
@@ -110,6 +111,7 @@ function CoupleRpgShell() {
         )}
         {tab === 'upgrade' && <UpgradeProPage />}
       </main>
+      <AppLegalFooter />
       <BottomNav activeTab={tab} onChange={onNavChange} />
       <UpgradeModal />
       <PlanToast />

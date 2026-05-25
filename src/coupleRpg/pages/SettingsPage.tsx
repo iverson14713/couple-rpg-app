@@ -7,6 +7,7 @@ import { ImportantDateRemindersSection } from '../components/ImportantDateRemind
 import { UpgradeCard } from '../components/UpgradeCard';
 import { OnboardingSettingsSection } from '../components/OnboardingSettingsSection';
 import { PlanSettingsSection } from '../components/PlanSettingsSection';
+import { LegalSettingsSection } from '../components/LegalSettingsSection';
 import { SettingsSectionErrorBoundary } from '../components/SettingsSectionErrorBoundary';
 import { lq } from '../theme';
 
@@ -64,6 +65,10 @@ export function SettingsPage({ embedded }: { embedded?: boolean } = {}) {
           可將 LoveQuest 加入主畫面，像 App 一樣開啟。manifest 與離線快取已啟用。
         </p>
       </section>
+
+      <SettingsSectionErrorBoundary sectionName="法律與隱私">
+        <LegalSettingsSection />
+      </SettingsSectionErrorBoundary>
     </>
   );
 }
