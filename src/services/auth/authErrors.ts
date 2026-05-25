@@ -72,6 +72,7 @@ export function mapAuthErrorMessage(
     }
     if (low.includes('password')) return d.weak_password;
     if (low.includes('expired') || low.includes('otp_expired')) return d.link_expired;
+    if (err.message === 'oauth_cancelled') return d.oauth_cancelled;
     if (low.includes('access_denied') || low.includes('user cancelled')) return d.oauth_cancelled;
     if (low.includes('invalid') && low.includes('link')) return d.link_invalid;
     if (err.message.trim()) return err.message;

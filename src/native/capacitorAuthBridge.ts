@@ -24,15 +24,16 @@ function parseCallbackParams(rawUrl: string): Record<string, string | null> {
 }
 
 /** Map custom scheme or universal link into in-app /auth/callback (PKCE ?code=, hash tokens). */
-function navigateToAuthCallback(rawUrl: string): void {
+export function handleOAuthCallbackUrl(rawUrl: string, source: 'appUrlOpen' | 'getLaunchUrl'): void {
   const params = parseCallbackParams(rawUrl);
   authLog('navigateToAuthCallback.start', {
+    source,
     rawUrl,
     ...params,
     beforeHref: window.location.href,
   });
   if (peekOAuthProvider() === 'apple') {
-    authLog('apple.callback', { phase: 'appUrlOpen', rawUrl, ...params });
+    authLog('apple.callback', { phase: source, rawUrl, ...params });
   }
 
   void import('../services/auth/oauthNative').then(({ closeOAuthBrowserIfOpen }) =>
@@ -77,7 +78,7 @@ function handleIncomingUrl(rawUrl: string, source: 'appUrlOpen' | 'getLaunchUrl'
     matchesCallback: matches,
   });
   if (matches) {
-    navigateToAuthCallback(rawUrl);
+    handleOAuthCallbackUrl(rawUrl, source);
   }
 }
 
@@ -97,15 +98,28 @@ export function initCapacitorAuthBridge(): void {
   });
 
   void App.addListener('appUrlOpen', (event: URLOpenListenerEvent) => {
-    if (event?.url) {
-      handleIncomingUrl(event.url, 'appUrlOpen');
+    const url = event?.url ?? null;
+    console.log('[LQ_AUTH] appUrlOpen', url);
+    if (url) {
+      handleIncomingUrl(url, 'appUrlOpen');
     } else {
       authLog('appUrlOpen', { url: null, matchesCallback: false });
     }
   });
 
+  void App.addListener('appStateChange', ({ isActive }) => {
+    if (!isActive) return;
+    void App.getLaunchUrl().then((launch) => {
+      if (launch?.url) {
+        console.log('[LQ_AUTH] appUrlOpen', launch.url);
+        handleIncomingUrl(launch.url, 'getLaunchUrl');
+      }
+    });
+  });
+
   void App.getLaunchUrl().then((launch) => {
     if (launch?.url) {
+      console.log('[LQ_AUTH] appUrlOpen', launch.url);
       handleIncomingUrl(launch.url, 'getLaunchUrl');
     } else {
       authLog('getLaunchUrl', { url: null, matchesCallback: false });

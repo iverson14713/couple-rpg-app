@@ -23,16 +23,20 @@
 	<key>CFBundleURLTypes</key>
 	<array>
 		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
 			<key>CFBundleURLName</key>
-			<string>lovequest.oauth</string>
+			<string>com.wayne.lovequest.oauth</string>
 			<key>CFBundleURLSchemes</key>
 			<array>
 				<string>lovequest</string>
 			</array>
 		</dict>
 		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
 			<key>CFBundleURLName</key>
-			<string>lovequest.capacitor</string>
+			<string>com.wayne.lovequest.capacitor</string>
 			<key>CFBundleURLSchemes</key>
 			<array>
 				<string>LoveQuest</string>
