@@ -1,150 +1,65 @@
+import { toCanvas } from 'html-to-image';
 import html2canvas from 'html2canvas';
 
-/** Render at 2× then downscale so PNG is exactly App Store dimensions with crisp type. */
-const EXPORT_RENDER_SCALE = 2;
+/** Extra supersampling before downscale to App Store exact pixels */
+const EXPORT_SUPERSAMPLE = 2;
 
 export const EXPORT_CAPTURE_CLASS = 'lq-export-capture';
 
-const CAPTURE_PIN_STYLE =
-  'position:fixed;left:0;top:0;z-index:2147483646;pointer-events:none;margin:0;opacity:1;visibility:visible;transform:none;';
-
-function findCaptureRoot(cloned: HTMLElement): HTMLElement {
-  if (
-    cloned.classList.contains('lq-showcase-canvas') ||
-    cloned.classList.contains('app-store-slide')
-  ) {
-    return cloned;
-  }
-  const inner = cloned.querySelector<HTMLElement>('.lq-showcase-canvas, .app-store-slide');
-  return inner ?? cloned;
-}
-
-function injectCaptureStyles(doc: Document): void {
-  const style = doc.createElement('style');
-  style.textContent = `
-    .${EXPORT_CAPTURE_CLASS}, .${EXPORT_CAPTURE_CLASS} * {
-      animation: none !important;
-      transition: none !important;
-    }
-    .${EXPORT_CAPTURE_CLASS} .lq-showcase-stat-card,
-    .${EXPORT_CAPTURE_CLASS} .lq-showcase-feature-card,
-    .${EXPORT_CAPTURE_CLASS} .lq-showcase-ai-hero,
-    .${EXPORT_CAPTURE_CLASS} .lq-showcase-reminder-hero,
-    .${EXPORT_CAPTURE_CLASS} .lq-showcase-game-hero {
-      backdrop-filter: none !important;
-      -webkit-backdrop-filter: none !important;
-    }
-    .${EXPORT_CAPTURE_CLASS} [style*="filter"] {
-      filter: none !important;
-    }
-  `;
-  doc.head.appendChild(style);
-}
-
-type ScaleWrapState = {
-  wrap: HTMLElement;
-  prevWrapTransform: string;
-  prevWrapOrigin: string;
-  prevParentOverflow: string;
-  prevParentWidth: string;
-  prevParentHeight: string;
-};
-
-/** Undo preview scale(0.2) so capture matches what the user sees, at full resolution. */
-function beginFullSizeFromPreviewWrap(canvas: HTMLElement): ScaleWrapState | null {
-  const wrap = canvas.parentElement;
-  if (!wrap || !wrap.style.transform.includes('scale')) return null;
-
-  const parent = wrap.parentElement;
-  const state: ScaleWrapState = {
-    wrap,
-    prevWrapTransform: wrap.style.transform,
-    prevWrapOrigin: wrap.style.transformOrigin,
-    prevParentOverflow: parent?.style.overflow ?? '',
-    prevParentWidth: parent?.style.width ?? '',
-    prevParentHeight: parent?.style.height ?? '',
-  };
-
-  if (parent) {
-    parent.style.overflow = 'visible';
-    parent.style.width = `${canvas.offsetWidth}px`;
-    parent.style.height = `${canvas.offsetHeight}px`;
-  }
-  wrap.style.transform = 'none';
-  wrap.style.transformOrigin = 'top left';
-
-  return state;
-}
-
-function endFullSizeFromPreviewWrap(state: ScaleWrapState | null): void {
-  if (!state) return;
-  const parent = state.wrap.parentElement;
-  state.wrap.style.transform = state.prevWrapTransform;
-  state.wrap.style.transformOrigin = state.prevWrapOrigin;
-  if (parent) {
-    parent.style.overflow = state.prevParentOverflow;
-    parent.style.width = state.prevParentWidth;
-    parent.style.height = state.prevParentHeight;
-  }
-}
-
-/**
- * Capture the same DOM node used in on-screen preview (WYSIWYG).
- * Temporarily removes preview scale and pins at 0,0 for reliable rasterization.
- */
-export async function captureElementForExport(
-  element: HTMLElement,
-  width: number,
-  height: number,
-  backgroundColor: string
-): Promise<HTMLCanvasElement> {
-  const scaleState = beginFullSizeFromPreviewWrap(element);
-
-  const prevStyle = element.getAttribute('style') ?? '';
-  const parent = element.parentElement;
-  const nextSibling = element.nextSibling;
-
-  element.classList.add(EXPORT_CAPTURE_CLASS);
-  document.body.appendChild(element);
-  element.setAttribute('style', `${CAPTURE_PIN_STYLE}width:${width}px;height:${height}px;`);
-
+async function waitForPaint(): Promise<void> {
   await new Promise<void>((r) => {
     requestAnimationFrame(() => requestAnimationFrame(() => r()));
   });
+}
+
+/**
+ * Capture the on-screen preview viewport (the clipped box that includes CSS scale).
+ * pixelRatio = targetWidth / viewportWidth so PNG matches what the user sees.
+ */
+export async function capturePreviewViewport(
+  viewport: HTMLElement,
+  width: number,
+  height: number,
+  backgroundColor?: string
+): Promise<HTMLCanvasElement> {
+  await waitForPaint();
+
+  viewport.scrollIntoView({ block: 'center', inline: 'nearest' });
+  await waitForPaint();
+
+  const vw = viewport.clientWidth;
+  const vh = viewport.clientHeight;
+  if (vw < 1 || vh < 1) {
+    throw new Error('Preview viewport is not visible — scroll it into view and retry');
+  }
+
+  const pixelRatio = (width / vw) * EXPORT_SUPERSAMPLE;
 
   try {
-    return await html2canvas(element, {
-      width,
-      height,
-      scale: EXPORT_RENDER_SCALE,
-      useCORS: true,
+    const canvas = await toCanvas(viewport, {
+      pixelRatio,
+      cacheBust: true,
+      width: vw,
+      height: vh,
       backgroundColor,
-      logging: false,
-      foreignObjectRendering: false,
-      scrollX: 0,
-      scrollY: 0,
-      windowWidth: width,
-      windowHeight: height,
-      onclone: (doc, clonedNode) => {
-        injectCaptureStyles(doc);
-        if (clonedNode instanceof HTMLElement) {
-          findCaptureRoot(clonedNode).classList.add(EXPORT_CAPTURE_CLASS);
-        }
+      style: {
+        margin: '0',
+        padding: '0',
       },
     });
-  } finally {
-    element.classList.remove(EXPORT_CAPTURE_CLASS);
-    if (prevStyle) element.setAttribute('style', prevStyle);
-    else element.removeAttribute('style');
-
-    if (parent) {
-      if (nextSibling && nextSibling.parentElement === parent) {
-        parent.insertBefore(element, nextSibling);
-      } else {
-        parent.appendChild(element);
-      }
-    }
-    endFullSizeFromPreviewWrap(scaleState);
+    return canvas;
+  } catch (err) {
+    console.warn('[export] html-to-image failed, using html2canvas fallback', err);
+    return html2canvas(viewport, {
+      scale: pixelRatio,
+      width: vw,
+      height: vh,
+      useCORS: true,
+      backgroundColor: backgroundColor ?? null,
+      logging: false,
+      scrollX: 0,
+      scrollY: 0,
+    });
   }
 }
 
@@ -177,4 +92,14 @@ export function downloadPngBlob(blob: Blob, filename: string): void {
   URL.revokeObjectURL(url);
 }
 
-export { EXPORT_RENDER_SCALE };
+export async function exportPreviewViewportToPng(
+  viewport: HTMLElement,
+  width: number,
+  height: number,
+  filename: string,
+  backgroundColor?: string
+): Promise<void> {
+  const canvas = await capturePreviewViewport(viewport, width, height, backgroundColor);
+  const blob = await canvasToExactPngBlob(canvas, width, height);
+  downloadPngBlob(blob, filename);
+}

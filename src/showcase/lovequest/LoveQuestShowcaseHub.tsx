@@ -11,7 +11,7 @@ import { buildShowcaseUrl, parseShowcaseParams } from './parseParams';
 import { LOVEQUEST_SHOWCASE_SLIDES } from './slides';
 
 const PREVIEW_SCALE = 0.2;
-const SHOWCASE_CANVAS_ID = 'lq-showcase-active-canvas';
+const SHOWCASE_PREVIEW_VIEWPORT_ID = 'lq-showcase-preview-viewport';
 
 async function waitForPaint(): Promise<void> {
   await new Promise<void>((r) => {
@@ -52,11 +52,11 @@ export function LoveQuestShowcaseHub() {
     flushSync(() => setActiveIndex(index));
     await waitForPaint();
 
-    const el = document.getElementById(SHOWCASE_CANVAS_ID);
-    if (!el) return;
+    const viewport = document.getElementById(SHOWCASE_PREVIEW_VIEWPORT_ID);
+    if (!viewport) return;
 
     setStatus(`匯出：${s.headline}…`);
-    await exportLoveQuestShowcase(el, s.filename);
+    await exportLoveQuestShowcase(viewport, s.filename);
     setStatus(`已下載 ${s.filename}`);
   }, []);
 
@@ -188,19 +188,22 @@ export function LoveQuestShowcaseHub() {
           </div>
         </header>
 
-        <div
-          className="overflow-hidden rounded-2xl border border-rose-100 bg-rose-50/50 shadow-xl"
-          style={{ width: w * PREVIEW_SCALE, height: h * PREVIEW_SCALE }}
-        >
+        <div className="rounded-2xl border border-rose-100 bg-rose-50/50 p-0 shadow-xl">
           <div
-            style={{
-              width: w,
-              height: h,
-              transform: `scale(${PREVIEW_SCALE})`,
-              transformOrigin: 'top left',
-            }}
+            id={SHOWCASE_PREVIEW_VIEWPORT_ID}
+            className="overflow-hidden"
+            style={{ width: w * PREVIEW_SCALE, height: h * PREVIEW_SCALE }}
           >
-            <LoveQuestShowcaseSlideCanvas slide={slide} exportId={SHOWCASE_CANVAS_ID} />
+            <div
+              style={{
+                width: w,
+                height: h,
+                transform: `scale(${PREVIEW_SCALE})`,
+                transformOrigin: 'top left',
+              }}
+            >
+              <LoveQuestShowcaseSlideCanvas slide={slide} />
+            </div>
           </div>
         </div>
       </section>

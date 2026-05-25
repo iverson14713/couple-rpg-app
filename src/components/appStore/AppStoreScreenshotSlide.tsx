@@ -15,7 +15,7 @@ import { IphoneMockup } from './IphoneMockup';
 
 type AppStoreScreenshotSlideProps = {
   slide: AppStoreSlide;
-  exportId: string;
+  exportId?: string;
 };
 
 export function AppStoreScreenshotSlide({ slide, exportId }: AppStoreScreenshotSlideProps) {

@@ -26,13 +26,13 @@ export function AppStoreScreenshotMode() {
 
   const exportOne = useCallback(async (index: number) => {
     const slide = APP_STORE_SLIDES[index];
-    const el = document.getElementById(`app-store-preview-${index}`);
-    if (!el) return;
+    const viewport = document.getElementById(`app-store-preview-viewport-${index}`);
+    if (!viewport) return;
     setBusy(true);
     setStatus(`正在匯出：${slide.headline}…`);
     try {
       await ensureAppStoreFontsReady();
-      await exportScreenshotElement(el, slide.filename);
+      await exportScreenshotElement(viewport, slide.filename);
       setStatus(`已下載 ${slide.filename}`);
     } catch (e) {
       console.error(e);
@@ -110,22 +110,25 @@ export function AppStoreScreenshotMode() {
                 下載 PNG
               </button>
             </header>
-            <div
-              className="overflow-hidden rounded-2xl border border-stone-200 bg-stone-200 shadow-lg"
-              style={{
-                width: ASPECT_W * PREVIEW_SCALE,
-                height: ASPECT_H * PREVIEW_SCALE,
-              }}
-            >
+            <div className="overflow-hidden rounded-2xl border border-stone-200 bg-stone-200 shadow-lg">
               <div
+                id={`app-store-preview-viewport-${index}`}
+                className="overflow-hidden"
                 style={{
-                  width: ASPECT_W,
-                  height: ASPECT_H,
-                  transform: `scale(${PREVIEW_SCALE})`,
-                  transformOrigin: 'top left',
+                  width: ASPECT_W * PREVIEW_SCALE,
+                  height: ASPECT_H * PREVIEW_SCALE,
                 }}
               >
-                <AppStoreScreenshotSlide slide={slide} exportId={`app-store-preview-${index}`} />
+                <div
+                  style={{
+                    width: ASPECT_W,
+                    height: ASPECT_H,
+                    transform: `scale(${PREVIEW_SCALE})`,
+                    transformOrigin: 'top left',
+                  }}
+                >
+                  <AppStoreScreenshotSlide slide={slide} />
+                </div>
               </div>
             </div>
           </article>
