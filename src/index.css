@@ -627,6 +627,20 @@ html.lq-showcase-hub-active {
   width: 100% !important;
 }
 
+/* html2canvas：螢幕圓角反鋸齒黑點 */
+.lq-showcase-phone-screen {
+  isolation: isolate;
+  background-color: #fef9fb;
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
+}
+
+.lq-export-capture .lq-showcase-phone-screen,
+.lq-export-capture .lq-showcase-phone-screen-content {
+  background-color: #fef9fb !important;
+  box-shadow: inset 0 0 0 3px #fef9fb !important;
+}
+
 .lq-export-capture .lq-showcase-canvas-spotlight {
   opacity: 1;
 }

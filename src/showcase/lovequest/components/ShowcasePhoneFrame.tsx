@@ -1,6 +1,8 @@
 import type { ReactNode } from 'react';
 import { DEVICE_LOGICAL_W, getPhoneMockupMetrics, type ShowcaseDeviceId } from '../constants';
 
+const SCREEN_FILL = '#fef9fb';
+
 type Props = {
   children: ReactNode;
   device: ShowcaseDeviceId;
@@ -24,6 +26,7 @@ export function ShowcasePhoneFrame({ children, device }: Props) {
   } = m;
 
   const islandRadius = Math.round(islandH / 2);
+  const contentH = (screenH - screenSafeInset * 2) / screenScale;
 
   return (
     <section
@@ -31,7 +34,6 @@ export function ShowcasePhoneFrame({ children, device }: Props) {
       style={{ width: outerW, height: outerH }}
       aria-hidden
     >
-      {/* 柔和外陰影（參考圖：寬、淡） */}
       <span
         className="pointer-events-none absolute inset-0"
         style={{
@@ -41,7 +43,6 @@ export function ShowcasePhoneFrame({ children, device }: Props) {
         }}
       />
 
-      {/* 機身：深灰漸層 + 金屬邊緣 */}
       <span
         className="absolute inset-0"
         style={{
@@ -53,7 +54,6 @@ export function ShowcasePhoneFrame({ children, device }: Props) {
         }}
       />
 
-      {/* 外圈金屬高光 */}
       <span
         className="pointer-events-none absolute inset-0"
         style={{
@@ -63,43 +63,41 @@ export function ShowcasePhoneFrame({ children, device }: Props) {
         }}
       />
 
-      {/* 螢幕開孔（極窄黑邊） */}
+      {/* 螢幕：單層粉白底 + 圓角裁切，避免黑底在四角露出 */}
       <span
-        className="absolute overflow-hidden bg-black"
+        className="lq-showcase-phone-screen absolute overflow-hidden"
         style={{
           left: bezel,
           top: bezel,
           width: screenW,
           height: screenH,
           borderRadius: screenRadius,
-          boxShadow: 'inset 0 0 0 0.5px rgba(0,0,0,0.5)',
+          backgroundColor: SCREEN_FILL,
         }}
       >
-        {/* 螢幕內容（安全邊距，不貼邊） */}
         <span
-          className="absolute overflow-hidden bg-[#fef9fb]"
+          className="absolute inset-0 overflow-hidden"
           style={{
-            left: screenSafeInset,
-            top: screenSafeInset,
-            right: screenSafeInset,
-            bottom: screenSafeInset,
-            borderRadius: Math.max(4, screenRadius - screenSafeInset),
+            borderRadius: screenRadius,
+            backgroundColor: SCREEN_FILL,
+            padding: screenSafeInset,
+            boxSizing: 'border-box',
           }}
         >
           <span
-            className="origin-top-left block"
+            className="lq-showcase-phone-screen-content block origin-top-left"
             style={{
               width: DEVICE_LOGICAL_W,
-              height: (screenH - screenSafeInset * 2) / screenScale,
+              height: contentH,
               transform: `scale(${screenScale})`,
               transformOrigin: 'top left',
+              backgroundColor: SCREEN_FILL,
             }}
           >
             {children}
           </span>
         </span>
 
-        {/* 動態島（螢幕座標系） */}
         <span
           className="absolute left-1/2 z-30 -translate-x-1/2"
           style={{
@@ -107,9 +105,8 @@ export function ShowcasePhoneFrame({ children, device }: Props) {
             width: islandW,
             height: islandH,
             borderRadius: islandRadius,
-            background: '#000000',
-            boxShadow:
-              '0 1px 2px rgba(0,0,0,0.5), inset 0 -1px 0 rgba(255,255,255,0.04)',
+            background: '#0a0a0a',
+            boxShadow: '0 1px 2px rgba(0,0,0,0.35)',
           }}
         />
       </span>

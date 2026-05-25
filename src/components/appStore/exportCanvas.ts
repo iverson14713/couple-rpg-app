@@ -42,6 +42,13 @@ function injectCaptureStyles(doc: Document): void {
       backdrop-filter: none !important;
       -webkit-backdrop-filter: none !important;
     }
+    .${EXPORT_CAPTURE_CLASS} .lq-showcase-phone-screen,
+    .${EXPORT_CAPTURE_CLASS} .lq-showcase-phone-screen-content {
+      background-color: #fef9fb !important;
+    }
+    .${EXPORT_CAPTURE_CLASS} .lq-showcase-phone-screen {
+      box-shadow: inset 0 0 0 4px #fef9fb !important;
+    }
   `;
   doc.head.appendChild(style);
 }
