@@ -13,7 +13,7 @@ import { getAuthCallbackUrl } from './services/auth/authRedirect';
 import {
   isAppleOAuthEnabled,
   isAppleSignInNativeUi,
-  signInWithAppleOAuth,
+  signInWithApple as runAppleSignIn,
 } from './services/auth/appleSignIn';
 import { signInWithGoogleOAuth } from './services/auth/googleSignIn';
 import { authLog } from './services/auth/authDebug';
@@ -226,7 +226,7 @@ export function SupabaseAuthProvider({ children }: { children: ReactNode }) {
     if (!isAppleSignInNativeUi()) {
       return { data: null, error: new Error('apple_web_coming_soon') };
     }
-    const { error } = await signInWithAppleOAuth(supabase);
+    const { error } = await runAppleSignIn(supabase);
     return { data: null, error };
   }, [supabase]);
 

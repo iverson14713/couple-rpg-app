@@ -1,11 +1,13 @@
+import { Capacitor } from '@capacitor/core';
 import type { SupabaseClient } from '@supabase/supabase-js';
+import LoveQuestAppleSignIn from '../../native/loveQuestAppleSignIn';
 import { authLog, isAuthNativeClient } from './authDebug';
-import { getOAuthRedirectUrl, saveAuthReturnPath } from './authRedirect';
+import { getOAuthRedirectUrl, redirectAfterAuthSuccess, saveAuthReturnPath } from './authRedirect';
 import { markOAuthProvider } from './oauthSessionHint';
 import { openOAuthInExternalBrowser } from './oauthNative';
 
 export type AppleSignInResult =
-  | { ok: true; signedIn: false; message: 'redirecting' | 'coming_soon' | 'cancelled' }
+  | { ok: true; signedIn: boolean; message: 'redirecting' | 'coming_soon' | 'cancelled' }
   | { ok: false; signedIn: false; message: string; code?: 'coming_soon' | 'web' | 'failed' };
 
 export const APPLE_SIGN_IN_FAILED_ZH = 'Apple 登入失敗，請稍後再試或改用 Email 登入';
@@ -17,7 +19,7 @@ export function getAppleSignInUserErrorMessage(lang: 'zh' | 'en' = 'zh'): string
 }
 
 /**
- * iOS/Android 正式包：啟用 Apple OAuth（.env.capacitor 或 VITE_APPLE_OAUTH_ENABLED=true）。
+ * iOS/Android 正式包：啟用 Apple 登入（.env.capacitor 或 VITE_APPLE_OAUTH_ENABLED=true）。
  */
 export function isAppleOAuthEnabled(): boolean {
   if (import.meta.env.VITE_APPLE_OAUTH_ENABLED === 'true') return true;
@@ -29,7 +31,7 @@ export function isAppleSignInNativeUi(): boolean {
   return isAuthNativeClient();
 }
 
-/** Web：不支援原生 Apple OAuth */
+/** Web：不支援原生 Apple 登入 */
 export function isAppleSignInWebComingSoon(): boolean {
   return !isAuthNativeClient();
 }
@@ -43,8 +45,71 @@ export function shouldShowAppleSignInButton(): boolean {
   return isAppleSignInNativeUi();
 }
 
+function isIosNative(): boolean {
+  return isAuthNativeClient() && Capacitor.getPlatform() === 'ios';
+}
+
 /**
- * Apple OAuth — 與 Google 相同：原生外部瀏覽器 + redirectTo lovequest://auth/callback
+ * iOS：ASAuthorizationAppleIDProvider → Supabase signInWithIdToken.
+ */
+export async function signInWithAppleNative(
+  supabase: SupabaseClient,
+  lang: 'zh' | 'en' = 'zh'
+): Promise<{ error: Error | null; signedIn?: boolean }> {
+  const userError = getAppleSignInUserErrorMessage(lang);
+  saveAuthReturnPath('/');
+
+  authLog('apple.native.click', { platform: Capacitor.getPlatform() });
+
+  if (!isAppleOAuthEnabled()) {
+    authLog('apple.disabled', { reason: 'provider_flag' });
+    return { error: new Error('apple_not_enabled') };
+  }
+
+  try {
+    const { identityToken } = await LoveQuestAppleSignIn.signIn();
+    authLog('apple.native.token', { tokenLength: identityToken.length });
+
+    const { data, error } = await supabase.auth.signInWithIdToken({
+      provider: 'apple',
+      token: identityToken,
+    });
+
+    authLog('apple.native.signInWithIdToken', {
+      hasError: Boolean(error),
+      errorMessage: error?.message ?? null,
+      hasSession: Boolean(data?.session),
+    });
+
+    if (error) {
+      authLog('apple.native.supabase_error', { message: error.message });
+      return { error: new Error(userError) };
+    }
+    if (!data?.session) {
+      authLog('apple.native.no_session', {});
+      return { error: new Error(userError) };
+    }
+
+    await redirectAfterAuthSuccess(supabase);
+    authLog('apple.native.success', { userId: data.session.user.id });
+    return { error: null, signedIn: true };
+  } catch (e) {
+    const pluginErr = e as Error & { code?: string };
+    const code = pluginErr?.code ?? '';
+    const msg = pluginErr?.message ?? String(e);
+
+    authLog('apple.native.error', { message: msg, code });
+
+    if (code === 'CANCELED') {
+      return { error: new Error('oauth_cancelled') };
+    }
+
+    return { error: new Error(userError) };
+  }
+}
+
+/**
+ * Android：Web OAuth + 外部瀏覽器 + lovequest:// callback（與 Google 相同模式）。
  */
 export async function signInWithAppleOAuth(
   supabase: SupabaseClient,
@@ -55,7 +120,7 @@ export async function signInWithAppleOAuth(
   const isNative = isAuthNativeClient();
   const redirectTo = getOAuthRedirectUrl();
 
-  authLog('apple.click', {
+  authLog('apple.oauth.click', {
     isNative,
     redirectTo,
     skipBrowserRedirect: isNative,
@@ -113,6 +178,18 @@ export async function signInWithAppleOAuth(
   return { error: null };
 }
 
+/** 依平台選擇原生 Apple（iOS）或 Web OAuth（Android）。 */
+export async function signInWithApple(
+  supabase: SupabaseClient,
+  lang: 'zh' | 'en' = 'zh'
+): Promise<{ error: Error | null; signedIn?: boolean }> {
+  if (isIosNative()) {
+    return signInWithAppleNative(supabase, lang);
+  }
+  const { error } = await signInWithAppleOAuth(supabase, lang);
+  return { error };
+}
+
 export async function handleAppleSignIn(
   supabase?: SupabaseClient | null,
   lang: 'zh' | 'en' = 'zh'
@@ -124,18 +201,22 @@ export async function handleAppleSignIn(
   }
 
   if (isAppleSignInWebComingSoon()) {
-    return { ok: true, signedIn: false, message: 'coming_soon', code: 'web' };
+    return { ok: true, signedIn: false, message: 'coming_soon' };
   }
 
-  const { error } = await signInWithAppleOAuth(supabase, lang);
+  const { error, signedIn } = await signInWithApple(supabase, lang);
   if (error) {
     if (error.message === 'web_not_supported') {
-      return { ok: true, signedIn: false, message: 'coming_soon', code: 'web' };
+      return { ok: true, signedIn: false, message: 'coming_soon' };
     }
     if (error.message === 'oauth_cancelled') {
       return { ok: true, signedIn: false, message: 'cancelled' };
     }
     return { ok: false, signedIn: false, message: userError, code: 'failed' };
+  }
+
+  if (signedIn) {
+    return { ok: true, signedIn: true, message: 'redirecting' };
   }
 
   return { ok: true, signedIn: false, message: 'redirecting' };
