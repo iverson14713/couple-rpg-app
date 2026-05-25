@@ -11,6 +11,8 @@ import { lq } from '../theme';
 type Props = {
   plan: DateItineraryPlan;
   animateIn?: boolean;
+  /** 上架截圖：只顯示主題＋時間軸，關閉入場動畫避免匯出空白 */
+  showcase?: boolean;
 };
 
 function budgetTierLabel(tier: DateBudgetTier | string): string {
@@ -161,10 +163,12 @@ function BudgetSection({ plan }: { plan: DateItineraryPlan }) {
   );
 }
 
-export function DateItineraryAiResult({ plan: rawPlan, animateIn }: Props) {
+export function DateItineraryAiResult({ plan: rawPlan, animateIn, showcase }: Props) {
   const plan = hydrateDateItineraryPlan(rawPlan);
-  const stagger = animateIn ? 'ai-result-enter-stagger date-plan-enter' : '';
+  const useAnimate = animateIn && !showcase;
+  const stagger = useAnimate ? 'ai-result-enter-stagger date-plan-enter' : '';
   const reminders = plan.aiReminders.length > 0 ? plan.aiReminders : plan.tips ?? [];
+  const segments = showcase ? plan.segments.slice(0, 3) : plan.segments;
 
   return (
     <div className={`mb-3 space-y-3 ${stagger}`}>
@@ -192,23 +196,23 @@ export function DateItineraryAiResult({ plan: rawPlan, animateIn }: Props) {
         ) : null}
       </div>
 
-      {plan.segments.length > 0 ? (
+      {segments.length > 0 ? (
         <section className="relative rounded-2xl border border-rose-100/70 bg-gradient-to-b from-white/60 to-rose-50/30 p-3 pt-4">
           <p className={`mb-3 px-1 text-[12px] font-bold ${lq.textSecondary}`}>約會時間軸</p>
           <ol className="relative m-0 list-none p-0">
-            {plan.segments.map((seg, i) => (
+            {segments.map((seg, i) => (
               <TimelineSegmentCard
                 key={`${seg.period}-${i}`}
                 seg={seg}
                 index={i}
-                isLast={i === plan.segments.length - 1}
+                isLast={i === segments.length - 1}
               />
             ))}
           </ol>
         </section>
       ) : null}
 
-      {reminders.length > 0 ? (
+      {!showcase && reminders.length > 0 ? (
         <div className="rounded-2xl border border-amber-100/80 bg-gradient-to-br from-amber-50/90 to-orange-50/50 p-3.5 ring-1 ring-amber-100/50">
           <p className="text-[12px] font-bold text-amber-900">AI 小提醒</p>
           <ul className="mt-2 space-y-2">
@@ -224,7 +228,7 @@ export function DateItineraryAiResult({ plan: rawPlan, animateIn }: Props) {
         </div>
       ) : null}
 
-      {plan.partnerLines.length > 0 ? (
+      {!showcase && plan.partnerLines.length > 0 ? (
         <div className="rounded-2xl border border-pink-100/80 bg-gradient-to-br from-pink-50/90 to-rose-50/60 p-3.5">
           <p className="text-[12px] font-bold text-pink-900">可以對伴侶說</p>
           <ul className="mt-2 space-y-2">
@@ -240,22 +244,24 @@ export function DateItineraryAiResult({ plan: rawPlan, animateIn }: Props) {
         </div>
       ) : null}
 
-      <div className="grid gap-2 sm:grid-cols-2">
-        <div className="rounded-2xl border border-sky-100/80 bg-gradient-to-br from-sky-50/90 to-blue-50/40 p-3.5">
-          <p className="text-[12px] font-bold text-sky-900">備案 · 下雨</p>
-          <p className="mt-1.5 text-[13px] leading-relaxed text-sky-950">{plan.rainPlan}</p>
-        </div>
-        {plan.tiredPlan ? (
-          <div className="rounded-2xl border border-violet-100/80 bg-gradient-to-br from-violet-50/80 to-purple-50/40 p-3.5">
-            <p className="text-[12px] font-bold text-violet-900">備案 · 對方累了</p>
-            <p className="mt-1.5 text-[13px] leading-relaxed text-violet-950">{plan.tiredPlan}</p>
+      {!showcase ? (
+        <div className="grid gap-2 sm:grid-cols-2">
+          <div className="rounded-2xl border border-sky-100/80 bg-gradient-to-br from-sky-50/90 to-blue-50/40 p-3.5">
+            <p className="text-[12px] font-bold text-sky-900">備案 · 下雨</p>
+            <p className="mt-1.5 text-[13px] leading-relaxed text-sky-950">{plan.rainPlan}</p>
           </div>
-        ) : null}
-      </div>
+          {plan.tiredPlan ? (
+            <div className="rounded-2xl border border-violet-100/80 bg-gradient-to-br from-violet-50/80 to-purple-50/40 p-3.5">
+              <p className="text-[12px] font-bold text-violet-900">備案 · 對方累了</p>
+              <p className="mt-1.5 text-[13px] leading-relaxed text-violet-950">{plan.tiredPlan}</p>
+            </div>
+          ) : null}
+        </div>
+      ) : null}
 
-      <BudgetSection plan={plan} />
+      {!showcase ? <BudgetSection plan={plan} /> : null}
 
-      {plan.outfit ? (
+      {!showcase && plan.outfit ? (
         <div className={`rounded-2xl border border-stone-200/70 bg-stone-50/80 p-3.5 ${lq.cardSoft}`}>
           <p className="text-[12px] font-bold text-stone-700">穿搭建議</p>
           <p className="mt-1.5 text-[13px] leading-relaxed text-stone-700">{plan.outfit}</p>

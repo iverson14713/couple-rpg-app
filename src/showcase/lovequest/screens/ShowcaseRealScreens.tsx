@@ -5,7 +5,6 @@ import { ImportantDateRemindersSection } from '../../../coupleRpg/components/Imp
 import { ProfileStatsPanel } from '../../../coupleRpg/components/ProfileStatsPanel';
 import { MiniGamePlayCard } from '../../../coupleRpg/components/MiniGamePlayCard';
 import { TabPageHeader } from '../../../coupleRpg/components/TabPageHeader';
-import { RecentDateItineraryAiCard } from '../../../coupleRpg/components/RecentDateItineraryAiCard';
 import { COUPLE_GAME_MODES } from '../../../coupleRpg/data/coupleGamePrompts';
 import { useLoveQuest } from '../../../coupleRpg/context/LoveQuestContext';
 import { lq } from '../../../coupleRpg/theme';
@@ -125,11 +124,10 @@ export function ShowcaseAiDateScreen() {
       <ShowcaseMockShell>
         <ShowcaseScrollClip>
           <TabPageHeader emoji="💑" title="約會去哪" subtitle="AI 行程 · 篩選點子" />
-          <section className={`mb-3 p-3 ${lq.card}`}>
+          <section className={`mb-2 p-3 ${lq.card}`}>
             <p className={`text-[12px] font-bold ${lq.textSecondary}`}>✨ AI 約會規劃結果</p>
-            <DateItineraryAiResult plan={SHOWCASE_DATE_PLAN} animateIn />
+            <DateItineraryAiResult plan={SHOWCASE_DATE_PLAN} showcase />
           </section>
-          <RecentDateItineraryAiCard onView={() => {}} className="opacity-95" />
         </ShowcaseScrollClip>
       </ShowcaseMockShell>
     </ShowcaseProviders>

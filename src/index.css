@@ -622,6 +622,11 @@ html.lq-showcase-hub-active {
   filter: none !important;
 }
 
+.lq-export-capture .lq-showcase-phone-fit {
+  transform: none !important;
+  width: 100% !important;
+}
+
 .lq-export-capture .lq-showcase-canvas-spotlight {
   opacity: 1;
 }
