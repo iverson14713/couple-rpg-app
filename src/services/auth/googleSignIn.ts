@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { authLog, isAuthNativeClient, logAuthEnvironment } from './authDebug';
 import { getOAuthRedirectUrl, saveAuthReturnPath } from './authRedirect';
+import { markOAuthProvider } from './oauthSessionHint';
 import { openOAuthInExternalBrowser } from './oauthNative';
 
 const GOOGLE_QUERY = {
@@ -27,6 +28,7 @@ export async function signInWithGoogleOAuth(
   });
 
   if (isNative) {
+    markOAuthProvider('google');
     const { data, error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {

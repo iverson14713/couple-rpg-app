@@ -8,9 +8,9 @@ import { SkeletonCard } from '../../components/SkeletonCard';
 import { Spinner } from '../../components/SkeletonCard';
 import { useSupabaseAuth } from '../../useSupabaseAuth';
 import {
+  getAppleSignInUserErrorMessage,
   handleAppleSignIn,
-  isAppleOAuthEnabled,
-  isAppleSignInNativeUi,
+  shouldShowAppleSignInButton,
 } from '../../services/auth/appleSignIn';
 import { mapAuthErrorMessage } from '../../services/auth/authErrors';
 import { useLoveQuest } from '../context/LoveQuestContext';
@@ -35,7 +35,7 @@ export function AuthSettingsSection() {
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
 
-  const showAppleSignIn = isAppleSignInNativeUi() && isAppleOAuthEnabled();
+  const showAppleSignIn = shouldShowAppleSignInButton();
   const showAuthDebug = isLoveQuestDevMode();
 
   useEffect(() => {
@@ -103,9 +103,9 @@ export function AuthSettingsSection() {
     authLog('apple.ui.click', { href: window.location.href });
     const result = await handleAppleSignIn(auth.supabase);
     setAppleBusy(false);
-    if (!result.ok && result.message) {
+    if (!result.ok) {
       authLog('apple.ui.error', { message: result.message, code: result.code });
-      setError(mapAuthErrorMessage(new Error(result.message)));
+      setError(getAppleSignInUserErrorMessage('zh'));
     }
   }, [auth.supabase]);
 
@@ -161,7 +161,7 @@ export function AuthSettingsSection() {
     >
       <h2 className="mb-2 text-base font-bold text-stone-900">🔐 帳號登入</h2>
       <p className="mb-3 text-[11px] leading-relaxed text-stone-500">
-        登入後可同步雲端資料。Google 登入會以外部瀏覽器完成，成功後自動回到 App。
+        登入後可同步雲端資料。Google / Apple 登入會以外部瀏覽器完成，成功後自動回到 App。
       </p>
 
       <div className="mb-3 space-y-2">

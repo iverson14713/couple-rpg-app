@@ -1,5 +1,4 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { isLoveQuestDevMode } from '../../coupleRpg/lib/loveQuestDevMode';
 import { authLog, isAuthNativeClient } from './authDebug';
 import { getOAuthRedirectUrl, saveAuthReturnPath } from './authRedirect';
 import { markOAuthProvider } from './oauthSessionHint';
@@ -7,11 +6,22 @@ import { openOAuthInExternalBrowser } from './oauthNative';
 
 export type AppleSignInResult =
   | { ok: true; signedIn: false; message: 'redirecting' | 'coming_soon' }
-  | { ok: false; signedIn: false; message: string; code?: 'coming_soon' | 'provider_not_ready' | 'web' };
+  | { ok: false; signedIn: false; message: string; code?: 'coming_soon' | 'web' | 'failed' };
 
-/** Supabase Apple Provider 已設定並啟用前端開關 */
+export const APPLE_SIGN_IN_FAILED_ZH = 'Apple 登入失敗，請稍後再試或改用 Email 登入';
+export const APPLE_SIGN_IN_FAILED_EN =
+  'Apple sign-in failed. Please try again later or use email sign-in.';
+
+export function getAppleSignInUserErrorMessage(lang: 'zh' | 'en' = 'zh'): string {
+  return lang === 'zh' ? APPLE_SIGN_IN_FAILED_ZH : APPLE_SIGN_IN_FAILED_EN;
+}
+
+/**
+ * iOS/Android 正式包：啟用 Apple OAuth（.env.capacitor 或 VITE_APPLE_OAUTH_ENABLED=true）。
+ */
 export function isAppleOAuthEnabled(): boolean {
-  return import.meta.env.VITE_APPLE_OAUTH_ENABLED === 'true';
+  if (import.meta.env.VITE_APPLE_OAUTH_ENABLED === 'true') return true;
+  return import.meta.env.MODE === 'capacitor' && isAuthNativeClient();
 }
 
 /** iOS / Android 原生殼：顯示 Apple 登入按鈕 */
@@ -19,7 +29,7 @@ export function isAppleSignInNativeUi(): boolean {
   return isAuthNativeClient();
 }
 
-/** Web：顯示「即將開放」 */
+/** Web：不支援原生 Apple OAuth */
 export function isAppleSignInWebComingSoon(): boolean {
   return !isAuthNativeClient();
 }
@@ -28,44 +38,19 @@ export function isAppleSignInAvailable(supabase?: SupabaseClient | null): boolea
   return isAppleSignInNativeUi() && isAppleOAuthEnabled() && Boolean(supabase);
 }
 
-export function getAppleProviderNotReadyMessage(lang: 'zh' | 'en' = 'zh'): string {
-  if (isLoveQuestDevMode()) {
-    if (lang === 'en') {
-      return (
-        'Sign in with Apple is not ready yet. Enable Apple in Supabase Dashboard → Authentication → Providers, ' +
-        'then set VITE_APPLE_OAUTH_ENABLED=true and rebuild the iOS app.'
-      );
-    }
-    return (
-      'Apple 登入尚未完成後台設定。請至 Supabase → Authentication → Providers 啟用 Apple，' +
-      '並在 .env 設定 VITE_APPLE_OAUTH_ENABLED=true 後重新 build:ios。'
-    );
-  }
-  return lang === 'zh'
-    ? 'Apple 登入暫時無法使用，請使用 Google 或 Email 登入。'
-    : 'Sign in with Apple is unavailable. Please use Google or email.';
-}
-
-function mapAppleOAuthError(message: string, lang: 'zh' | 'en'): string {
-  const low = message.toLowerCase();
-  if (low.includes('provider') && low.includes('apple') && low.includes('not enabled')) {
-    return getAppleProviderNotReadyMessage(lang);
-  }
-  if (low.includes('invalid_client') || low.includes('client_id')) {
-    return lang === 'zh'
-      ? 'Apple 登入設定不正確，請確認 Supabase Apple Provider 的 Services ID 與 Secret。'
-      : 'Apple sign-in configuration is invalid. Check Supabase Apple Services ID and secret.';
-  }
-  return message;
+/** 正式版 UI 是否顯示 Apple 登入（原生 App 一律顯示） */
+export function shouldShowAppleSignInButton(): boolean {
+  return isAppleSignInNativeUi();
 }
 
 /**
- * Apple OAuth — 僅 Capacitor 原生走外部瀏覽器；與 Google 相同 callback。
+ * Apple OAuth — 與 Google 相同：原生外部瀏覽器 + redirectTo lovequest://auth/callback
  */
 export async function signInWithAppleOAuth(
   supabase: SupabaseClient,
   lang: 'zh' | 'en' = 'zh'
 ): Promise<{ error: Error | null }> {
+  const userError = getAppleSignInUserErrorMessage(lang);
   saveAuthReturnPath();
   const isNative = isAuthNativeClient();
   const redirectTo = getOAuthRedirectUrl();
@@ -78,11 +63,12 @@ export async function signInWithAppleOAuth(
   });
 
   if (!isNative) {
-    return { error: new Error(lang === 'zh' ? 'web_not_supported' : 'web_not_supported') };
+    return { error: new Error('web_not_supported') };
   }
 
   if (!isAppleOAuthEnabled()) {
-    return { error: new Error('apple_provider_not_ready') };
+    authLog('apple.disabled', { reason: 'provider_flag' });
+    return { error: new Error('apple_not_enabled') };
   }
 
   markOAuthProvider('apple');
@@ -104,27 +90,20 @@ export async function signInWithAppleOAuth(
   });
 
   if (error) {
-    return { error: new Error(mapAppleOAuthError(error.message, lang)) };
+    authLog('apple.oauth_error', { message: error.message });
+    return { error: new Error(userError) };
   }
   if (!data?.url) {
-    return {
-      error: new Error(
-        lang === 'zh'
-          ? isLoveQuestDevMode()
-            ? '無法取得 Apple 登入網址，請確認 Supabase Apple Provider 已啟用。'
-            : 'Apple 登入暫時無法使用，請使用 Google 或 Email 登入。'
-          : isLoveQuestDevMode()
-            ? 'Could not get Apple sign-in URL. Check Supabase Apple Provider.'
-            : 'Sign in with Apple is unavailable. Please use Google or email.'
-      ),
-    };
+    authLog('apple.no_url', {});
+    return { error: new Error(userError) };
   }
 
   try {
     await openOAuthInExternalBrowser(data.url);
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
-    return { error: new Error(lang === 'zh' ? `無法開啟外部瀏覽器：${msg}` : `Could not open browser: ${msg}`) };
+    authLog('apple.browser_error', { message: msg });
+    return { error: new Error(userError) };
   }
 
   return { error: null };
@@ -134,21 +113,14 @@ export async function handleAppleSignIn(
   supabase?: SupabaseClient | null,
   lang: 'zh' | 'en' = 'zh'
 ): Promise<AppleSignInResult> {
+  const userError = getAppleSignInUserErrorMessage(lang);
+
   if (!supabase) {
-    return { ok: false, signedIn: false, message: lang === 'zh' ? '雲端登入尚未設定' : 'Cloud sign-in not configured' };
+    return { ok: false, signedIn: false, message: userError, code: 'failed' };
   }
 
   if (isAppleSignInWebComingSoon()) {
     return { ok: true, signedIn: false, message: 'coming_soon', code: 'web' };
-  }
-
-  if (!isAppleOAuthEnabled()) {
-    return {
-      ok: false,
-      signedIn: false,
-      message: getAppleProviderNotReadyMessage(lang),
-      code: 'provider_not_ready',
-    };
   }
 
   const { error } = await signInWithAppleOAuth(supabase, lang);
@@ -156,15 +128,7 @@ export async function handleAppleSignIn(
     if (error.message === 'web_not_supported') {
       return { ok: true, signedIn: false, message: 'coming_soon', code: 'web' };
     }
-    if (error.message === 'apple_provider_not_ready') {
-      return {
-        ok: false,
-        signedIn: false,
-        message: getAppleProviderNotReadyMessage(lang),
-        code: 'provider_not_ready',
-      };
-    }
-    return { ok: false, signedIn: false, message: error.message };
+    return { ok: false, signedIn: false, message: userError, code: 'failed' };
   }
 
   return { ok: true, signedIn: false, message: 'redirecting' };

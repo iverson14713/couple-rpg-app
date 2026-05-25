@@ -1,5 +1,3 @@
-import { isLoveQuestDevMode } from '../../coupleRpg/lib/loveQuestDevMode';
-
 export type AuthLang = 'zh' | 'en';
 
 const zh: Record<string, string> = {
@@ -17,9 +15,9 @@ const zh: Record<string, string> = {
   no_client: '無法連線驗證服務，請稍後再試。',
   apple_coming_soon: 'Apple 登入即將開放，請先使用 Google 或 Email。',
   apple_web_coming_soon: 'Apple 登入即將開放，請先使用 Google 或 Email。',
-  apple_provider_not_ready: isLoveQuestDevMode()
-    ? 'Apple 登入尚未完成後台設定。請至 Supabase 啟用 Apple Provider，並設定 VITE_APPLE_OAUTH_ENABLED=true 後重新 build:ios。'
-    : 'Apple 登入暫時無法使用，請使用 Google 或 Email 登入。',
+  apple_provider_not_ready: 'Apple 登入失敗，請稍後再試或改用 Email 登入',
+  apple_sign_in_failed: 'Apple 登入失敗，請稍後再試或改用 Email 登入',
+  apple_not_enabled: 'Apple 登入失敗，請稍後再試或改用 Email 登入',
 };
 
 const en: Record<string, string> = {
@@ -37,9 +35,10 @@ const en: Record<string, string> = {
   no_client: 'Verification service is unavailable. Please try again later.',
   apple_coming_soon: 'Sign in with Apple is coming soon. Use Google or email for now.',
   apple_web_coming_soon: 'Sign in with Apple is coming soon. Use Google or email for now.',
-  apple_provider_not_ready: isLoveQuestDevMode()
-    ? 'Sign in with Apple is not configured. Enable Apple in Supabase and set VITE_APPLE_OAUTH_ENABLED=true, then rebuild the iOS app.'
-    : 'Sign in with Apple is unavailable. Please use Google or email.',
+  apple_provider_not_ready:
+    'Apple sign-in failed. Please try again later or use email sign-in.',
+  apple_sign_in_failed: 'Apple sign-in failed. Please try again later or use email sign-in.',
+  apple_not_enabled: 'Apple sign-in failed. Please try again later or use email sign-in.',
 };
 
 function dict(lang: AuthLang): Record<string, string> {
@@ -58,7 +57,13 @@ export function mapAuthErrorMessage(
     if (err.message === 'apple_not_enabled' || err.message === 'apple_web_coming_soon') {
       return d.apple_coming_soon;
     }
-    if (err.message === 'apple_provider_not_ready') return d.apple_provider_not_ready;
+    if (
+      err.message === 'apple_provider_not_ready' ||
+      err.message === 'apple_sign_in_failed' ||
+      err.message === 'apple_not_enabled'
+    ) {
+      return d.apple_sign_in_failed;
+    }
     const low = err.message.toLowerCase();
     if (low.includes('invalid login credentials')) return d.invalid_credentials;
     if (low.includes('email not confirmed')) return d.email_not_confirmed;
