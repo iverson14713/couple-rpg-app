@@ -16,9 +16,20 @@ public class LoveQuestOAuthPlugin: CAPPlugin, CAPBridgedPlugin, ASWebAuthenticat
         CAPPluginMethod(name: "authenticate", returnType: CAPPluginReturnPromise)
     ]
 
+    /// Strong reference — must outlive async OAuth (do not use a local variable).
     private var authSession: ASWebAuthenticationSession?
+    /// Keep plugin call alive until resolve/reject.
+    private var pendingAuthenticateCall: CAPPluginCall?
 
     private static let canceledLoginRawValue = ASWebAuthenticationSessionError.Code.canceledLogin.rawValue
+
+    private func runOnMain(_ work: @escaping () -> Void) {
+        if Thread.isMainThread {
+            work()
+        } else {
+            DispatchQueue.main.async(execute: work)
+        }
+    }
 
     /// Only true for explicit user dismissal (canceledLogin / rawValue 1).
     private func isAuthSessionCanceled(_ error: Error) -> Bool {
@@ -55,7 +66,6 @@ public class LoveQuestOAuthPlugin: CAPPlugin, CAPBridgedPlugin, ASWebAuthenticat
         }
     }
 
-    /// OAuth error in redirect URL, e.g. ?error=access_denied&error_description=...
     private func oauthErrorFromCallbackURL(_ url: URL) -> (code: String, description: String)? {
         guard let components = URLComponents(url: url, resolvingAgainstBaseURL: false) else {
             return nil
@@ -70,6 +80,11 @@ public class LoveQuestOAuthPlugin: CAPPlugin, CAPBridgedPlugin, ASWebAuthenticat
         return (code, description)
     }
 
+    private func finishPendingCall(_ call: CAPPluginCall) {
+        call.keepAlive = false
+        pendingAuthenticateCall = nil
+    }
+
     private func resolveSuccess(callbackURL: URL, call: CAPPluginCall) {
         NSLog("[LQ_AUTH] ASWebAuthenticationSession success redirect=%@", callbackURL.absoluteString)
 
@@ -82,90 +97,145 @@ public class LoveQuestOAuthPlugin: CAPPlugin, CAPBridgedPlugin, ASWebAuthenticat
         )
 
         call.resolve(["url": callbackURL.absoluteString])
+        finishPendingCall(call)
+    }
+
+    private func handleAuthSessionCompletion(
+        callbackURL: URL?,
+        error: Error?,
+        call: CAPPluginCall
+    ) {
+        logAuthSessionCallback(callbackURL: callbackURL, error: error)
+
+        if let callbackURL = callbackURL {
+            if let oauthError = oauthErrorFromCallbackURL(callbackURL) {
+                NSLog(
+                    "[LQ_AUTH] OAuth callback URL error code=%@ error_description=%@",
+                    oauthError.code,
+                    oauthError.description
+                )
+                call.reject(
+                    oauthError.description.isEmpty ? oauthError.code : oauthError.description,
+                    "OAUTH_ERROR",
+                    nil,
+                    [
+                        "error": oauthError.code,
+                        "error_description": oauthError.description
+                    ]
+                )
+                finishPendingCall(call)
+                return
+            }
+            resolveSuccess(callbackURL: callbackURL, call: call)
+            return
+        }
+
+        if let error = error {
+            if isAuthSessionCanceled(error) {
+                NSLog("[LQ_AUTH] ASWebAuthenticationSession user canceled (canceledLogin)")
+                call.reject("User canceled", "CANCELED")
+                finishPendingCall(call)
+                return
+            }
+            let ns = error as NSError
+            NSLog(
+                "[LQ_AUTH] ASWebAuthenticationSession failed (not cancel) domain=%@ code=%ld",
+                ns.domain,
+                ns.code
+            )
+            call.reject(
+                error.localizedDescription,
+                "OAUTH_ERROR",
+                error,
+                ["domain": ns.domain, "code": String(ns.code)]
+            )
+            finishPendingCall(call)
+            return
+        }
+
+        NSLog("[LQ_AUTH] ASWebAuthenticationSession no callback URL and no error")
+        call.reject("No callback URL", "NO_CALLBACK")
+        finishPendingCall(call)
     }
 
     @objc func authenticate(_ call: CAPPluginCall) {
+        call.keepAlive = true
+        pendingAuthenticateCall = call
+
         guard let urlString = call.getString("url"),
               let authURL = URL(string: urlString) else {
-            call.reject("Missing or invalid url")
+            NSLog("[LQ_AUTH] LoveQuestOAuth.authenticate invalid url")
+            call.reject("Missing or invalid url", "INVALID_URL")
+            finishPendingCall(call)
             return
         }
         let scheme = call.getString("callbackScheme") ?? "lovequest"
+        NSLog("[LQ_AUTH] LoveQuestOAuth.authenticate.start url=%@ scheme=%@", urlString, scheme)
 
-        DispatchQueue.main.async { [weak self] in
-            guard let self = self else { return }
-
-            self.authSession = ASWebAuthenticationSession(
-                url: authURL,
-                callbackURLScheme: scheme
-            ) { callbackURL, error in
-                defer { self.authSession = nil }
-
-                self.logAuthSessionCallback(callbackURL: callbackURL, error: error)
-
-                // Prefer callback URL even when error is also set (avoid false cancel).
-                if let callbackURL = callbackURL {
-                    if let oauthError = self.oauthErrorFromCallbackURL(callbackURL) {
-                        NSLog(
-                            "[LQ_AUTH] OAuth callback URL error code=%@ error_description=%@",
-                            oauthError.code,
-                            oauthError.description
-                        )
-                        call.reject(
-                            oauthError.description.isEmpty ? oauthError.code : oauthError.description,
-                            "OAUTH_ERROR",
-                            nil,
-                            [
-                                "error": oauthError.code,
-                                "error_description": oauthError.description
-                            ]
-                        )
-                        return
-                    }
-                    self.resolveSuccess(callbackURL: callbackURL, call: call)
-                    return
-                }
-
-                if let error = error {
-                    if self.isAuthSessionCanceled(error) {
-                        NSLog("[LQ_AUTH] ASWebAuthenticationSession user canceled (canceledLogin)")
-                        call.reject("User canceled", "CANCELED")
-                        return
-                    }
-                    let ns = error as NSError
-                    NSLog(
-                        "[LQ_AUTH] ASWebAuthenticationSession failed (not cancel) domain=%@ code=%ld",
-                        ns.domain,
-                        ns.code
-                    )
-                    call.reject(
-                        error.localizedDescription,
-                        "OAUTH_ERROR",
-                        error,
-                        ["domain": ns.domain, "code": String(ns.code)]
-                    )
-                    return
-                }
-
-                NSLog("[LQ_AUTH] ASWebAuthenticationSession no callback URL and no error")
-                call.reject("No callback URL", "NO_CALLBACK")
+        runOnMain { [weak self] in
+            guard let self = self else {
+                NSLog("[LQ_AUTH] LoveQuestOAuth.authenticate plugin deallocated before main")
+                call.reject("Plugin unavailable", "PLUGIN_UNAVAILABLE")
+                call.keepAlive = false
+                return
             }
 
-            self.authSession?.presentationContextProvider = self
-            self.authSession?.prefersEphemeralWebBrowserSession = false
+            if let existing = self.authSession {
+                NSLog("[LQ_AUTH] canceling previous ASWebAuthenticationSession")
+                existing.cancel()
+                self.authSession = nil
+            }
 
-            if self.authSession?.start() != true {
-                NSLog("[LQ_AUTH] ASWebAuthenticationSession start() returned false")
+            let session = ASWebAuthenticationSession(
+                url: authURL,
+                callbackURLScheme: scheme
+            ) { [weak self] callbackURL, error in
+                NSLog("[LQ_AUTH] ASWebAuthenticationSession completion handler invoked")
+                DispatchQueue.main.async {
+                    guard let self = self else {
+                        NSLog("[LQ_AUTH] completion: plugin deallocated")
+                        call.reject("Plugin unavailable after OAuth", "PLUGIN_UNAVAILABLE")
+                        call.keepAlive = false
+                        return
+                    }
+                    self.authSession = nil
+                    self.handleAuthSessionCompletion(
+                        callbackURL: callbackURL,
+                        error: error,
+                        call: call
+                    )
+                }
+            }
+
+            self.authSession = session
+            session.presentationContextProvider = self
+            session.prefersEphemeralWebBrowserSession = false
+
+            let started = session.start()
+            NSLog("[LQ_AUTH] ASWebAuthenticationSession.start result=%@", started ? "true" : "false")
+
+            if !started {
+                self.authSession = nil
                 call.reject("Failed to start authentication session", "START_FAILED")
+                self.finishPendingCall(call)
             }
         }
     }
 
     public func presentationAnchor(for session: ASWebAuthenticationSession) -> ASPresentationAnchor {
-        if let window = self.bridge?.viewController?.view.window {
+        if let window = bridge?.viewController?.view.window {
             return window
         }
-        let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
-        return scenes.flatMap { $0.windows }.first { $0.isKeyWindow } ?? ASPresentationAnchor()
+        if let window = UIApplication.shared.connectedScenes
+            .compactMap({ $0 as? UIWindowScene })
+            .flatMap({ $0.windows })
+            .first(where: { $0.isKeyWindow }) {
+            return window
+        }
+        NSLog("[LQ_AUTH] presentationAnchor: bridge window missing, using first window")
+        return UIApplication.shared.connectedScenes
+            .compactMap({ $0 as? UIWindowScene })
+            .flatMap({ $0.windows })
+            .first ?? ASPresentationAnchor()
     }
 }
