@@ -22,6 +22,16 @@ const LoveQuestShowcaseSingle = lazy(() =>
     default: m.LoveQuestShowcaseSingle,
   }))
 );
+const LoveQuestAppStoreScreenshotPage = lazy(() =>
+  import('./showcase/lovequest/LoveQuestAppStoreScreenshotPage.tsx').then((m) => ({
+    default: m.LoveQuestAppStoreScreenshotPage,
+  }))
+);
+const LoveQuestAppStoreScreenshotIndex = lazy(() =>
+  import('./showcase/lovequest/LoveQuestAppStoreScreenshotIndex.tsx').then((m) => ({
+    default: m.LoveQuestAppStoreScreenshotIndex,
+  }))
+);
 
 function RouteLoadingFallback() {
   return (
@@ -41,6 +51,7 @@ function normalizePath(pathname: string): string {
   if (p === '/privacy') return '/privacy';
   if (p === '/terms') return '/terms';
   if (p === '/app-store-screenshots') return '/app-store-screenshots';
+  if (p === '/app-store-screenshot/lovequest') return '/app-store-screenshot/lovequest';
   return p;
 }
 
@@ -79,6 +90,26 @@ export function Root() {
     return (
       <LazyRoute>
         <AppStoreScreenshotMode />
+      </LazyRoute>
+    );
+  }
+
+  const appStoreShotMatch = path.match(/^\/app-store-screenshot\/lovequest\/(\d+)$/);
+  if (appStoreShotMatch) {
+    const slideIndex = parseInt(appStoreShotMatch[1]!, 10);
+    if (slideIndex >= 1 && slideIndex <= 5) {
+      return (
+        <LazyRoute>
+          <LoveQuestAppStoreScreenshotPage slideIndex={slideIndex} />
+        </LazyRoute>
+      );
+    }
+  }
+
+  if (path === '/app-store-screenshot/lovequest') {
+    return (
+      <LazyRoute>
+        <LoveQuestAppStoreScreenshotIndex />
       </LazyRoute>
     );
   }

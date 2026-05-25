@@ -24,6 +24,8 @@ type Props = {
   device?: ShowcaseDeviceId;
   exportId?: string;
   view?: 'marketing' | 'app';
+  /** 1284×2778 原生截圖頁：無 opacity 裝飾、無 backdrop-filter */
+  nativeScreenshot?: boolean;
 };
 
 export function LoveQuestShowcaseSlideCanvas({
@@ -31,6 +33,7 @@ export function LoveQuestShowcaseSlideCanvas({
   device = '6.5',
   exportId,
   view = 'marketing',
+  nativeScreenshot = false,
 }: Props) {
   const { w, h } = SHOWCASE_DEVICES[device];
   const Screen = slide.Screen;
@@ -57,7 +60,9 @@ export function LoveQuestShowcaseSlideCanvas({
   return (
     <article
       id={exportId}
-      className="lq-showcase-canvas relative flex flex-col overflow-hidden"
+      className={`lq-showcase-canvas relative flex flex-col overflow-hidden${
+        nativeScreenshot ? ' lq-native-screenshot-canvas' : ''
+      }`}
       style={{
         width: w,
         height: h,
@@ -65,10 +70,14 @@ export function LoveQuestShowcaseSlideCanvas({
         background: LQ_SHOWCASE_GRADIENT,
       }}
     >
-      <span className="lq-showcase-canvas-spotlight pointer-events-none absolute inset-0 z-[1]" aria-hidden />
-      <ShowcaseOrbs />
-      <ShowcaseCanvasDecor />
-      <ShowcaseBottomDecor />
+      {!nativeScreenshot ? (
+        <>
+          <span className="lq-showcase-canvas-spotlight pointer-events-none absolute inset-0 z-[1]" aria-hidden />
+          <ShowcaseOrbs />
+          <ShowcaseCanvasDecor />
+          <ShowcaseBottomDecor />
+        </>
+      ) : null}
 
       <header
         className="lq-showcase-hero relative z-10 shrink-0 text-center"

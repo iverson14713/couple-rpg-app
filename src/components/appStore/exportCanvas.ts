@@ -5,6 +5,8 @@ const EXPORT_RENDER_SCALE = 2;
 
 export const EXPORT_CAPTURE_CLASS = 'lq-export-capture';
 
+const PHONE_SCREEN_FILL = '#fef9fb';
+
 type ExpandedPreviewState = {
   scaleWrap: HTMLElement | null;
   viewport: HTMLElement | null;

@@ -200,6 +200,34 @@ html.lq-showcase-hub-active {
   scroll-behavior: smooth;
 }
 
+/* App Store 原生截圖頁 — 固定 1284×2778，Playwright / DevTools 所見即所得 */
+html.lq-app-store-screenshot-page,
+html.lq-app-store-screenshot-page body {
+  margin: 0;
+  padding: 0;
+  width: 1284px;
+  height: 2778px;
+  overflow: hidden;
+  background-color: #fff9fc;
+}
+
+.lq-native-screenshot-root {
+  width: 1284px;
+  height: 2778px;
+  overflow: hidden;
+}
+
+.lq-native-screenshot-canvas,
+.lq-native-screenshot-canvas * {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  mix-blend-mode: normal !important;
+}
+
+.lq-native-screenshot-canvas .lq-showcase-phone {
+  animation: none !important;
+}
+
 .lq-showcase-canvas {
   isolation: isolate;
 }
