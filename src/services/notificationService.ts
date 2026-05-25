@@ -22,6 +22,13 @@ const NOTIFICATION_MINUTE = 0;
 const ID_BASE = 40_000;
 const ID_SPAN = 900_000;
 
+/** 除錯測試推播（不與重要日子 ID 衝突） */
+export const LOVEQUEST_DEBUG_TEST_NOTIFICATION_ID = 39_999;
+
+export const LOVEQUEST_DEBUG_TEST_NOTIFICATION_TITLE = 'LoveQuest 測試提醒';
+export const LOVEQUEST_DEBUG_TEST_NOTIFICATION_BODY =
+  '如果你看到這則通知，代表 iOS 本機推播正常';
+
 export function isLoveQuestNativeNotificationsAvailable(): boolean {
   return Capacitor.isNativePlatform();
 }
@@ -172,6 +179,53 @@ async function listLoveQuestPendingIds(): Promise<number[]> {
       .filter((id): id is number => typeof id === 'number' && id >= ID_BASE && id < ID_BASE + ID_SPAN);
   } catch {
     return [];
+  }
+}
+
+export type ScheduleLoveQuestDebugTestResult = {
+  ok: boolean;
+  permission: LoveQuestNotificationPermission;
+  message: string;
+};
+
+/** 除錯：10 秒後觸發一則測試本機推播 */
+export async function scheduleLoveQuestDebugTestNotification(): Promise<ScheduleLoveQuestDebugTestResult> {
+  if (!isLoveQuestNativeNotificationsAvailable()) {
+    return { ok: false, permission: 'unsupported', message: '此裝置不支援本機推播' };
+  }
+
+  const permission = await requestLoveQuestNotificationPermission();
+  if (permission !== 'granted') {
+    return {
+      ok: false,
+      permission,
+      message:
+        permission === 'denied'
+          ? '請至系統設定允許 LoveQuest 通知'
+          : '請允許通知權限後再試',
+    };
+  }
+
+  const at = new Date(Date.now() + 10_000);
+  try {
+    await LocalNotifications.cancel({
+      notifications: [{ id: LOVEQUEST_DEBUG_TEST_NOTIFICATION_ID }],
+    });
+    await LocalNotifications.schedule({
+      notifications: [
+        {
+          id: LOVEQUEST_DEBUG_TEST_NOTIFICATION_ID,
+          title: LOVEQUEST_DEBUG_TEST_NOTIFICATION_TITLE,
+          body: LOVEQUEST_DEBUG_TEST_NOTIFICATION_BODY,
+          schedule: { at, allowWhileIdle: true },
+          extra: { source: 'lovequest-debug-test' },
+        },
+      ],
+    });
+    return { ok: true, permission, message: '已排程，約 10 秒後會收到測試通知' };
+  } catch (e) {
+    console.error('[lovequest-notifications] debug test schedule failed', e);
+    return { ok: false, permission, message: '排程失敗，請稍後再試' };
   }
 }
 

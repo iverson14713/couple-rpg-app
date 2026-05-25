@@ -19,6 +19,7 @@ import {
 import type { ReminderOffsetDays } from '../storage/importantDateReminderTypes';
 import { ImportantDateReminderList } from './ImportantDateReminderList';
 import { ImportantDatePushSettings } from './ImportantDatePushSettings';
+import { ImportantDateDebugNotificationButton } from './ImportantDateDebugNotificationButton';
 import { useAiUsage } from '../hooks/useAiUsage';
 import { useProFeature } from '../hooks/useProFeature';
 import { AiUsageQuotaLabel } from './AiUsageQuotaLabel';
@@ -204,6 +205,7 @@ export function ImportantDateRemindersSection({ showBack, compactHero }: Props) 
       )}
 
       <ImportantDatePushSettings onPermissionGranted={() => void rescheduleImportantDatePush()} />
+      <ImportantDateDebugNotificationButton />
 
       {savedFlash ? (
         <p className="mb-2 rounded-xl bg-emerald-50 px-3 py-2 text-center text-[12px] font-semibold text-emerald-800 ring-1 ring-emerald-100">
