@@ -26,7 +26,7 @@ export function AppStoreScreenshotMode() {
 
   const exportOne = useCallback(async (index: number) => {
     const slide = APP_STORE_SLIDES[index];
-    const el = document.getElementById(`app-store-slide-${index}`);
+    const el = document.getElementById(`app-store-preview-${index}`);
     if (!el) return;
     setBusy(true);
     setStatus(`正在匯出：${slide.headline}…`);
@@ -129,13 +129,6 @@ export function AppStoreScreenshotMode() {
               </div>
             </div>
           </article>
-        ))}
-      </section>
-
-      {/* Full-size off-screen canvases for export (avoids scaled-preview blur) */}
-      <section className="pointer-events-none fixed left-0 top-0 -z-[100] opacity-0" aria-hidden>
-        {APP_STORE_SLIDES.map((slide, index) => (
-          <AppStoreScreenshotSlide key={`export-${slide.id}`} slide={slide} exportId={`app-store-slide-${index}`} />
         ))}
       </section>
     </main>

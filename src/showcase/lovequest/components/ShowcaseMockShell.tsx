@@ -9,7 +9,7 @@ type Props = {
 export function ShowcaseMockShell({ children }: Props) {
   return (
     <section
-      className="lq-showcase-mock-app flex h-full flex-col overflow-hidden text-[#3a2e34]"
+      className="lq-showcase-mock-app flex h-full flex-col overflow-hidden bg-[#fef9fb] text-[#3a2e34]"
       style={{ width: DEVICE_LOGICAL_W, fontFamily: LQ_SHOWCASE_FONT }}
     >
       <header className="flex shrink-0 items-center justify-between px-5 pb-1 pt-[max(0.5rem,env(safe-area-inset-top))]">

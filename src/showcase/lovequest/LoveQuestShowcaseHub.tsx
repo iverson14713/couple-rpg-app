@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { flushSync } from 'react-dom';
 import { ChevronLeft, Download, Smartphone } from 'lucide-react';
 import { ensureAppStoreFontsReady } from '../../components/appStore/fonts';
 import { goHome } from '../../legalNavigate';
@@ -10,6 +11,13 @@ import { buildShowcaseUrl, parseShowcaseParams } from './parseParams';
 import { LOVEQUEST_SHOWCASE_SLIDES } from './slides';
 
 const PREVIEW_SCALE = 0.2;
+const SHOWCASE_CANVAS_ID = 'lq-showcase-active-canvas';
+
+async function waitForPaint(): Promise<void> {
+  await new Promise<void>((r) => {
+    requestAnimationFrame(() => requestAnimationFrame(() => r()));
+  });
+}
 
 export function LoveQuestShowcaseHub() {
   const params = useMemo(() => parseShowcaseParams(), []);
@@ -37,16 +45,26 @@ export function LoveQuestShowcaseHub() {
     return () => document.documentElement.classList.remove('lq-showcase-hub-active');
   }, []);
 
+  const exportSlideAt = useCallback(async (index: number) => {
+    const s = LOVEQUEST_SHOWCASE_SLIDES[index];
+    if (!s) return;
+
+    flushSync(() => setActiveIndex(index));
+    await waitForPaint();
+
+    const el = document.getElementById(SHOWCASE_CANVAS_ID);
+    if (!el) return;
+
+    setStatus(`匯出：${s.headline}…`);
+    await exportLoveQuestShowcase(el, s.filename);
+    setStatus(`已下載 ${s.filename}`);
+  }, []);
+
   const exportOne = useCallback(
     async (index: number) => {
-      const s = LOVEQUEST_SHOWCASE_SLIDES[index];
-      const el = document.getElementById(`lq-showcase-export-${index}`);
-      if (!el) return;
       setBusy(true);
-      setStatus(`匯出：${s.headline}…`);
       try {
-        await exportLoveQuestShowcase(el, s.filename);
-        setStatus(`已下載 ${s.filename}`);
+        await exportSlideAt(index);
       } catch (e) {
         console.error(e);
         setStatus('匯出失敗');
@@ -54,21 +72,24 @@ export function LoveQuestShowcaseHub() {
         setBusy(false);
       }
     },
-    []
+    [exportSlideAt]
   );
 
   const exportAll = useCallback(async () => {
     setBusy(true);
     try {
       for (let i = 0; i < LOVEQUEST_SHOWCASE_SLIDES.length; i++) {
-        await exportOne(i);
+        await exportSlideAt(i);
         await new Promise((r) => setTimeout(r, 400));
       }
       setStatus('5 張已全部匯出');
+    } catch (e) {
+      console.error(e);
+      setStatus('匯出失敗');
     } finally {
       setBusy(false);
     }
-  }, [exportOne]);
+  }, [exportSlideAt]);
 
   const goSlide = (index: number) => {
     const clamped = Math.max(0, Math.min(LOVEQUEST_SHOWCASE_SLIDES.length - 1, index));
@@ -179,22 +200,9 @@ export function LoveQuestShowcaseHub() {
               transformOrigin: 'top left',
             }}
           >
-            <LoveQuestShowcaseSlideCanvas
-              slide={slide}
-              exportId={`lq-showcase-preview-${activeIndex}`}
-            />
+            <LoveQuestShowcaseSlideCanvas slide={slide} exportId={SHOWCASE_CANVAS_ID} />
           </div>
         </div>
-      </section>
-
-      <section className="pointer-events-none fixed left-0 top-0 -z-[100] opacity-0" aria-hidden>
-        {LOVEQUEST_SHOWCASE_SLIDES.map((s, i) => (
-          <LoveQuestShowcaseSlideCanvas
-            key={`export-${s.id}`}
-            slide={s}
-            exportId={`lq-showcase-export-${i}`}
-          />
-        ))}
       </section>
     </main>
   );

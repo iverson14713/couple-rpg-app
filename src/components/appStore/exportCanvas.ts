@@ -3,11 +3,10 @@ import html2canvas from 'html2canvas';
 /** Render at 2× then downscale so PNG is exactly App Store dimensions with crisp type. */
 const EXPORT_RENDER_SCALE = 2;
 
-/** Applied to cloned DOM so html2canvas matches on-screen preview (no blur wash). */
 export const EXPORT_CAPTURE_CLASS = 'lq-export-capture';
 
-const CAPTURE_RESET_STYLE =
-  'position:fixed;left:0;top:0;z-index:2147483646;pointer-events:none;margin:0;opacity:1;visibility:visible;';
+const CAPTURE_PIN_STYLE =
+  'position:fixed;left:0;top:0;z-index:2147483646;pointer-events:none;margin:0;opacity:1;visibility:visible;transform:none;';
 
 function findCaptureRoot(cloned: HTMLElement): HTMLElement {
   if (
@@ -27,13 +26,71 @@ function injectCaptureStyles(doc: Document): void {
       animation: none !important;
       transition: none !important;
     }
+    .${EXPORT_CAPTURE_CLASS} .lq-showcase-stat-card,
+    .${EXPORT_CAPTURE_CLASS} .lq-showcase-feature-card,
+    .${EXPORT_CAPTURE_CLASS} .lq-showcase-ai-hero,
+    .${EXPORT_CAPTURE_CLASS} .lq-showcase-reminder-hero,
+    .${EXPORT_CAPTURE_CLASS} .lq-showcase-game-hero {
+      backdrop-filter: none !important;
+      -webkit-backdrop-filter: none !important;
+    }
+    .${EXPORT_CAPTURE_CLASS} [style*="filter"] {
+      filter: none !important;
+    }
   `;
   doc.head.appendChild(style);
 }
 
+type ScaleWrapState = {
+  wrap: HTMLElement;
+  prevWrapTransform: string;
+  prevWrapOrigin: string;
+  prevParentOverflow: string;
+  prevParentWidth: string;
+  prevParentHeight: string;
+};
+
+/** Undo preview scale(0.2) so capture matches what the user sees, at full resolution. */
+function beginFullSizeFromPreviewWrap(canvas: HTMLElement): ScaleWrapState | null {
+  const wrap = canvas.parentElement;
+  if (!wrap || !wrap.style.transform.includes('scale')) return null;
+
+  const parent = wrap.parentElement;
+  const state: ScaleWrapState = {
+    wrap,
+    prevWrapTransform: wrap.style.transform,
+    prevWrapOrigin: wrap.style.transformOrigin,
+    prevParentOverflow: parent?.style.overflow ?? '',
+    prevParentWidth: parent?.style.width ?? '',
+    prevParentHeight: parent?.style.height ?? '',
+  };
+
+  if (parent) {
+    parent.style.overflow = 'visible';
+    parent.style.width = `${canvas.offsetWidth}px`;
+    parent.style.height = `${canvas.offsetHeight}px`;
+  }
+  wrap.style.transform = 'none';
+  wrap.style.transformOrigin = 'top left';
+
+  return state;
+}
+
+function endFullSizeFromPreviewWrap(state: ScaleWrapState | null): void {
+  if (!state) return;
+  const parent = state.wrap.parentElement;
+  state.wrap.style.transform = state.prevWrapTransform;
+  state.wrap.style.transformOrigin = state.prevWrapOrigin;
+  if (parent) {
+    parent.style.overflow = state.prevParentOverflow;
+    parent.style.width = state.prevParentWidth;
+    parent.style.height = state.prevParentHeight;
+  }
+}
+
 /**
- * Capture a full-size slide element. Briefly pins it in-viewport so filters/gradients
- * rasterize like the preview (off-screen -12000px breaks blur in many browsers).
+ * Capture the same DOM node used in on-screen preview (WYSIWYG).
+ * Temporarily removes preview scale and pins at 0,0 for reliable rasterization.
  */
 export async function captureElementForExport(
   element: HTMLElement,
@@ -41,12 +98,15 @@ export async function captureElementForExport(
   height: number,
   backgroundColor: string
 ): Promise<HTMLCanvasElement> {
+  const scaleState = beginFullSizeFromPreviewWrap(element);
+
   const prevStyle = element.getAttribute('style') ?? '';
   const parent = element.parentElement;
   const nextSibling = element.nextSibling;
+
   element.classList.add(EXPORT_CAPTURE_CLASS);
   document.body.appendChild(element);
-  element.setAttribute('style', CAPTURE_RESET_STYLE);
+  element.setAttribute('style', `${CAPTURE_PIN_STYLE}width:${width}px;height:${height}px;`);
 
   await new Promise<void>((r) => {
     requestAnimationFrame(() => requestAnimationFrame(() => r()));
@@ -68,8 +128,7 @@ export async function captureElementForExport(
       onclone: (doc, clonedNode) => {
         injectCaptureStyles(doc);
         if (clonedNode instanceof HTMLElement) {
-          const root = findCaptureRoot(clonedNode);
-          root.classList.add(EXPORT_CAPTURE_CLASS);
+          findCaptureRoot(clonedNode).classList.add(EXPORT_CAPTURE_CLASS);
         }
       },
     });
@@ -77,6 +136,7 @@ export async function captureElementForExport(
     element.classList.remove(EXPORT_CAPTURE_CLASS);
     if (prevStyle) element.setAttribute('style', prevStyle);
     else element.removeAttribute('style');
+
     if (parent) {
       if (nextSibling && nextSibling.parentElement === parent) {
         parent.insertBefore(element, nextSibling);
@@ -84,6 +144,7 @@ export async function captureElementForExport(
         parent.appendChild(element);
       }
     }
+    endFullSizeFromPreviewWrap(scaleState);
   }
 }
 

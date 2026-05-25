@@ -93,7 +93,7 @@ export function LoveQuestShowcaseSlideCanvas({
           style={{
             fontSize: SHOWCASE_HEADLINE_SIZE,
             textShadow:
-              '0 0 32px rgba(251,113,133,0.45), 0 4px 20px rgba(190,24,93,0.28), 0 2px 6px rgba(0,0,0,0.1)',
+              '0 2px 8px rgba(190,24,93,0.35), 0 1px 3px rgba(0,0,0,0.15)',
           }}
         >
           {slide.headline}
@@ -110,31 +110,16 @@ export function LoveQuestShowcaseSlideCanvas({
       </header>
 
       <section
-        className="relative z-10 flex min-h-0 flex-1 flex-col items-center justify-end"
+        className="lq-showcase-phone-section relative z-20 flex min-h-0 flex-1 flex-col items-center justify-end"
         style={{
           paddingTop: SHOWCASE_PHONE_GAP_TOP,
           paddingBottom: SHOWCASE_CANVAS_BOTTOM_PAD,
         }}
       >
-        <span
-          className="lq-showcase-phone-backglow pointer-events-none absolute left-1/2 z-[2] -translate-x-1/2"
-          style={{
-            bottom: '8%',
-            width: phone.width * 1.35,
-            height: Math.round(phone.height * 0.55),
-          }}
-          aria-hidden
-        />
-        <div className="relative z-10" style={{ width: phone.width, height: phone.height }}>
-          <span
-            className="lq-showcase-phone-glow pointer-events-none absolute left-1/2 z-[2] -translate-x-1/2"
-            style={{
-              bottom: '4%',
-              width: phone.width * 1.15,
-              height: Math.round(phone.height * 0.12),
-            }}
-            aria-hidden
-          />
+        <div
+          className="lq-showcase-phone-stage relative"
+          style={{ width: phone.width, height: phone.height, isolation: 'isolate' }}
+        >
           <ShowcasePhoneFrame device={device}>
             <Screen />
           </ShowcasePhoneFrame>

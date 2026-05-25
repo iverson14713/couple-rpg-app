@@ -200,6 +200,10 @@ html.lq-showcase-hub-active {
   scroll-behavior: smooth;
 }
 
+.lq-showcase-canvas {
+  isolation: isolate;
+}
+
 /* Soft glows without filter:blur — html2canvas renders blur as gray wash */
 .lq-showcase-orb {
   pointer-events: none;
@@ -209,10 +213,17 @@ html.lq-showcase-hub-active {
 }
 
 .lq-showcase-canvas-spotlight {
-  background:
-    radial-gradient(ellipse 95% 50% at 50% 6%, rgba(255, 255, 255, 0.32), transparent 52%),
-    radial-gradient(ellipse 80% 55% at 50% 38%, rgba(255, 241, 246, 0.22), transparent 62%),
-    radial-gradient(ellipse 70% 45% at 50% 72%, rgba(251, 207, 232, 0.14), transparent 68%);
+  top: 0;
+  right: 0;
+  left: 0;
+  bottom: auto;
+  height: 38%;
+  background: radial-gradient(
+    ellipse 95% 90% at 50% 0%,
+    rgba(255, 255, 255, 0.28) 0%,
+    rgba(255, 241, 246, 0.12) 45%,
+    transparent 72%
+  );
 }
 
 .lq-showcase-sparkle {
@@ -347,19 +358,7 @@ html.lq-showcase-hub-active {
   pointer-events: none;
 }
 
-.lq-showcase-phone-backglow {
-  border-radius: 50%;
-  background: radial-gradient(
-    ellipse 100% 100% at 50% 50%,
-    rgba(255, 255, 255, 0.72) 0%,
-    rgba(253, 242, 248, 0.55) 28%,
-    rgba(251, 207, 232, 0.38) 48%,
-    rgba(244, 114, 182, 0.18) 62%,
-    transparent 78%
-  );
-  filter: none;
-  box-shadow: 0 0 100px 48px rgba(244, 114, 182, 0.22);
-}
+/* Pink glow lives on .lq-showcase-phone frame shadow — not a layer over the screen */
 
 .lq-showcase-orb--tl {
   top: -3rem;
@@ -411,7 +410,16 @@ html.lq-showcase-hub-active {
 }
 
 .lq-showcase-bottom-decor {
-  height: 48%;
+  height: 22%;
+  z-index: 0;
+}
+
+.lq-showcase-phone-section {
+  z-index: 30;
+}
+
+.lq-showcase-phone-stage {
+  z-index: 1;
 }
 
 .lq-showcase-floor-glow {
@@ -430,18 +438,6 @@ html.lq-showcase-hub-active {
   );
 }
 
-.lq-showcase-phone-glow {
-  border-radius: 9999px;
-  background: radial-gradient(
-    ellipse 100% 100% at 50% 50%,
-    rgba(255, 255, 255, 0.75) 0%,
-    rgba(251, 207, 232, 0.45) 40%,
-    rgba(244, 114, 182, 0.2) 58%,
-    transparent 72%
-  );
-  filter: none;
-  box-shadow: 0 0 48px 20px rgba(251, 113, 133, 0.28);
-}
 
 .lq-showcase-float-icon {
   position: absolute;
@@ -620,8 +616,6 @@ html.lq-showcase-hub-active {
 }
 
 .lq-export-capture .lq-showcase-orb,
-.lq-export-capture .lq-showcase-phone-backglow,
-.lq-export-capture .lq-showcase-phone-glow,
 .lq-export-capture .lq-showcase-sparkle,
 .lq-export-capture .lq-showcase-hero-heart,
 .lq-export-capture .lq-showcase-float-icon {
