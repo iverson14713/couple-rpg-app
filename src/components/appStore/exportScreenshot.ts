@@ -1,11 +1,13 @@
-import html2canvas from 'html2canvas';
 import { ASPECT_H, ASPECT_W } from './constants';
 import {
   canvasToExactPngBlob,
+  captureElementForExport,
   downloadPngBlob,
-  EXPORT_RENDER_SCALE,
 } from './exportCanvas';
 import { ensureAppStoreFontsReady } from './fonts';
+
+/** First stop of slide gradient — solid fallback for html2canvas. */
+const EXPORT_BG = '#fdba74';
 
 export async function exportScreenshotElement(
   element: HTMLElement,
@@ -13,16 +15,7 @@ export async function exportScreenshotElement(
 ): Promise<void> {
   await ensureAppStoreFontsReady();
 
-  const canvas = await html2canvas(element, {
-    width: ASPECT_W,
-    height: ASPECT_H,
-    scale: EXPORT_RENDER_SCALE,
-    useCORS: true,
-    backgroundColor: null,
-    logging: false,
-    foreignObjectRendering: false,
-  });
-
+  const canvas = await captureElementForExport(element, ASPECT_W, ASPECT_H, EXPORT_BG);
   const blob = await canvasToExactPngBlob(canvas, ASPECT_W, ASPECT_H);
   downloadPngBlob(blob, filename);
 }

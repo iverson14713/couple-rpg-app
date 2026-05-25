@@ -93,7 +93,7 @@ export function LoveQuestShowcaseSlideCanvas({
           style={{
             fontSize: SHOWCASE_HEADLINE_SIZE,
             textShadow:
-              '0 0 40px rgba(251,113,133,0.55), 0 4px 24px rgba(190,24,93,0.35), 0 2px 6px rgba(0,0,0,0.08)',
+              '0 0 32px rgba(251,113,133,0.45), 0 4px 20px rgba(190,24,93,0.28), 0 2px 6px rgba(0,0,0,0.1)',
           }}
         >
           {slide.headline}

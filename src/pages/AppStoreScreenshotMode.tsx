@@ -133,7 +133,7 @@ export function AppStoreScreenshotMode() {
       </section>
 
       {/* Full-size off-screen canvases for export (avoids scaled-preview blur) */}
-      <section className="pointer-events-none fixed left-[-10000px] top-0" aria-hidden>
+      <section className="pointer-events-none fixed left-0 top-0 -z-[100] opacity-0" aria-hidden>
         {APP_STORE_SLIDES.map((slide, index) => (
           <AppStoreScreenshotSlide key={`export-${slide.id}`} slide={slide} exportId={`app-store-slide-${index}`} />
         ))}

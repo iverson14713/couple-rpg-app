@@ -37,7 +37,7 @@ export function ShowcasePhoneFrame({ children, device }: Props) {
         style={{
           borderRadius: frameRadius,
           boxShadow:
-            '0 32px 80px -16px rgba(15, 23, 42, 0.22), 0 12px 36px -12px rgba(190, 24, 93, 0.18)',
+            '0 32px 80px -16px rgba(15, 23, 42, 0.18), 0 12px 36px -12px rgba(190, 24, 93, 0.28), 0 0 60px 8px rgba(244, 114, 182, 0.22)',
         }}
       />
 

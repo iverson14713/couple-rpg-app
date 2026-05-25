@@ -33,11 +33,19 @@ export function AppStoreScreenshotSlide({ slide, exportId }: AppStoreScreenshotS
       }}
     >
       <span
-        className="pointer-events-none absolute -left-32 -top-24 h-[420px] w-[420px] rounded-full bg-white/20 blur-3xl"
+        className="pointer-events-none absolute -left-32 -top-24 h-[480px] w-[480px] rounded-full"
+        style={{
+          background:
+            'radial-gradient(circle at 35% 35%, rgba(255,255,255,0.35) 0%, rgba(255,255,255,0.08) 45%, transparent 70%)',
+        }}
         aria-hidden
       />
       <span
-        className="pointer-events-none absolute -bottom-24 -right-24 h-[520px] w-[520px] rounded-full bg-amber-200/25 blur-3xl"
+        className="pointer-events-none absolute -bottom-24 -right-24 h-[560px] w-[560px] rounded-full"
+        style={{
+          background:
+            'radial-gradient(circle at 60% 55%, rgba(254,215,170,0.4) 0%, rgba(251,146,60,0.12) 50%, transparent 72%)',
+        }}
         aria-hidden
       />
 

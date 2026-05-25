@@ -8,6 +8,18 @@ export function ShowcaseCanvasDecor() {
       <span className="lq-showcase-sparkle lq-showcase-sparkle--4" aria-hidden />
       <span className="lq-showcase-sparkle lq-showcase-sparkle--5" aria-hidden />
       <span className="lq-showcase-sparkle lq-showcase-sparkle--6" aria-hidden />
+      <span className="lq-showcase-sparkle lq-showcase-sparkle--7" aria-hidden />
+      <span className="lq-showcase-sparkle lq-showcase-sparkle--8" aria-hidden />
+      <span className="lq-showcase-sparkle lq-showcase-sparkle--9" aria-hidden />
+      <span className="lq-showcase-float-heart lq-showcase-float-heart--1" aria-hidden>
+        💕
+      </span>
+      <span className="lq-showcase-float-heart lq-showcase-float-heart--2" aria-hidden>
+        ✨
+      </span>
+      <span className="lq-showcase-float-heart lq-showcase-float-heart--3" aria-hidden>
+        💗
+      </span>
       <span className="lq-showcase-hero-heart" aria-hidden>
         💗
       </span>

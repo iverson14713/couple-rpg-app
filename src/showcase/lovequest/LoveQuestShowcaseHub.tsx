@@ -187,7 +187,7 @@ export function LoveQuestShowcaseHub() {
         </div>
       </section>
 
-      <section className="pointer-events-none fixed left-[-12000px] top-0" aria-hidden>
+      <section className="pointer-events-none fixed left-0 top-0 -z-[100] opacity-0" aria-hidden>
         {LOVEQUEST_SHOWCASE_SLIDES.map((s, i) => (
           <LoveQuestShowcaseSlideCanvas
             key={`export-${s.id}`}

@@ -21,10 +21,10 @@ const scaleH = (n: number) => Math.round(n * (APP_STORE_SCREEN_H / LAYOUT_BASE_H
 
 export const DEVICE_LOGICAL_W = 390;
 
-const BASE_PHONE_SCREEN_W = 612;
-const BASE_PHONE_SCREEN_H = 1328;
-/** 極薄邊框 */
-const BASE_PHONE_BEZEL = 14;
+const BASE_PHONE_SCREEN_W = Math.round(612 * 1.1);
+const BASE_PHONE_SCREEN_H = Math.round(1328 * 1.1);
+/** 極薄邊框（匯出與預覽一致，避免 html2canvas 厚邊失真） */
+const BASE_PHONE_BEZEL = 10;
 
 const ISLAND_W_LOGICAL = 124;
 const ISLAND_H_LOGICAL = 38;
@@ -32,13 +32,13 @@ const ISLAND_TOP_LOGICAL = 14;
 const SCREEN_SAFE_INSET_LOGICAL = 2;
 
 /** Hero（1284×2778） */
-export const SHOWCASE_HERO_PT = scaleH(78);
-export const SHOWCASE_HERO_PB = scaleH(10);
+export const SHOWCASE_HERO_PT = scaleH(52);
+export const SHOWCASE_HERO_PB = scaleH(8);
 export const SHOWCASE_HERO_PX = scaleW(52);
 
-export const SHOWCASE_BRAND_SIZE = scaleH(30);
-export const SHOWCASE_HEADLINE_SIZE = scaleH(96);
-export const SHOWCASE_SUBTITLE_SIZE = scaleH(40);
+export const SHOWCASE_BRAND_SIZE = scaleH(36);
+export const SHOWCASE_HEADLINE_SIZE = scaleH(115);
+export const SHOWCASE_SUBTITLE_SIZE = scaleH(42);
 
 export const SHOWCASE_PHONE_GAP_TOP = scaleH(6);
 /** 手機底部留白，確保整機完整露出 */
@@ -67,7 +67,7 @@ export function getPhoneMockupScale(device: ShowcaseDeviceId = '6.5'): number {
   const available = h - heroBlock - SHOWCASE_PHONE_GAP_TOP - SHOWCASE_CANVAS_BOTTOM_PAD;
   const baseOuterH = BASE_PHONE_SCREEN_H + BASE_PHONE_BEZEL * 2;
   const fitScale = (available / baseOuterH) * 0.992;
-  return Math.max(1.15, Math.min(1.82, fitScale));
+  return Math.max(1.15, Math.min(1.9, fitScale));
 }
 
 export function getPhoneMockupMetrics(device: ShowcaseDeviceId = '6.5') {
