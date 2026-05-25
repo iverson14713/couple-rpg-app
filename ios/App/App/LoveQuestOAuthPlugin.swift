@@ -18,6 +18,16 @@ public class LoveQuestOAuthPlugin: CAPPlugin, CAPBridgedPlugin, ASWebAuthenticat
 
     private var authSession: ASWebAuthenticationSession?
 
+    /// User dismissed the OAuth sheet (canceledLogin on iOS 12.1+).
+    private func isAuthSessionCanceled(_ error: Error) -> Bool {
+        if let authError = error as? ASWebAuthenticationSessionError {
+            return authError.code == .canceledLogin
+        }
+        let ns = error as NSError
+        return ns.domain == ASWebAuthenticationSessionError.errorDomain
+            && ns.code == ASWebAuthenticationSessionError.Code.canceledLogin.rawValue
+    }
+
     @objc func authenticate(_ call: CAPPluginCall) {
         guard let urlString = call.getString("url"),
               let authURL = URL(string: urlString) else {
@@ -35,7 +45,7 @@ public class LoveQuestOAuthPlugin: CAPPlugin, CAPBridgedPlugin, ASWebAuthenticat
             ) { callbackURL, error in
                 defer { self.authSession = nil }
 
-                if let error = error as? ASWebAuthenticationSessionError, error.code == .canceled {
+                if let error = error, self.isAuthSessionCanceled(error) {
                     call.reject("User canceled", "CANCELED")
                     return
                 }
