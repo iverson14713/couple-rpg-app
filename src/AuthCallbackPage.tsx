@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { AuthDebugPanel } from './components/AuthDebugPanel';
 import { completeAuthCallback, type AuthCallbackFlow } from './services/auth/completeAuthCallback';
-import { authLog, isAuthNativeClient } from './services/auth/authDebug';
+import { authLog } from './services/auth/authDebug';
+import { isLoveQuestDevMode } from './coupleRpg/lib/loveQuestDevMode';
 import { redirectAfterAuthSuccess, scrubAuthCallbackUrl } from './services/auth/authRedirect';
 import { AUTH_ROUTE_EVENT, hasOAuthCallbackParams } from './services/auth/authRoute';
 import { waitForOAuthCallbackParams } from './services/auth/waitForOAuthCallbackParams';
@@ -60,7 +61,7 @@ export function AuthCallbackPage() {
   const [urlKey, setUrlKey] = useState(() => callbackUrlKey());
   const lang = detectLang();
   const t = copy[lang];
-  const showDebug = isAuthNativeClient();
+  const showDebug = isLoveQuestDevMode();
 
   useEffect(() => {
     authLog('AuthCallbackPage.mount', { href: window.location.href, urlKey });

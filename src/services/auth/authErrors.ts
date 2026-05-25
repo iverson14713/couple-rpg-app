@@ -1,3 +1,5 @@
+import { isLoveQuestDevMode } from '../../coupleRpg/lib/loveQuestDevMode';
+
 export type AuthLang = 'zh' | 'en';
 
 const zh: Record<string, string> = {
@@ -15,8 +17,9 @@ const zh: Record<string, string> = {
   no_client: '無法連線驗證服務，請稍後再試。',
   apple_coming_soon: 'Apple 登入即將開放，請先使用 Google 或 Email。',
   apple_web_coming_soon: 'Apple 登入即將開放，請先使用 Google 或 Email。',
-  apple_provider_not_ready:
-    'Apple 登入尚未完成後台設定。請至 Supabase 啟用 Apple Provider，並設定 VITE_APPLE_OAUTH_ENABLED=true 後重新 build:ios。',
+  apple_provider_not_ready: isLoveQuestDevMode()
+    ? 'Apple 登入尚未完成後台設定。請至 Supabase 啟用 Apple Provider，並設定 VITE_APPLE_OAUTH_ENABLED=true 後重新 build:ios。'
+    : 'Apple 登入暫時無法使用，請使用 Google 或 Email 登入。',
 };
 
 const en: Record<string, string> = {
@@ -34,8 +37,9 @@ const en: Record<string, string> = {
   no_client: 'Verification service is unavailable. Please try again later.',
   apple_coming_soon: 'Sign in with Apple is coming soon. Use Google or email for now.',
   apple_web_coming_soon: 'Sign in with Apple is coming soon. Use Google or email for now.',
-  apple_provider_not_ready:
-    'Sign in with Apple is not configured. Enable Apple in Supabase and set VITE_APPLE_OAUTH_ENABLED=true, then rebuild the iOS app.',
+  apple_provider_not_ready: isLoveQuestDevMode()
+    ? 'Sign in with Apple is not configured. Enable Apple in Supabase and set VITE_APPLE_OAUTH_ENABLED=true, then rebuild the iOS app.'
+    : 'Sign in with Apple is unavailable. Please use Google or email.',
 };
 
 function dict(lang: AuthLang): Record<string, string> {

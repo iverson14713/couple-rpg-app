@@ -1,4 +1,5 @@
 import { Capacitor } from '@capacitor/core';
+import { isLoveQuestDevMode } from '../../coupleRpg/lib/loveQuestDevMode';
 import { CAPACITOR_AUTH_SCHEME_CALLBACK, NATIVE_OAUTH_URL_SCHEME } from './authRedirect';
 import { nativeOAuthSchemeChecklist } from './nativeOAuthUrl';
 
@@ -114,6 +115,7 @@ export function logAuthEnvironment(step = 'environment'): void {
 export function initAuthDebug(): void {
   if (!isAuthNativeClient()) return;
   logAuthEnvironment('init.native');
+  if (!isLoveQuestDevMode()) return;
   try {
     (window as unknown as { __LQ_AUTH_DEBUG__?: unknown }).__LQ_AUTH_DEBUG__ = {
       getLines: getAuthDebugLines,

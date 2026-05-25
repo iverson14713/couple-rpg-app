@@ -1,24 +1,22 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { AuthDebugPanel } from '../../components/AuthDebugPanel';
 import { GoogleSignInButton } from '../../components/GoogleSignInButton';
-import { authLog, isAuthNativeClient } from '../../services/auth/authDebug';
+import { authLog } from '../../services/auth/authDebug';
 import { GOOGLE_CONSENT_SCREEN_HINT, logGoogleAuthSetupChecklist } from '../../services/auth/googleSignIn';
-import { CAPACITOR_AUTH_SCHEME_CALLBACK } from '../../services/auth/authRedirect';
 import { AppleSignInButton } from '../../components/AppleSignInButton';
 import { SkeletonCard } from '../../components/SkeletonCard';
 import { Spinner } from '../../components/SkeletonCard';
 import { useSupabaseAuth } from '../../useSupabaseAuth';
 import {
-  getAppleProviderNotReadyMessage,
   handleAppleSignIn,
   isAppleOAuthEnabled,
   isAppleSignInNativeUi,
-  isAppleSignInWebComingSoon,
 } from '../../services/auth/appleSignIn';
 import { mapAuthErrorMessage } from '../../services/auth/authErrors';
 import { useLoveQuest } from '../context/LoveQuestContext';
 import { useCoupleRpgNav } from '../context/CoupleRpgNavContext';
 import { AUTH_LOGIN_ANCHOR_ID } from '../lib/authNav';
+import { isLoveQuestDevMode } from '../lib/loveQuestDevMode';
 import { lq } from '../theme';
 
 export function AuthSettingsSection() {
@@ -36,12 +34,9 @@ export function AuthSettingsSection() {
   const [appleBusy, setAppleBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
-  const [appleNotice, setAppleNotice] = useState<string | null>(null);
 
-  const appleNativeUi = isAppleSignInNativeUi();
-  const appleWebComingSoon = isAppleSignInWebComingSoon();
-  const appleProviderReady = isAppleOAuthEnabled();
-  const showAuthDebug = isAuthNativeClient();
+  const showAppleSignIn = isAppleSignInNativeUi() && isAppleOAuthEnabled();
+  const showAuthDebug = isLoveQuestDevMode();
 
   useEffect(() => {
     if (showAuthDebug) logGoogleAuthSetupChecklist();
@@ -103,36 +98,25 @@ export function AuthSettingsSection() {
 
   const handleApple = useCallback(async () => {
     setError(null);
-    setAppleNotice(null);
-    if (appleWebComingSoon) {
-      setAppleNotice('Apple 登入即將開放，請先使用 Google 或 Email。');
-      return;
-    }
-    if (!appleProviderReady) {
-      setError(getAppleProviderNotReadyMessage('zh'));
-      return;
-    }
+    setMessage(null);
     setAppleBusy(true);
     authLog('apple.ui.click', { href: window.location.href });
     const result = await handleAppleSignIn(auth.supabase);
     setAppleBusy(false);
-    if (result.message === 'coming_soon') {
-      setAppleNotice('Apple 登入即將開放，請先使用 Google 或 Email。');
-      return;
-    }
     if (!result.ok && result.message) {
       authLog('apple.ui.error', { message: result.message, code: result.code });
-      setError(result.message || mapAuthErrorMessage(new Error(result.message)));
+      setError(mapAuthErrorMessage(new Error(result.message)));
     }
-  }, [appleProviderReady, appleWebComingSoon, auth.supabase]);
+  }, [auth.supabase]);
 
   if (!auth.configured) {
     return (
       <section className={`mb-4 p-4 ${lq.card}`}>
         <h2 className="mb-2 text-base font-bold text-stone-900">🔐 帳號登入</h2>
         <p className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-3 text-xs leading-relaxed text-amber-950">
-          雲端登入尚未設定。請在專案根目錄建立 `.env.local`，填入 `VITE_SUPABASE_URL` 與
-          `VITE_SUPABASE_ANON_KEY` 後重新啟動。
+          {showAuthDebug
+            ? '雲端登入尚未設定。請在專案根目錄建立 `.env.local`，填入 `VITE_SUPABASE_URL` 與 `VITE_SUPABASE_ANON_KEY` 後重新啟動。'
+            : '雲端登入暫時無法使用，請稍後再試。'}
         </p>
       </section>
     );
@@ -177,7 +161,7 @@ export function AuthSettingsSection() {
     >
       <h2 className="mb-2 text-base font-bold text-stone-900">🔐 帳號登入</h2>
       <p className="mb-3 text-[11px] leading-relaxed text-stone-500">
-        登入後可同步雲端資料；Google / Apple 完成後會自動回到 App 首頁。
+        登入後可同步雲端資料。Google 登入會以外部瀏覽器完成，成功後自動回到 App。
       </p>
 
       <div className="mb-3 space-y-2">
@@ -186,17 +170,14 @@ export function AuthSettingsSection() {
           disabled={busy || googleBusy || appleBusy}
           onClick={() => void handleGoogle()}
         />
-        {appleNativeUi || appleWebComingSoon ? (
+        {showAppleSignIn ? (
           <AppleSignInButton
-            label={appleNativeUi ? '使用 Apple 登入' : '使用 Apple 登入（即將開放）'}
-            disabled={busy || googleBusy || appleBusy || appleWebComingSoon}
+            label="使用 Apple 登入"
+            disabled={busy || googleBusy || appleBusy}
             onClick={() => void handleApple()}
           />
         ) : null}
       </div>
-      {appleNotice ? (
-        <p className="mb-2 text-center text-[12px] text-stone-600">{appleNotice}</p>
-      ) : null}
 
       <p className="my-3 text-center text-[11px] font-medium text-stone-400">— 或 —</p>
 
@@ -263,14 +244,20 @@ export function AuthSettingsSection() {
         {authMode === 'signIn' ? 'Email 登入' : 'Email 註冊'}
       </button>
 
-      <p className="mt-3 text-[10px] leading-relaxed text-stone-400">
-        Supabase Redirect URLs 需包含{' '}
-        <span className="font-mono text-stone-500">/auth/callback</span> 與{' '}
-        <span className="font-mono text-stone-500">{CAPACITOR_AUTH_SCHEME_CALLBACK}</span>
-        。iOS 版 Google / Apple 登入會以外部瀏覽器開啟，完成後自動回到 App。
-      </p>
-      <p className="mt-2 text-[10px] leading-relaxed text-amber-800/90">{GOOGLE_CONSENT_SCREEN_HINT}</p>
-      {showAuthDebug ? <AuthDebugPanel title="Google 登入 Debug（Xcode: [LQ_AUTH]）" /> : null}
+      {showAuthDebug ? (
+        <>
+          <p className="mt-3 text-[10px] leading-relaxed text-stone-400">
+            開發模式：OAuth 回傳須包含 <span className="font-mono">/auth/callback</span> 與{' '}
+            <span className="font-mono">lovequest://auth/callback</span>。
+          </p>
+          <p className="mt-2 text-[10px] leading-relaxed text-amber-800/90">{GOOGLE_CONSENT_SCREEN_HINT}</p>
+          <AuthDebugPanel title="Google 登入 Debug（開發模式）" />
+        </>
+      ) : (
+        <p className="mt-3 text-[10px] leading-relaxed text-stone-400">
+          若登入未完成，請關閉外部瀏覽器後再試一次，或使用 Email 登入。
+        </p>
+      )}
     </section>
   );
 }

@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { isLoveQuestDevMode } from '../../coupleRpg/lib/loveQuestDevMode';
 import { authLog, isAuthNativeClient } from './authDebug';
 import { getOAuthRedirectUrl, saveAuthReturnPath } from './authRedirect';
 import { markOAuthProvider } from './oauthSessionHint';
@@ -28,16 +29,21 @@ export function isAppleSignInAvailable(supabase?: SupabaseClient | null): boolea
 }
 
 export function getAppleProviderNotReadyMessage(lang: 'zh' | 'en' = 'zh'): string {
-  if (lang === 'en') {
+  if (isLoveQuestDevMode()) {
+    if (lang === 'en') {
+      return (
+        'Sign in with Apple is not ready yet. Enable Apple in Supabase Dashboard → Authentication → Providers, ' +
+        'then set VITE_APPLE_OAUTH_ENABLED=true and rebuild the iOS app.'
+      );
+    }
     return (
-      'Sign in with Apple is not ready yet. Enable Apple in Supabase Dashboard → Authentication → Providers, ' +
-      'then set VITE_APPLE_OAUTH_ENABLED=true and rebuild the iOS app.'
+      'Apple 登入尚未完成後台設定。請至 Supabase → Authentication → Providers 啟用 Apple，' +
+      '並在 .env 設定 VITE_APPLE_OAUTH_ENABLED=true 後重新 build:ios。'
     );
   }
-  return (
-    'Apple 登入尚未完成後台設定。請至 Supabase → Authentication → Providers 啟用 Apple，' +
-    '並在 .env 設定 VITE_APPLE_OAUTH_ENABLED=true 後重新 build:ios。'
-  );
+  return lang === 'zh'
+    ? 'Apple 登入暫時無法使用，請使用 Google 或 Email 登入。'
+    : 'Sign in with Apple is unavailable. Please use Google or email.';
 }
 
 function mapAppleOAuthError(message: string, lang: 'zh' | 'en'): string {
@@ -103,7 +109,13 @@ export async function signInWithAppleOAuth(
   if (!data?.url) {
     return {
       error: new Error(
-        lang === 'zh' ? '無法取得 Apple 登入網址，請確認 Supabase Apple Provider 已啟用。' : 'Could not get Apple sign-in URL.'
+        lang === 'zh'
+          ? isLoveQuestDevMode()
+            ? '無法取得 Apple 登入網址，請確認 Supabase Apple Provider 已啟用。'
+            : 'Apple 登入暫時無法使用，請使用 Google 或 Email 登入。'
+          : isLoveQuestDevMode()
+            ? 'Could not get Apple sign-in URL. Check Supabase Apple Provider.'
+            : 'Sign in with Apple is unavailable. Please use Google or email.'
       ),
     };
   }

@@ -1,4 +1,5 @@
 import type { EmailOtpType, SupabaseClient } from '@supabase/supabase-js';
+import { isLoveQuestDevMode } from '../../coupleRpg/lib/loveQuestDevMode';
 import { authLog } from './authDebug';
 import { mapOAuthCallbackError } from './authErrors';
 import { exchangePkceCodeOnce } from './authCallbackLock';
@@ -173,7 +174,11 @@ export async function completeAuthCallback(
     ok: false,
     message:
       lang === 'zh'
-        ? '無法完成登入：網址上沒有 code／token，且尚未建立 session。請查看 Xcode Console 的 [LQ_AUTH] 日誌。'
-        : 'Could not finish sign-in: no code/token in URL and no session. Check Xcode Console [LQ_AUTH] logs.',
+        ? isLoveQuestDevMode()
+          ? '無法完成登入：網址上沒有 code／token，且尚未建立 session。請查看開發者主控台日誌。'
+          : '無法完成登入，請回到 App 再試一次 Google 或 Email 登入。'
+        : isLoveQuestDevMode()
+          ? 'Could not finish sign-in: no code/token in URL and no session. Check developer console logs.'
+          : 'Could not finish sign-in. Return to the app and try Google or email sign-in again.',
   };
 }

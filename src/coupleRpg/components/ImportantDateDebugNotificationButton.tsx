@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { isLoveQuestNotificationDebugEnabled } from '../lib/loveQuestNotificationDebug';
+import { isLoveQuestDevMode } from '../lib/loveQuestDevMode';
 import {
   isLoveQuestNativeNotificationsAvailable,
   scheduleLoveQuestDebugTestNotification,
@@ -7,7 +7,7 @@ import {
 import { lq } from '../theme';
 
 export function ImportantDateDebugNotificationButton() {
-  if (!isLoveQuestNotificationDebugEnabled()) return null;
+  if (!isLoveQuestDevMode()) return null;
 
   const native = isLoveQuestNativeNotificationsAvailable();
   const [busy, setBusy] = useState(false);
