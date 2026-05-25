@@ -3,8 +3,6 @@ import { getShowcaseSlideById, LOVEQUEST_SHOWCASE_SLIDES } from './slides';
 import { LoveQuestShowcaseSlideCanvas } from './LoveQuestShowcaseSlide';
 import { ShowcaseFitScale } from './ShowcaseFitScale';
 import { parseShowcaseParams } from './parseParams';
-import type { ShowcaseDeviceId } from './constants';
-
 type Props = {
   slideId: string;
 };
@@ -15,7 +13,6 @@ export function LoveQuestShowcaseSingle({ slideId }: Props) {
   const [index, setIndex] = useState(() =>
     Math.max(0, LOVEQUEST_SHOWCASE_SLIDES.findIndex((s) => s.id === slideId))
   );
-  const device: ShowcaseDeviceId = params.device;
   const current = LOVEQUEST_SHOWCASE_SLIDES[index] ?? slide;
 
   useEffect(() => {
@@ -40,8 +37,8 @@ export function LoveQuestShowcaseSingle({ slideId }: Props) {
   return (
     <div className="lq-showcase-fullscreen fixed inset-0 z-[400] flex flex-col overflow-hidden bg-[#f5f0f3]">
       <div className="min-h-0 flex-1 overflow-hidden">
-        <ShowcaseFitScale device={device}>
-          <LoveQuestShowcaseSlideCanvas slide={current} device={device} view={view} />
+        <ShowcaseFitScale>
+          <LoveQuestShowcaseSlideCanvas slide={current} view={view} />
         </ShowcaseFitScale>
       </div>
 

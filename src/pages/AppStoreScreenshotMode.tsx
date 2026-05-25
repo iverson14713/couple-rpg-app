@@ -76,7 +76,7 @@ export function AppStoreScreenshotMode() {
             className="inline-flex items-center gap-2 rounded-full bg-orange-500 px-4 py-2 text-sm font-bold text-white disabled:opacity-50"
           >
             <Download className="h-4 w-4" aria-hidden />
-            {fontsReady ? '匯出全部 (1290×2796)' : '載入字型中…'}
+            {fontsReady ? '匯出全部 (1284×2778)' : '載入字型中…'}
           </button>
         </div>
         {status ? (
@@ -89,7 +89,8 @@ export function AppStoreScreenshotMode() {
       </header>
 
       <p className="mx-auto max-w-4xl px-4 py-4 text-center text-[13px] leading-relaxed text-stone-600">
-        預覽比例已縮小。匯出為 App Store 6.7&quot; 尺寸 <strong className="font-semibold text-stone-800">1290 × 2796</strong>
+        預覽比例已縮小。匯出為 App Store 6.5&quot; 尺寸{' '}
+        <strong className="font-semibold text-stone-800">1284 × 2778</strong>
         ，含 iPhone mockup、橘色漸層與標題文案。
       </p>
 

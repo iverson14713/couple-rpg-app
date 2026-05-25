@@ -3,8 +3,13 @@ import {
   APP_STORE_FONT_FAMILY,
   ASPECT_H,
   ASPECT_W,
+  BRAND_FONT_PX,
   BRAND_GRADIENT,
+  HEADLINE_FONT_PX,
+  HEADER_PT,
+  HEADER_PX,
   PHONE_MOCKUP_TOP,
+  SUBTITLE_FONT_PX,
 } from './constants';
 import { IphoneMockup } from './IphoneMockup';
 
@@ -37,17 +42,30 @@ export function AppStoreScreenshotSlide({ slide, exportId }: AppStoreScreenshotS
       />
 
       <header
-        className="absolute left-0 right-0 z-10 px-[72px] pt-[118px] text-center text-white"
-        style={{ textShadow: '0 2px 24px rgba(0,0,0,0.12)' }}
+        className="absolute left-0 right-0 z-10 text-center text-white"
+        style={{
+          paddingLeft: HEADER_PX,
+          paddingRight: HEADER_PX,
+          paddingTop: HEADER_PT,
+          textShadow: '0 2px 24px rgba(0,0,0,0.12)',
+        }}
       >
-        <p className="text-[26px] font-semibold tracking-wide text-white/90">Pet Care</p>
+        <p
+          className="font-semibold tracking-wide text-white/90"
+          style={{ fontSize: BRAND_FONT_PX }}
+        >
+          Pet Care
+        </p>
         <h2
-          className="mt-3 text-[68px] font-bold leading-[1.08] tracking-tight"
-          style={{ letterSpacing: '-0.02em' }}
+          className="mt-3 font-bold leading-[1.08] tracking-tight"
+          style={{ fontSize: HEADLINE_FONT_PX, letterSpacing: '-0.02em' }}
         >
           {slide.headline}
         </h2>
-        <p className="mx-auto mt-5 max-w-[1000px] text-[34px] font-medium leading-snug text-white/92">
+        <p
+          className="mx-auto mt-5 max-w-[1000px] font-medium leading-snug text-white/92"
+          style={{ fontSize: SUBTITLE_FONT_PX }}
+        >
           {slide.subtitle}
         </p>
       </header>

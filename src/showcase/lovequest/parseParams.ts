@@ -8,12 +8,10 @@ export type ShowcaseParams = {
 
 export function parseShowcaseParams(search = window.location.search): ShowcaseParams {
   const q = new URLSearchParams(search);
-  const deviceRaw = q.get('device');
-  const device: ShowcaseDeviceId = deviceRaw === '6.5' ? '6.5' : '6.7';
   const viewRaw = q.get('view');
   return {
     screenshotMode: q.get('screenshotMode') === 'true',
-    device,
+    device: '6.5',
     view: viewRaw === 'app' ? 'app' : 'marketing',
   };
 }
@@ -24,7 +22,6 @@ export function buildShowcaseUrl(
 ): string {
   const q = new URLSearchParams();
   if (opts?.screenshotMode) q.set('screenshotMode', 'true');
-  if (opts?.device) q.set('device', opts.device);
   if (opts?.view) q.set('view', opts.view);
   const qs = q.toString();
   return qs ? `${path}?${qs}` : path;

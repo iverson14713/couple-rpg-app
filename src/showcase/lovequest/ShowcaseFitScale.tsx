@@ -1,14 +1,13 @@
 import { useEffect, useState, type ReactNode } from 'react';
-import { SHOWCASE_DEVICES, type ShowcaseDeviceId } from './constants';
+import { APP_STORE_SCREEN } from './constants';
 
 type Props = {
-  device: ShowcaseDeviceId;
   children: ReactNode;
 };
 
-/** 將 1290×2796 等比例縮放至視窗內，無 scrollbar */
-export function ShowcaseFitScale({ device, children }: Props) {
-  const { w, h } = SHOWCASE_DEVICES[device];
+/** 將 1284×2778 等比例縮放至視窗內，無 scrollbar */
+export function ShowcaseFitScale({ children }: Props) {
+  const { w, h } = APP_STORE_SCREEN;
   const [scale, setScale] = useState(0.25);
 
   useEffect(() => {

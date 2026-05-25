@@ -21,14 +21,14 @@ import { ShowcasePhoneFrame } from './components/ShowcasePhoneFrame';
 
 type Props = {
   slide: LoveQuestShowcaseSlide;
-  device: ShowcaseDeviceId;
+  device?: ShowcaseDeviceId;
   exportId?: string;
   view?: 'marketing' | 'app';
 };
 
 export function LoveQuestShowcaseSlideCanvas({
   slide,
-  device,
+  device = '6.5',
   exportId,
   view = 'marketing',
 }: Props) {

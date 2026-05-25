@@ -4,7 +4,7 @@ import { ensureAppStoreFontsReady } from '../../components/appStore/fonts';
 import { goHome } from '../../legalNavigate';
 import { LoveQuestShowcaseSlideCanvas } from './LoveQuestShowcaseSlide';
 import { ShowcaseFitScale } from './ShowcaseFitScale';
-import { SHOWCASE_DEVICES, type ShowcaseDeviceId } from './constants';
+import { APP_STORE_SCREEN } from './constants';
 import { exportLoveQuestShowcase } from './exportShowcase';
 import { buildShowcaseUrl, parseShowcaseParams } from './parseParams';
 import { LOVEQUEST_SHOWCASE_SLIDES } from './slides';
@@ -13,7 +13,6 @@ const PREVIEW_SCALE = 0.2;
 
 export function LoveQuestShowcaseHub() {
   const params = useMemo(() => parseShowcaseParams(), []);
-  const [device, setDevice] = useState<ShowcaseDeviceId>(params.device);
   const [activeIndex, setActiveIndex] = useState(0);
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
@@ -21,7 +20,7 @@ export function LoveQuestShowcaseHub() {
 
   const screenshotMode = params.screenshotMode;
   const slide = LOVEQUEST_SHOWCASE_SLIDES[activeIndex]!;
-  const { w, h } = SHOWCASE_DEVICES[device];
+  const { w, h } = APP_STORE_SCREEN;
 
   useEffect(() => {
     let cancelled = false;
@@ -46,7 +45,7 @@ export function LoveQuestShowcaseHub() {
       setBusy(true);
       setStatus(`匯出：${s.headline}…`);
       try {
-        await exportLoveQuestShowcase(el, s.filename, device);
+        await exportLoveQuestShowcase(el, s.filename);
         setStatus(`已下載 ${s.filename}`);
       } catch (e) {
         console.error(e);
@@ -55,7 +54,7 @@ export function LoveQuestShowcaseHub() {
         setBusy(false);
       }
     },
-    [device]
+    []
   );
 
   const exportAll = useCallback(async () => {
@@ -78,11 +77,7 @@ export function LoveQuestShowcaseHub() {
 
   if (screenshotMode) {
     return (
-      <LoveQuestShowcaseFullscreen
-        slideIndex={activeIndex}
-        device={device}
-        onIndexChange={setActiveIndex}
-      />
+      <LoveQuestShowcaseFullscreen slideIndex={activeIndex} onIndexChange={setActiveIndex} />
     );
   }
 
@@ -117,31 +112,17 @@ export function LoveQuestShowcaseHub() {
       <div className="mx-auto max-w-4xl px-4 py-4">
         <p className="text-center text-[13px] leading-relaxed text-[#8a7a84]">
           手機內為<strong className="font-semibold text-[#5c4d55]">真實 App 元件</strong>（展示用示範資料）·
-          預覽 {device}（{w}×{h}）· 離開此頁會還原你的本機資料
+          匯出尺寸 <strong className="font-semibold text-[#5c4d55]">1284 × 2778</strong>（iPhone 6.5&quot;）·
+          離開此頁會還原你的本機資料
         </p>
 
         <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
-          <span className="text-[11px] font-bold text-[#9a8a94]">裝置</span>
-          {(['6.7', '6.5'] as const).map((d) => (
-            <button
-              key={d}
-              type="button"
-              onClick={() => setDevice(d)}
-              className={`rounded-full px-3 py-1.5 text-xs font-bold ${
-                device === d
-                  ? 'bg-rose-500 text-white'
-                  : 'border border-rose-100 bg-white text-[#6b5a64]'
-              }`}
-            >
-              iPhone {SHOWCASE_DEVICES[d].label}
-            </button>
-          ))}
           <a
-            href={buildShowcaseUrl('/showcase', { screenshotMode: true, device })}
+            href={buildShowcaseUrl('/showcase', { screenshotMode: true })}
             className="inline-flex items-center gap-1 rounded-full border border-rose-200 bg-rose-50 px-3 py-1.5 text-xs font-bold text-rose-700"
           >
             <Smartphone className="h-3.5 w-3.5" aria-hidden />
-            一鍵截圖模式
+            全螢幕截圖模式
           </a>
         </div>
 
@@ -170,7 +151,7 @@ export function LoveQuestShowcaseHub() {
           </p>
           <div className="flex gap-2">
             <a
-              href={buildShowcaseUrl(slide.path, { screenshotMode: true, device })}
+              href={buildShowcaseUrl(slide.path, { screenshotMode: true })}
               className="rounded-full border border-rose-100 bg-white px-3 py-1.5 text-xs font-bold text-rose-700"
             >
               全螢幕截圖
@@ -200,7 +181,6 @@ export function LoveQuestShowcaseHub() {
           >
             <LoveQuestShowcaseSlideCanvas
               slide={slide}
-              device={device}
               exportId={`lq-showcase-preview-${activeIndex}`}
             />
           </div>
@@ -212,7 +192,6 @@ export function LoveQuestShowcaseHub() {
           <LoveQuestShowcaseSlideCanvas
             key={`export-${s.id}`}
             slide={s}
-            device={device}
             exportId={`lq-showcase-export-${i}`}
           />
         ))}
@@ -223,11 +202,10 @@ export function LoveQuestShowcaseHub() {
 
 type FullscreenProps = {
   slideIndex: number;
-  device: ShowcaseDeviceId;
   onIndexChange: (i: number) => void;
 };
 
-function LoveQuestShowcaseFullscreen({ slideIndex, device, onIndexChange }: FullscreenProps) {
+function LoveQuestShowcaseFullscreen({ slideIndex, onIndexChange }: FullscreenProps) {
   const slide = LOVEQUEST_SHOWCASE_SLIDES[slideIndex]!;
 
   useEffect(() => {
@@ -242,8 +220,8 @@ function LoveQuestShowcaseFullscreen({ slideIndex, device, onIndexChange }: Full
   return (
     <div className="lq-showcase-fullscreen fixed inset-0 z-[400] flex flex-col overflow-hidden bg-[#f5f0f3]">
       <div className="min-h-0 flex-1 overflow-hidden">
-        <ShowcaseFitScale device={device}>
-          <LoveQuestShowcaseSlideCanvas slide={slide} device={device} />
+        <ShowcaseFitScale>
+          <LoveQuestShowcaseSlideCanvas slide={slide} />
         </ShowcaseFitScale>
       </div>
 

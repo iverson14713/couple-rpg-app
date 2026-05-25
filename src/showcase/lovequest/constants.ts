@@ -1,15 +1,23 @@
-/** App Store 6.7" — iPhone 14/15 Pro Max */
-export const DEVICE_67 = { w: 1290, h: 2796, label: '6.7"' } as const;
+import { APP_STORE_SCREEN_H, APP_STORE_SCREEN_W } from '../../components/appStore/constants';
 
-/** App Store 6.5" — iPhone 11 Pro Max / XS Max */
-export const DEVICE_65 = { w: 1242, h: 2688, label: '6.5"' } as const;
+/** App Store Connect — iPhone 6.5" Display (1284 × 2778) */
+export const APP_STORE_SCREEN = {
+  w: APP_STORE_SCREEN_W,
+  h: APP_STORE_SCREEN_H,
+  label: '6.5"',
+} as const;
 
-export type ShowcaseDeviceId = '6.7' | '6.5';
+export type ShowcaseDeviceId = '6.5';
 
-export const SHOWCASE_DEVICES: Record<ShowcaseDeviceId, { w: number; h: number; label: string }> = {
-  '6.7': DEVICE_67,
-  '6.5': DEVICE_65,
+export const SHOWCASE_DEVICES: Record<ShowcaseDeviceId, typeof APP_STORE_SCREEN> = {
+  '6.5': APP_STORE_SCREEN,
 };
+
+/** Layout tuned on 1290×2796, scaled to export canvas */
+const LAYOUT_BASE_W = 1290;
+const LAYOUT_BASE_H = 2796;
+const scaleW = (n: number) => Math.round(n * (APP_STORE_SCREEN_W / LAYOUT_BASE_W));
+const scaleH = (n: number) => Math.round(n * (APP_STORE_SCREEN_H / LAYOUT_BASE_H));
 
 export const DEVICE_LOGICAL_W = 390;
 
@@ -23,18 +31,18 @@ const ISLAND_H_LOGICAL = 38;
 const ISLAND_TOP_LOGICAL = 14;
 const SCREEN_SAFE_INSET_LOGICAL = 2;
 
-/** Hero（1290×2796） */
-export const SHOWCASE_HERO_PT = 78;
-export const SHOWCASE_HERO_PB = 10;
-export const SHOWCASE_HERO_PX = 52;
+/** Hero（1284×2778） */
+export const SHOWCASE_HERO_PT = scaleH(78);
+export const SHOWCASE_HERO_PB = scaleH(10);
+export const SHOWCASE_HERO_PX = scaleW(52);
 
-export const SHOWCASE_BRAND_SIZE = 30;
-export const SHOWCASE_HEADLINE_SIZE = 96;
-export const SHOWCASE_SUBTITLE_SIZE = 40;
+export const SHOWCASE_BRAND_SIZE = scaleH(30);
+export const SHOWCASE_HEADLINE_SIZE = scaleH(96);
+export const SHOWCASE_SUBTITLE_SIZE = scaleH(40);
 
-export const SHOWCASE_PHONE_GAP_TOP = 6;
+export const SHOWCASE_PHONE_GAP_TOP = scaleH(6);
 /** 手機底部留白，確保整機完整露出 */
-export const SHOWCASE_CANVAS_BOTTOM_PAD = 44;
+export const SHOWCASE_CANVAS_BOTTOM_PAD = scaleH(44);
 
 /** 估算 Hero 區高度（與 LoveQuestShowcaseSlide 排版一致） */
 function estimateHeroBlockHeight(): number {
@@ -53,7 +61,7 @@ function estimateHeroBlockHeight(): number {
 /**
  * 依畫布高度計算 mockup 縮放，保證整支手機不被裁切。
  */
-export function getPhoneMockupScale(device: ShowcaseDeviceId): number {
+export function getPhoneMockupScale(device: ShowcaseDeviceId = '6.5'): number {
   const { h } = SHOWCASE_DEVICES[device];
   const heroBlock = estimateHeroBlockHeight();
   const available = h - heroBlock - SHOWCASE_PHONE_GAP_TOP - SHOWCASE_CANVAS_BOTTOM_PAD;
@@ -62,7 +70,7 @@ export function getPhoneMockupScale(device: ShowcaseDeviceId): number {
   return Math.max(1.15, Math.min(1.82, fitScale));
 }
 
-export function getPhoneMockupMetrics(device: ShowcaseDeviceId) {
+export function getPhoneMockupMetrics(device: ShowcaseDeviceId = '6.5') {
   const scale = getPhoneMockupScale(device);
   const screenW = Math.round(BASE_PHONE_SCREEN_W * scale);
   const screenH = Math.round(BASE_PHONE_SCREEN_H * scale);
@@ -89,7 +97,7 @@ export function getPhoneMockupMetrics(device: ShowcaseDeviceId) {
   };
 }
 
-export function getPhoneMockupOuterSize(device: ShowcaseDeviceId = '6.7'): {
+export function getPhoneMockupOuterSize(device: ShowcaseDeviceId = '6.5'): {
   width: number;
   height: number;
 } {
