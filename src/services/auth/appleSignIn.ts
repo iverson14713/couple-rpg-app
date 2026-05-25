@@ -5,7 +5,7 @@ import { markOAuthProvider } from './oauthSessionHint';
 import { openOAuthInExternalBrowser } from './oauthNative';
 
 export type AppleSignInResult =
-  | { ok: true; signedIn: false; message: 'redirecting' | 'coming_soon' }
+  | { ok: true; signedIn: false; message: 'redirecting' | 'coming_soon' | 'cancelled' }
   | { ok: false; signedIn: false; message: string; code?: 'coming_soon' | 'web' | 'failed' };
 
 export const APPLE_SIGN_IN_FAILED_ZH = 'Apple 登入失敗，請稍後再試或改用 Email 登入';
@@ -131,6 +131,9 @@ export async function handleAppleSignIn(
   if (error) {
     if (error.message === 'web_not_supported') {
       return { ok: true, signedIn: false, message: 'coming_soon', code: 'web' };
+    }
+    if (error.message === 'oauth_cancelled') {
+      return { ok: true, signedIn: false, message: 'cancelled' };
     }
     return { ok: false, signedIn: false, message: userError, code: 'failed' };
   }
