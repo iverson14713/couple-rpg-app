@@ -9,7 +9,7 @@ import type { CapacitorConfig } from '@capacitor/cli';
  * Google OAuth on iOS must use external browser (see oauthNative.ts), not WebView.
  */
 const config: CapacitorConfig = {
-  appId: 'com.lovequest.app',
+  appId: 'com.wayne.lovequest',
   appName: 'LoveQuest',
   webDir: 'dist',
   server: {
