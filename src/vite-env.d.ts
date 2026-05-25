@@ -9,6 +9,8 @@ interface ImportMetaEnv {
   readonly VITE_LOVEQUEST_API_ORIGIN?: string;
   /** Dev: local assistant server (also used on native when set) */
   readonly VITE_ASSISTANT_SERVER_URL?: string;
+  /** Dev only (with `vite dev`): test push + auth debug UI; must be false for release builds */
+  readonly VITE_LOVEQUEST_DEBUG_NOTIFICATIONS?: string;
 }
 
 interface ImportMeta {

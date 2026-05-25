@@ -5,6 +5,7 @@
 
 import { Capacitor } from '@capacitor/core';
 import { LocalNotifications } from '@capacitor/local-notifications';
+import { isLoveQuestDevMode } from '../coupleRpg/lib/loveQuestDevMode';
 import { buildImportantDateEvents } from '../coupleRpg/lib/importantDateEvents';
 import type { CoupleExtendedProfile } from '../coupleRpg/storage/coupleExtendedTypes';
 import { getEventSettings } from '../coupleRpg/storage/importantDateRemindersStore';
@@ -190,6 +191,10 @@ export type ScheduleLoveQuestDebugTestResult = {
 
 /** 除錯：10 秒後觸發一則測試本機推播 */
 export async function scheduleLoveQuestDebugTestNotification(): Promise<ScheduleLoveQuestDebugTestResult> {
+  if (!isLoveQuestDevMode()) {
+    return { ok: false, permission: 'unsupported', message: '僅開發模式可用' };
+  }
+
   if (!isLoveQuestNativeNotificationsAvailable()) {
     return { ok: false, permission: 'unsupported', message: '此裝置不支援本機推播' };
   }
