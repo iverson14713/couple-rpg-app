@@ -102,7 +102,11 @@ export async function signInWithAppleOAuth(
     await openOAuthInExternalBrowser(data.url);
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
-    authLog('apple.browser_error', { message: msg });
+    if (msg === 'oauth_cancelled') {
+      authLog('apple.oauth_cancelled', {});
+      return { error: new Error('oauth_cancelled') };
+    }
+    authLog('apple.oauth_session_error', { message: msg });
     return { error: new Error(userError) };
   }
 

@@ -35,14 +35,34 @@ export async function openOAuthInExternalBrowser(url: string): Promise<void> {
       handleOAuthCallbackUrl(callbackUrl, 'appUrlOpen');
       return;
     } catch (e) {
-      const msg = e instanceof Error ? e.message : String(e);
-      const code =
-        e && typeof e === 'object' && 'code' in e ? String((e as { code?: string }).code) : '';
-      if (code === 'CANCELED' || msg.toLowerCase().includes('cancel')) {
-        authLog('LoveQuestOAuth.authenticate.canceled', {});
+      const pluginErr = e as Error & {
+        code?: string;
+        error?: string;
+        error_description?: string;
+      };
+      const code = pluginErr?.code ?? '';
+      const msg = pluginErr?.message ?? String(e);
+      const oauthError = pluginErr?.error ?? '';
+      const oauthDesc = pluginErr?.error_description ?? '';
+
+      console.log('[LQ_AUTH] LoveQuestOAuth.authenticate.error', {
+        message: msg,
+        code,
+        error: oauthError,
+        error_description: oauthDesc,
+      });
+      authLog('LoveQuestOAuth.authenticate.error', {
+        message: msg,
+        code,
+        error: oauthError,
+        error_description: oauthDesc,
+      });
+
+      if (code === 'CANCELED') {
+        authLog('LoveQuestOAuth.authenticate.canceled', { message: msg, code });
         throw new Error('oauth_cancelled');
       }
-      authLog('LoveQuestOAuth.authenticate.error', { message: msg, code });
+
       throw e instanceof Error ? e : new Error(msg);
     }
   }
