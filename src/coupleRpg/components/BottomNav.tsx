@@ -22,7 +22,7 @@ export function BottomNav({ activeTab, onChange }: Props) {
 
   return (
     <nav
-      className={`fixed bottom-0 left-0 right-0 z-40 px-2 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2.5 ${lq.nav}`}
+      className={`fixed bottom-0 left-0 right-0 z-40 px-2 pb-[calc(12px+env(safe-area-inset-bottom,0px))] pt-2.5 ${lq.nav}`}
       aria-label="主要功能"
     >
       <div className="mx-auto flex max-w-md gap-0.5">

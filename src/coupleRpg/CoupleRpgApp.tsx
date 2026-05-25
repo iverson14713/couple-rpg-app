@@ -1,4 +1,8 @@
-import { type ReactNode } from 'react';
+import { useEffect, type ReactNode } from 'react';
+import {
+  initLoveQuestNotificationBridge,
+  setLoveQuestNotificationOpenHandler,
+} from '../services/notificationService';
 import { isScreenshotMode } from '../lib/screenshotMode';
 import { OfflineBanner } from '../components/OfflineBanner';
 import { useOnlineStatus } from '../hooks/useOnlineStatus';
@@ -69,8 +73,13 @@ function CoupleRpgShell() {
   const { tab, navigateTo } = useCoupleRpgNav();
   const isOnline = useOnlineStatus();
   const auth = useSupabaseAuth();
-  const { displayNames } = useLoveQuest();
   const screenshotMode = isScreenshotMode();
+
+  useEffect(() => {
+    initLoveQuestNotificationBridge();
+    setLoveQuestNotificationOpenHandler(() => navigateTo('importantDates'));
+    return () => setLoveQuestNotificationOpenHandler(null);
+  }, [navigateTo]);
 
   const onNavChange = (next: CoupleNavTabId) => navigateTo(next);
 
@@ -140,7 +149,9 @@ function CoupleRpgShell() {
 function AppRoot({ children, screenshotMode }: { children: ReactNode; screenshotMode?: boolean }) {
   return (
     <div
-      className={`min-h-screen ${screenshotMode ? 'px-4 py-4 pb-6' : `px-4 py-6 ${lq.mainPadBottom}`} ${lq.text} ${lq.bg}`}
+      className={`box-border min-h-[100dvh] w-full pt-[env(safe-area-inset-top,0px)] ${
+        screenshotMode ? 'px-4 py-4 pb-6' : `px-4 py-6 ${lq.mainPadBottom}`
+      } ${lq.text} ${lq.bg}`}
     >
       <div className="mx-auto max-w-md">{children}</div>
     </div>

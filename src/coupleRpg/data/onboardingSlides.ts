@@ -38,8 +38,8 @@ export const ONBOARDING_SLIDES: OnboardingSlide[] = [
     title: '不再忘記重要日子',
     subtitle: '可設定：',
     bullets: ['當天提醒', '前 1 / 3 / 7 / 14 / 30 天提醒'],
-    footnote: '目前：打開 App 時會提醒',
-    footnoteMuted: '正式推播通知將於後續版本加入',
+    footnote: 'iPhone 本機推播，沒開 App 也會提醒',
+    footnoteMuted: '可在「重要日子提醒」設定提前天數',
   },
   {
     id: 'growth',

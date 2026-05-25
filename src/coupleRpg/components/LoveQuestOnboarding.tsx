@@ -43,7 +43,7 @@ export function LoveQuestOnboarding({ onComplete }: Props) {
       <div className="lq-onboarding-glow lq-onboarding-glow--tl" aria-hidden />
       <div className="lq-onboarding-glow lq-onboarding-glow--br" aria-hidden />
 
-      <header className="relative z-10 flex shrink-0 items-center justify-center px-5 pb-1 pt-[max(0.75rem,env(safe-area-inset-top))]">
+      <header className="relative z-10 flex shrink-0 items-center justify-center px-5 pb-1 pt-3">
         <span className="text-[12px] font-bold tracking-wide text-rose-400/90">LoveQuest</span>
       </header>
 
@@ -56,7 +56,7 @@ export function LoveQuestOnboarding({ onComplete }: Props) {
         </div>
       </main>
 
-      <footer className="relative z-10 shrink-0 border-t border-rose-200/50 bg-white/88 px-5 pt-4 shadow-[0_-8px_32px_-12px_rgba(244,114,182,0.18)] backdrop-blur-xl pb-[max(1rem,env(safe-area-inset-bottom))]">
+      <footer className="relative z-10 shrink-0 border-t border-rose-200/50 bg-white/88 px-5 pt-4 shadow-[0_-8px_32px_-12px_rgba(244,114,182,0.18)] backdrop-blur-xl pb-[max(1.25rem,calc(12px+env(safe-area-inset-bottom,0px)))]">
         <div className="mb-4 flex items-center justify-between gap-3">
           <button
             type="button"

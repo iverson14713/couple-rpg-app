@@ -2,6 +2,16 @@
 @tailwind components;
 @tailwind utilities;
 
+html,
+body,
+#root {
+  margin: 0;
+  min-height: 100%;
+  background: #fff5f8;
+  overscroll-behavior: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
 @layer utilities {
   .animate-fade-in {
     animation: appFadeIn 0.35s ease-out both;
@@ -98,11 +108,14 @@
   inset: 0;
   z-index: 300;
   isolation: isolate;
+  box-sizing: border-box;
   min-height: 100dvh;
   height: 100dvh;
   width: 100%;
   overflow: hidden;
-  background-color: #fdf4f8;
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  background-color: #fff5f8;
   background-image:
     radial-gradient(ellipse 95% 70% at 50% -12%, rgba(251, 207, 232, 0.55), transparent 58%),
     radial-gradient(ellipse 80% 55% at 100% 8%, rgba(233, 213, 255, 0.35), transparent 52%),
@@ -749,8 +762,10 @@ html.lq-app-store-screenshot-page body {
 
 /* LoveQuest — 奶粉白 / 淡粉紫大氣背景（非純白） */
 .lq-app-shell {
+  box-sizing: border-box;
   min-height: 100vh;
-  background-color: #fdf4f8;
+  min-height: 100dvh;
+  background-color: #fff5f8;
   background-image:
     radial-gradient(ellipse 110% 75% at 50% -18%, rgba(233, 213, 255, 0.2), transparent 54%),
     radial-gradient(ellipse 85% 55% at 100% 0%, rgba(251, 182, 206, 0.14), transparent 48%),

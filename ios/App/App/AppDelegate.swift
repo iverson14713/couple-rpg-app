@@ -6,8 +6,15 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
 
     var window: UIWindow?
 
+    private static let loveQuestBackground = UIColor(
+        red: 1.0,
+        green: 0.961,
+        blue: 0.973,
+        alpha: 1.0
+    )
+
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
-        // Override point for customization after application launch.
+        window?.backgroundColor = Self.loveQuestBackground
         return true
     }
 
@@ -26,7 +33,10 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     }
 
     func applicationDidBecomeActive(_ application: UIApplication) {
-        // Restart any tasks that were paused (or not yet started) while the application was inactive. If the application was previously in the background, optionally refresh the user interface.
+        window?.backgroundColor = Self.loveQuestBackground
+        if let root = window?.rootViewController?.view {
+            root.backgroundColor = Self.loveQuestBackground
+        }
     }
 
     func applicationWillTerminate(_ application: UIApplication) {

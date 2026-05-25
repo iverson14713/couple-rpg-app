@@ -17,7 +17,7 @@ export const lq = {
   sectionTitleSm: 'text-[15px] font-bold text-[#4a3c44]',
   label: 'text-[11px] font-semibold uppercase tracking-wide text-[#9a8a94]',
 
-  mainPadBottom: 'pb-[calc(8.5rem+env(safe-area-inset-bottom,0px))]',
+  mainPadBottom: 'pb-[calc(96px+env(safe-area-inset-bottom,0px))]',
 
   /** 一般卡片 — 半透明 + blur + 粉光陰影 */
   card:

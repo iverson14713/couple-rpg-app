@@ -243,6 +243,7 @@ import {
   type ImportantDateScheduledReminder,
 } from '../lib/importantDateReminderEngine';
 import type { ImportantDateRemindersData } from '../storage/importantDateReminderTypes';
+import { rescheduleLoveQuestImportantDateNotifications } from '../../services/notificationService';
 import { importantDatesKnowledgeIncreased } from '../lib/coupleProfileImportantReward';
 import { getNicknameSetupStatus, mergeCoupleProfile, type NicknameSetupStatus } from '../lib/coupleDisplayNames';
 
@@ -283,6 +284,8 @@ type LoveQuestContextValue = {
   patchImportantDateReminder: (
     updater: (prev: ImportantDateRemindersData) => ImportantDateRemindersData
   ) => void;
+  /** 重新排程 iOS/Android 本機推播（重要日子） */
+  rescheduleImportantDatePush: () => Promise<void>;
   rerollLoveTask: (taskId: string) => void;
   flirtGames: FlirtGamesData;
   flirtGameDefs: typeof FLIRT_GAMES;
@@ -1842,6 +1845,14 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
     [coupleExtended, importantDateReminders]
   );
 
+  const rescheduleImportantDatePushFn = useCallback(async () => {
+    await rescheduleLoveQuestImportantDateNotifications(coupleExtended, importantDateReminders);
+  }, [coupleExtended, importantDateReminders]);
+
+  useEffect(() => {
+    void rescheduleImportantDatePushFn();
+  }, [rescheduleImportantDatePushFn]);
+
   const dismissImportantDateReminderFn = useCallback((reminderId: string) => {
     setImportantDateReminders((prev) => {
       const next = acknowledgeImportantDateReminder(prev, reminderId);
@@ -2394,6 +2405,7 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
       syncCoupleProfile: syncCoupleProfileFn,
       importantDateReminders,
       patchImportantDateReminder: patchImportantDateReminderFn,
+      rescheduleImportantDatePush: rescheduleImportantDatePushFn,
       rerollLoveTask: rerollLoveTaskFn,
       flirtGames,
       flirtGameDefs: FLIRT_GAMES,
@@ -2505,6 +2517,7 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
       coupleProfileSyncError,
       syncCoupleProfileFn,
       patchImportantDateReminderFn,
+      rescheduleImportantDatePushFn,
       rerollLoveTaskFn,
       flirtGames,
       completionHistory,

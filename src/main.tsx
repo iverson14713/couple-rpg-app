@@ -4,6 +4,7 @@ import { AppErrorBoundary } from './AppErrorBoundary.tsx';
 import { ToastProvider } from './context/ToastContext.tsx';
 import { initAuthDebug } from './services/auth/authDebug.ts';
 import { initCapacitorAuthBridge } from './native/capacitorAuthBridge.ts';
+import { initLoveQuestNotificationBridge } from './services/notificationService.ts';
 import { repairCorruptedLocalStorage } from './safeStorage.ts';
 import { Root } from './Root.tsx';
 import { SupabaseAuthProvider } from './useSupabaseAuth.ts';
@@ -11,6 +12,7 @@ import './index.css';
 
 repairCorruptedLocalStorage();
 initCapacitorAuthBridge();
+initLoveQuestNotificationBridge();
 initAuthDebug();
 
 const rootEl = document.getElementById('root');

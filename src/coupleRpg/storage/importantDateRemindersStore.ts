@@ -85,7 +85,7 @@ export function toggleOffsetsInList(
   if (set.has(offset)) set.delete(offset);
   else set.add(offset);
   const next = [...set].sort((a, b) => a - b) as ReminderOffsetDays[];
-  return next.length ? next : [7];
+  return next.length ? next : [0, 1, 3, 7];
 }
 
 export function toggleReminderOffset(

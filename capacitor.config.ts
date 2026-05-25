@@ -26,6 +26,7 @@ const config: CapacitorConfig = {
   ios: {
     contentInset: 'automatic',
     scheme: 'LoveQuest',
+    backgroundColor: '#fff5f8',
   },
 };
 

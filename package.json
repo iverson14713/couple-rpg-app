@@ -28,6 +28,7 @@
     "@capacitor/cli": "^8.3.4",
     "@capacitor/core": "^8.3.4",
     "@capacitor/ios": "^8.3.4",
+    "@capacitor/local-notifications": "^8.2.0",
     "@supabase/supabase-js": "^2.57.4",
     "dotenv": "^16.4.7",
     "html-to-image": "^1.11.13",

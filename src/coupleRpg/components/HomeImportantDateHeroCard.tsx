@@ -109,7 +109,7 @@ function TodayReminderHero({ reminder }: { reminder: ImportantDateScheduledRemin
         </div>
       </div>
       <p className="mt-3 text-[12px] font-medium text-stone-500">
-        打開 App 時提醒 · 正式推播通知將於後續版本加入
+        iPhone 本機推播 · 沒開 App 也會提醒
       </p>
     </div>
   );
@@ -180,7 +180,7 @@ function ConfiguredHero({
       {event.isToday ? (
         <p className="mt-3 text-[13px] font-semibold text-rose-600/90">今天是值得慶祝的一天，記得準備小驚喜 💕</p>
       ) : (
-        <p className="mt-3 text-[12px] font-medium text-stone-500">點擊查看提醒設定 · 打開 App 時提醒</p>
+        <p className="mt-3 text-[12px] font-medium text-stone-500">點擊查看提醒設定 · 本機推播已排程</p>
       )}
     </div>
   );
@@ -194,7 +194,7 @@ function EmptyHero() {
       </span>
       <p className={`mt-2 text-[20px] font-extrabold leading-snug ${lq.text}`}>還沒設定重要日子 ❤️</p>
       <p className="mt-1.5 max-w-[280px] text-[14px] font-medium leading-snug text-stone-500">
-        新增後可在打開 App 時提醒你們的重要紀念日
+        新增後可排程 iPhone 本機推播，提醒你們的重要紀念日
       </p>
       <span className="mt-4 inline-flex items-center gap-1 rounded-xl bg-rose-500 px-4 py-2.5 text-[14px] font-bold text-white shadow-sm shadow-rose-300/40">
         ＋ 新增重要日子

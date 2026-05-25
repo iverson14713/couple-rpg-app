@@ -66,5 +66,7 @@
 	</array>
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<true/>
+	<key>NSUserNotificationsUsageDescription</key>
+	<string>LoveQuest 會在重要日子（生日、紀念日等）前以本機通知提醒你，無需連線伺服器。</string>
 </dict>
 </plist>

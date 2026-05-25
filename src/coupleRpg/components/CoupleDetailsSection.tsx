@@ -6,6 +6,7 @@ import { useCoupleRpgNav } from '../context/CoupleRpgNavContext';
 import { useLoveQuest } from '../context/LoveQuestContext';
 import type { CoupleExtendedProfile, CustomImportantDate } from '../storage/coupleExtendedTypes';
 import { defaultCoupleExtendedProfile } from '../storage/coupleExtendedTypes';
+import { DatePickerField } from './DatePickerField';
 import { lq } from '../theme';
 
 const COUPLE_PROFILE_ANCHOR_ID = 'lq-couple-profile';
@@ -218,11 +219,11 @@ export function CoupleDetailsSection() {
                   placeholder="名稱"
                   className={`${inputClass} mb-1.5`}
                 />
-                <input
-                  type="date"
+                <DatePickerField
                   value={c.date}
-                  onChange={(e) => updateCustom(c.id, { date: e.target.value })}
-                  className={`${inputClass} mb-1.5`}
+                  onChange={(ymd) => updateCustom(c.id, { date: ymd })}
+                  label="日期"
+                  className="mb-1.5"
                 />
                 <input
                   type="text"

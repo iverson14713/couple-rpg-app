@@ -17,7 +17,7 @@ export type ImportantDateRemindersData = {
 };
 
 export const DEFAULT_EVENT_SETTINGS: ImportantDateEventSettings = {
-  offsets: [7],
+  offsets: [0, 1, 3, 7],
   giftPrepared: false,
   activityPlanned: false,
   partnerPrefs: '',
