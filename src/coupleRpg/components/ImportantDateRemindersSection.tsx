@@ -73,6 +73,7 @@ export function ImportantDateRemindersSection({ showBack, compactHero }: Props) 
   const [aiEvent, setAiEvent] = useState<ImportantDateEvent | null>(null);
   const [savedImportantView, setSavedImportantView] = useState<SavedImportantDateAi | null>(null);
   const [savedFlash, setSavedFlash] = useState(false);
+  const [futureRemindersExpanded, setFutureRemindersExpanded] = useState(false);
 
   const flashSaved = useCallback(() => {
     setSavedFlash(true);
@@ -226,12 +227,30 @@ export function ImportantDateRemindersSection({ showBack, compactHero }: Props) 
           </div>
           <div className={`p-3 ${lq.cardSoft}`}>
             <h3 className={`mb-2 text-[13px] font-bold ${lq.text}`}>未來提醒</h3>
-            {futureImportantDateReminders.length > 0 ? (
-              <ImportantDateReminderList items={futureImportantDateReminders} variant="future" />
+            {futureImportantDateReminders.length === 0 ? (
+              <p className={`text-[12px] ${lq.textSecondary}`}>目前沒有未來提醒</p>
             ) : (
-              <p className={`text-[12px] ${lq.textSecondary}`}>
-                尚未排程未來提醒，請在下方為各日子設定提前天數
-              </p>
+              <>
+                <ImportantDateReminderList
+                  items={
+                    futureRemindersExpanded
+                      ? futureImportantDateReminders
+                      : futureImportantDateReminders.slice(0, 1)
+                  }
+                  variant="future"
+                />
+                {futureImportantDateReminders.length > 1 ? (
+                  <button
+                    type="button"
+                    onClick={() => setFutureRemindersExpanded((v) => !v)}
+                    className="mt-2.5 w-full rounded-xl border border-rose-200/55 bg-white/80 py-2.5 text-center text-[12px] font-bold text-rose-700 active:opacity-80"
+                  >
+                    {futureRemindersExpanded
+                      ? '收合提醒'
+                      : `查看全部提醒（共 ${futureImportantDateReminders.length} 筆）`}
+                  </button>
+                ) : null}
+              </>
             )}
           </div>
           <p className="text-center text-[10px] leading-relaxed text-stone-400">

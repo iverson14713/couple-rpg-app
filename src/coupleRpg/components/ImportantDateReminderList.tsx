@@ -8,6 +8,14 @@ type Props = {
   onDismiss?: (id: string) => void;
 };
 
+function futureReminderCaption(r: ImportantDateScheduledReminder): string {
+  return `${r.reasonLabel}提醒・${r.daysUntilAlert} 天後通知`;
+}
+
+function todayReminderCaption(r: ImportantDateScheduledReminder): string {
+  return `${r.reasonLabel}提醒・${r.event.isToday ? '就是今天' : `還有 ${r.event.daysUntil} 天`}`;
+}
+
 export function ImportantDateReminderList({ items, variant, onDismiss }: Props) {
   if (items.length === 0) return null;
 
@@ -26,15 +34,17 @@ export function ImportantDateReminderList({ items, variant, onDismiss }: Props) 
             {r.event.icon}
           </span>
           <div className="min-w-0 flex-1">
-            <p className={`text-[14px] font-bold ${lq.text}`}>{r.event.displayTitle}</p>
-            <p className={`text-[12px] ${lq.textSecondary}`}>
-              📆 {formatYmdChinese(r.event.dateYmd)} ·{' '}
-              {r.event.isToday ? '就是今天' : `還有 ${r.event.daysUntil} 天`}
+            <p className={`text-[14px] font-bold leading-snug ${lq.text}`}>
+              {variant === 'future'
+                ? `${r.daysUntilAlert} 天後通知：${r.event.displayTitle}`
+                : r.event.displayTitle}
             </p>
-            <p className="mt-0.5 text-[11px] font-semibold text-rose-700">
-              提醒原因：{r.reasonLabel}
-              {variant === 'future' ? ` · ${r.daysUntilAlert} 天後提醒你` : ''}
+            <p className={`mt-0.5 text-[12px] leading-snug ${lq.textSecondary}`}>
+              {variant === 'future' ? futureReminderCaption(r) : todayReminderCaption(r)}
             </p>
+            {variant === 'today' ? (
+              <p className={`mt-0.5 text-[11px] ${lq.textMuted}`}>📆 {formatYmdChinese(r.event.dateYmd)}</p>
+            ) : null}
           </div>
           {variant === 'today' && onDismiss ? (
             <button

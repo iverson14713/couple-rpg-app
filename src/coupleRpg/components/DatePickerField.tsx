@@ -16,7 +16,7 @@ export function DatePickerField({
   className = '',
   label,
 }: Props) {
-  const inputId = useId();
+  const fieldId = useId();
   const inputRef = useRef<HTMLInputElement>(null);
   const hasValue = Boolean(value.trim());
   const display = hasValue ? formatYmdChinese(value) : placeholder;
@@ -25,11 +25,15 @@ export function DatePickerField({
     const el = inputRef.current;
     if (!el) return;
     try {
-      if (typeof el.showPicker === 'function') el.showPicker();
-      else el.focus();
+      if (typeof el.showPicker === 'function') {
+        el.showPicker();
+        return;
+      }
     } catch {
-      el.focus();
+      /* iOS WKWebView 可能不支援 showPicker */
     }
+    el.focus();
+    el.click();
   };
 
   return (
@@ -39,35 +43,39 @@ export function DatePickerField({
           {label}
         </span>
       ) : null}
-      <button
-        type="button"
-        onClick={openPicker}
-        className={`relative flex w-full min-h-[44px] items-center justify-between gap-2 rounded-xl border px-3 py-2.5 text-left transition active:scale-[0.99] ${
+      <label
+        htmlFor={fieldId}
+        onClick={(e) => {
+          if (e.target === inputRef.current) return;
+          openPicker();
+        }}
+        className={`relative flex w-full min-h-[44px] cursor-pointer items-center justify-between gap-2 rounded-xl border px-3 py-2.5 text-left transition active:scale-[0.99] ${
           hasValue
             ? 'border-rose-200/70 bg-white text-stone-800'
             : 'border-rose-200/55 bg-rose-50/40 text-stone-400'
         }`}
-        aria-labelledby={inputId}
       >
         <span
-          id={inputId}
-          className={`text-[14px] font-semibold ${hasValue ? 'text-stone-800' : 'text-stone-400'}`}
+          className={`pointer-events-none relative z-[1] text-[14px] font-semibold ${
+            hasValue ? 'text-stone-800' : 'text-stone-400'
+          }`}
         >
           {display}
         </span>
-        <span className="shrink-0 text-[1.25rem] leading-none" aria-hidden>
+        <span className="pointer-events-none relative z-[1] shrink-0 text-[1.25rem] leading-none" aria-hidden>
           📅
         </span>
         <input
           ref={inputRef}
+          id={fieldId}
           type="date"
           value={value}
           onChange={(e) => onChange(e.target.value)}
-          className="pointer-events-none absolute inset-0 h-full w-full opacity-0"
-          tabIndex={-1}
-          aria-hidden
+          className="absolute inset-0 z-10 m-0 h-full w-full min-h-[44px] cursor-pointer border-0 bg-transparent p-0 opacity-[0.011] [color-scheme:light]"
+          style={{ fontSize: '16px', WebkitAppearance: 'none', appearance: 'none' }}
+          aria-label={typeof label === 'string' ? label : '選擇日期'}
         />
-      </button>
+      </label>
     </div>
   );
 }
