@@ -11,6 +11,7 @@ import { foodEmojiForLabel } from '../lib/dinnerFoodEmoji';
 import { ensureDinnerStableIds } from '../storage/dinnerSyncMeta';
 import { getActiveDinnerOptions, loadDinner, saveDinner } from '../storage/dinnerStore';
 import type { DinnerData, DinnerHistoryEntry, DinnerOption } from '../storage/types';
+import { canUseUserStorage } from '../storage/storageGuard';
 
 const LOG = '[dinner-sync]';
 
@@ -75,7 +76,12 @@ export function canSyncDinnerOptions(input: {
 }): boolean {
   if (!ENABLE_DINNER_OPTIONS_CLOUD_SYNC) return false;
   return Boolean(
-    input.configured && input.userId && input.coupleId && input.online && input.isFullyBound
+    canUseUserStorage(input.userId) &&
+      input.configured &&
+      input.userId &&
+      input.coupleId &&
+      input.online &&
+      input.isFullyBound
   );
 }
 
@@ -88,7 +94,12 @@ export function canSyncDinnerDecision(input: {
 }): boolean {
   if (!ENABLE_DINNER_DECISION_CLOUD_SYNC) return false;
   return Boolean(
-    input.configured && input.userId && input.coupleId && input.online && input.isFullyBound
+    canUseUserStorage(input.userId) &&
+      input.configured &&
+      input.userId &&
+      input.coupleId &&
+      input.online &&
+      input.isFullyBound
   );
 }
 

@@ -13,6 +13,7 @@ import {
   saveCoupleExtendedProfile,
   stampCoupleExtendedProfile,
 } from '../storage/coupleExtendedStore';
+import { canUseUserStorage } from '../storage/storageGuard';
 
 const LOG = '[couple-profile-sync]';
 
@@ -77,7 +78,12 @@ export function canSyncCoupleProfile(input: {
   isFullyBound: boolean;
 }): boolean {
   return Boolean(
-    input.configured && input.userId && input.coupleId && input.online && input.isFullyBound
+    canUseUserStorage(input.userId) &&
+      input.configured &&
+      input.userId &&
+      input.coupleId &&
+      input.online &&
+      input.isFullyBound
   );
 }
 

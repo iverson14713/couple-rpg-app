@@ -11,6 +11,7 @@ import {
   saveActivityLogs,
 } from './activityLogService';
 import type { ActivityLogItem } from '../storage/activityLogTypes';
+import { canUseUserStorage } from '../storage/storageGuard';
 
 const LOG = '[activity-log-sync]';
 const TABLE = 'couple_activity_logs';
@@ -43,7 +44,12 @@ export function canSyncActivityLogs(input: {
 }): boolean {
   if (!ENABLE_ACTIVITY_LOG_CLOUD_SYNC) return false;
   return Boolean(
-    input.configured && input.userId && input.coupleId && input.online && input.isFullyBound
+    canUseUserStorage(input.userId) &&
+      input.configured &&
+      input.userId &&
+      input.coupleId &&
+      input.online &&
+      input.isFullyBound
   );
 }
 

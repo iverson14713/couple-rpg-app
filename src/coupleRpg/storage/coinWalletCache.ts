@@ -1,5 +1,6 @@
 import { LQ_KEYS } from './keys';
 import { loadJson, saveJson } from './persist';
+import { getActiveStorageUserId } from './storageSession';
 import type {
   CoinWalletCache,
   GrowthSnapshot,
@@ -64,6 +65,9 @@ function migrateV2ToV3(raw: CoinWalletCache & { transactions?: unknown[] }): Coi
 }
 
 export function loadCoinWalletCache(): CoinWalletCache {
+  const activeUserId = getActiveStorageUserId();
+  if (!activeUserId) return defaultCache();
+
   const raw = loadJson<CoinWalletCache | Record<string, unknown> | null>(
     LQ_KEYS.coinWalletCache,
     null
@@ -71,6 +75,7 @@ export function loadCoinWalletCache(): CoinWalletCache {
   if (!raw) return defaultCache();
   if ((raw as CoinWalletCache).version === 3) {
     const c = raw as CoinWalletCache;
+    if (c.userId && c.userId !== activeUserId) return defaultCache();
     return {
       ...defaultCache(),
       ...c,

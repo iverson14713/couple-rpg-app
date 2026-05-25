@@ -16,6 +16,7 @@ import type {
   PartnerId,
 } from '../storage/types';
 import { loadHousework, saveHousework } from '../storage/houseworkStore';
+import { canUseUserStorage } from '../storage/storageGuard';
 
 const LOG = '[chore-sync]';
 const META_LOCAL_PREFIX = 'lq-hw-meta-';
@@ -98,7 +99,12 @@ export function canSyncChoreItems(input: {
 }): boolean {
   if (!ENABLE_CHORE_ITEMS_CLOUD_SYNC) return false;
   return Boolean(
-    input.configured && input.userId && input.coupleId && input.online && input.isFullyBound
+    canUseUserStorage(input.userId) &&
+      input.configured &&
+      input.userId &&
+      input.coupleId &&
+      input.online &&
+      input.isFullyBound
   );
 }
 
@@ -111,7 +117,12 @@ export function canSyncChoreAssignment(input: {
 }): boolean {
   if (!ENABLE_CHORE_ASSIGNMENT_CLOUD_SYNC) return false;
   return Boolean(
-    input.configured && input.userId && input.coupleId && input.online && input.isFullyBound
+    canUseUserStorage(input.userId) &&
+      input.configured &&
+      input.userId &&
+      input.coupleId &&
+      input.online &&
+      input.isFullyBound
   );
 }
 

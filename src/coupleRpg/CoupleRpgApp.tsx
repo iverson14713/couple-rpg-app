@@ -3,14 +3,13 @@ import { isScreenshotMode } from '../lib/screenshotMode';
 import { OfflineBanner } from '../components/OfflineBanner';
 import { useOnlineStatus } from '../hooks/useOnlineStatus';
 import { useSupabaseAuth } from '../useSupabaseAuth';
-import { useLoveQuest } from './context/LoveQuestContext';
 import { AppLegalFooter } from './components/AppLegalFooter';
 import { BottomNav } from './components/BottomNav';
 import { TabPageHeader } from './components/TabPageHeader';
 import { OnboardingProvider } from './context/OnboardingContext';
 import { CoupleRpgNavProvider, useCoupleRpgNav, type CoupleNavTabId } from './context/CoupleRpgNavContext';
 import { CoupleSpaceProvider } from './context/CoupleSpaceContext';
-import { LoveQuestProvider } from './context/LoveQuestContext';
+import { LoveQuestProvider, useLoveQuest } from './context/LoveQuestContext';
 import { AiToastProvider } from './context/AiToastContext';
 import { AiUsageProvider } from './hooks/useAiUsage';
 import { UserPlanProvider } from './context/UserPlanContext';
@@ -31,20 +30,38 @@ import { lq } from './theme';
 export default function CoupleRpgApp() {
   return (
     <OnboardingProvider>
-      <CoupleSpaceProvider>
-        <UserPlanProvider>
-          <AiUsageProvider>
-            <AiToastProvider>
-              <LoveQuestProvider>
-                <CoupleRpgNavProvider>
-                  <CoupleRpgShell />
-                </CoupleRpgNavProvider>
-              </LoveQuestProvider>
-            </AiToastProvider>
-          </AiUsageProvider>
-        </UserPlanProvider>
-      </CoupleSpaceProvider>
+      <CoupleRpgAuthBoot />
     </OnboardingProvider>
+  );
+}
+
+function CoupleRpgAuthBoot() {
+  const auth = useSupabaseAuth();
+
+  if (!auth.authReady) {
+    return (
+      <div className="flex min-h-[100dvh] items-center justify-center bg-gradient-to-b from-rose-50/95 to-pink-50/90 text-[14px] font-semibold text-[#8a7a84]">
+        載入中…
+      </div>
+    );
+  }
+
+  const bootKey = auth.user?.id ?? 'guest';
+
+  return (
+    <CoupleSpaceProvider key={bootKey}>
+      <UserPlanProvider key={bootKey}>
+        <AiUsageProvider key={bootKey}>
+          <AiToastProvider>
+            <LoveQuestProvider key={bootKey}>
+              <CoupleRpgNavProvider>
+                <CoupleRpgShell />
+              </CoupleRpgNavProvider>
+            </LoveQuestProvider>
+          </AiToastProvider>
+        </AiUsageProvider>
+      </UserPlanProvider>
+    </CoupleSpaceProvider>
   );
 }
 
@@ -52,6 +69,7 @@ function CoupleRpgShell() {
   const { tab, navigateTo } = useCoupleRpgNav();
   const isOnline = useOnlineStatus();
   const auth = useSupabaseAuth();
+  const { displayNames } = useLoveQuest();
   const screenshotMode = isScreenshotMode();
 
   const onNavChange = (next: CoupleNavTabId) => navigateTo(next);

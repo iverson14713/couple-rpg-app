@@ -43,3 +43,20 @@ export const LQ_KEYS = {
   /** LoveCoin 雲端錢包快取（非 source of truth） */
   coinWalletCache: 'lovequest-coin-wallet-cache',
 } as const;
+
+/** Keys persisted per Supabase user: `lovequest-*-{userId}` */
+export const USER_SCOPED_STORAGE_KEYS: readonly string[] = Object.values(LQ_KEYS);
+
+/** Device / UI prefs kept across logout (not user-scoped). */
+export const DEVICE_PREF_STORAGE_KEYS: readonly string[] = [
+  LQ_KEYS.homeConsoleExpanded,
+  LQ_KEYS.homeDatesExpanded,
+  LQ_KEYS.dailyMessageExpanded,
+];
+
+const USER_SCOPED_SET = new Set<string>(USER_SCOPED_STORAGE_KEYS);
+
+export function isUserScopedStorageKey(key: string): boolean {
+  return USER_SCOPED_SET.has(key);
+}
+

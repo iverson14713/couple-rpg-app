@@ -112,7 +112,6 @@ import {
   redeemCoupon,
   redeemCustomCoupon,
   saveRewards,
-  stripForeignCoupons,
   useRewardCardLocal,
 } from '../storage/rewardsStore';
 import {
@@ -785,16 +784,6 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
   const [anniversaries, setAnniversaries] = useState(loadAnniversaries);
   const [rewards, setRewards] = useState(loadRewards);
   const [activity, setActivity] = useState(loadActivity);
-
-  useEffect(() => {
-    if (!currentUserId) return;
-    setRewards((prev) => {
-      const next = stripForeignCoupons(prev, currentUserId);
-      if (next.coupons.length === prev.coupons.length) return prev;
-      saveRewards(next);
-      return next;
-    });
-  }, [currentUserId]);
   const [draftPick, setDraftPick] = useState<string | null>(null);
   const [spinning, setSpinning] = useState(false);
 

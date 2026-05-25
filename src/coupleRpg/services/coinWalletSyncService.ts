@@ -26,6 +26,7 @@ import type {
 import { userCoinTxToCoinRecord } from '../storage/coinWalletTypes';
 import type { RpgReward } from '../storage/rpgLogic';
 import type { RpgState } from '../storage/types';
+import { canUseUserStorage } from '../storage/storageGuard';
 
 const LOG = '[growth-sync]';
 const TX_LIMIT = 100;
@@ -83,7 +84,12 @@ export function canSyncCoinWallet(input: {
 }): boolean {
   if (!ENABLE_COIN_WALLET_CLOUD_SYNC) return false;
   return Boolean(
-    input.configured && input.userId && input.coupleId && input.online && input.isFullyBound
+    canUseUserStorage(input.userId) &&
+      input.configured &&
+      input.userId &&
+      input.coupleId &&
+      input.online &&
+      input.isFullyBound
   );
 }
 

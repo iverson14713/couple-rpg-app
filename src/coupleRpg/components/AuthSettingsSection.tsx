@@ -156,7 +156,7 @@ export function AuthSettingsSection() {
           <span className="font-bold text-rose-700">{displayLabel}</span>
         </p>
         <p className="mt-2 text-[11px] leading-relaxed text-stone-500">
-          登出只會結束帳號連線，不會刪除本機或雲端的情侶空間資料。
+          登出會清除本機帳號資料並回到體驗模式；雲端資料仍保留，下次登入會重新同步。
         </p>
         <button
           type="button"

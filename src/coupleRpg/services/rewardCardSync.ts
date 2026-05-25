@@ -9,6 +9,7 @@ import { normalizeOwnedCoupon } from '../lib/rewardCardModel';
 import type { OwnedCoupon, RewardCardStatus, RewardsData } from '../storage/rewardTypes';
 import { loadRewards, saveRewards } from '../storage/rewardsStore';
 import { isCouponOwnedBy, stripForeignCoupons } from '../storage/rewardsStore';
+import { canUseUserStorage } from '../storage/storageGuard';
 
 export { COMPLETED_REWARD_CARD_RETENTION_DAYS };
 
@@ -55,7 +56,9 @@ export function canSyncRewardCards(input: {
 }): boolean {
   void input.coupleId;
   void input.isFullyBound;
-  return Boolean(input.configured && input.userId && input.online);
+  return Boolean(
+    canUseUserStorage(input.userId) && input.configured && input.userId && input.online
+  );
 }
 
 function rowLocalId(row: { local_id?: string | null }): string {

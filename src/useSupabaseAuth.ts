@@ -19,6 +19,14 @@ import { signInWithGoogleOAuth } from './services/auth/googleSignIn';
 import { authLog } from './services/auth/authDebug';
 import { AUTH_ROUTE_EVENT, AUTH_SESSION_SYNC_EVENT } from './services/auth/authRoute';
 import { getSupabaseClient } from './supabaseClient';
+import {
+  clearLoveQuestUserData,
+  prepareLoveQuestStorageForLogin,
+} from './coupleRpg/storage/clearLoveQuestStorage';
+import {
+  getActiveStorageUserId,
+  setActiveStorageUserId,
+} from './coupleRpg/storage/storageSession';
 
 export type UserProfile = {
   id: string;
@@ -103,14 +111,32 @@ export function SupabaseAuthProvider({ children }: { children: ReactNode }) {
 
     let cancelled = false;
     void supabase.auth.getSession().then(({ data: { session: s } }) => {
-      if (!cancelled) setSession(s);
-      if (!cancelled) setReady(true);
+      if (cancelled) return;
+      if (s?.user?.id) {
+        prepareLoveQuestStorageForLogin(s.user.id);
+        setActiveStorageUserId(s.user.id);
+      } else {
+        setActiveStorageUserId(null);
+      }
+      setSession(s);
+      setReady(true);
     });
 
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((event, s) => {
       authLog('auth.onAuthStateChange', { event, hasSession: Boolean(s) });
+      if (event === 'SIGNED_OUT') {
+        clearLoveQuestUserData(getActiveStorageUserId());
+        setActiveStorageUserId(null);
+      } else if (s?.user?.id) {
+        if (event === 'SIGNED_IN' || event === 'INITIAL_SESSION') {
+          prepareLoveQuestStorageForLogin(s.user.id);
+        }
+        setActiveStorageUserId(s.user.id);
+      } else {
+        setActiveStorageUserId(null);
+      }
       setSession(s);
       setReady(true);
     });
@@ -181,10 +207,13 @@ export function SupabaseAuthProvider({ children }: { children: ReactNode }) {
     [supabase]
   );
 
-  const signOut = useCallback(() => {
-    if (!supabase) return Promise.resolve({ error: null });
+  const signOut = useCallback(async () => {
+    if (!supabase) return { error: null };
+    const userId = session?.user?.id ?? getActiveStorageUserId();
+    clearLoveQuestUserData(userId);
+    setActiveStorageUserId(null);
     return supabase.auth.signOut();
-  }, [supabase]);
+  }, [supabase, session?.user?.id]);
 
   const signInWithGoogle = useCallback(async () => {
     if (!supabase) return { data: null, error: new Error('not_configured') };
