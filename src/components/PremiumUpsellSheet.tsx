@@ -1,7 +1,12 @@
 import { Crown } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { SUBSCRIPTION_PRICING } from '../subscription/constants';
+import { fetchStoreProductPrices, isNativeIapAvailable } from '../subscription/iapBridge';
 import type { BillingPeriod } from '../subscription/types';
+import {
+  PRO_LEGAL_AUTO_RENEW,
+  PRO_LEGAL_MANAGE,
+} from '../coupleRpg/lib/proPlanContent';
 
 export type PremiumUpsellReason =
   | 'ai'
@@ -24,71 +29,79 @@ export const premiumUpsellCopy: Record<
     priceYearly: string;
     yearlySave: string;
     later: string;
-    upgrade: string;
+    buyMonthly: string;
+    buyYearly: string;
     restore: string;
     restoring: string;
-    appStoreNote: string;
-    testNote: string;
+    iosOnly: string;
+    autoRenew: string;
+    manage: string;
+    privacy: string;
+    terms: string;
     subtitle: Record<PremiumUpsellReason, string>;
   }
 > = {
   zh: {
-    title: '🐾 升級 Pro 解鎖完整照護',
+    title: '💞 升級 LoveQuest Pro',
     bullets: [
-      '每日 30 次 AI（整理重點、照護助理、週報與隨口問共用）',
-      'AI 週報',
-      '無限提醒',
-      '多寵物管理',
-      '完整歷史搜尋',
-      'PDF 獸醫報告',
-      '更多照片空間',
+      '一人升級，兩人共享 Pro',
+      '完整情侶雲端同步',
+      'AI 約會行程與禮物建議',
+      '重要日子無上限',
+      '自訂獎勵卡券與更多小遊戲',
     ],
     priceMonthly: SUBSCRIPTION_PRICING.monthly.labelZh,
     priceYearly: SUBSCRIPTION_PRICING.yearly.labelZh,
     yearlySave: SUBSCRIPTION_PRICING.yearlySaveZh,
     later: '稍後再說',
-    upgrade: '升級 Pro（測試開通）',
+    buyMonthly: '訂閱月費',
+    buyYearly: '訂閱年費',
     restore: '恢復購買',
-    restoring: '恢復中…',
-    appStoreNote: '正式上架後將透過 App Store 訂閱結帳。',
-    testNote: '目前不會實際扣款，僅在本機開通 Pro 體驗。',
+    restoring: '處理中…',
+    iosOnly: '目前僅 iOS App 支援訂閱購買',
+    autoRenew: PRO_LEGAL_AUTO_RENEW,
+    manage: PRO_LEGAL_MANAGE,
+    privacy: '隱私政策',
+    terms: '服務條款',
     subtitle: {
-      ai: '今日 AI 次數已用完，升級後可獲得更多照護建議。',
+      ai: '今日 AI 次數已用完，升級 Pro 可獲得更多。',
       reminders: '提醒數量已達免費版上限。',
       pets: '寵物數量已達免費版上限（最多 3 隻）。',
       weekly: 'AI 正式週報為 Pro 專屬功能。',
-      history: '完整關鍵字與進階篩選為 Pro；免費版可使用「最近 7 天／30 天／本月」日期篩選。',
+      history: '完整搜尋與進階篩選為 Pro 功能。',
       pdf: 'PDF 匯出為 Pro 功能。',
-      photos: '每日照片已達免費版上限，升級可上傳更多張。',
+      photos: '每日照片已達免費版上限。',
       general: '此功能需要 Pro，升級即可解鎖。',
     },
   },
   en: {
-    title: '🐾 Upgrade to Pro',
+    title: '💞 Upgrade to LoveQuest Pro',
     bullets: [
-      '30 shared AI uses/day (vet highlights, assistant, weekly, Q&A)',
-      'AI weekly report',
-      'Unlimited reminders',
-      'Unlimited pets',
-      'Full history search',
-      'PDF vet report',
-      'More photo slots per day',
+      'One subscription, shared for your couple space',
+      'Full cloud sync',
+      'AI date ideas and gift suggestions',
+      'Unlimited important dates',
+      'Custom reward cards and more games',
     ],
     priceMonthly: SUBSCRIPTION_PRICING.monthly.labelEn,
     priceYearly: SUBSCRIPTION_PRICING.yearly.labelEn,
     yearlySave: SUBSCRIPTION_PRICING.yearlySaveEn,
     later: 'Not now',
-    upgrade: 'Upgrade to Pro (test)',
+    buyMonthly: 'Subscribe monthly',
+    buyYearly: 'Subscribe yearly',
     restore: 'Restore purchases',
     restoring: 'Restoring…',
-    appStoreNote: 'After launch, billing will go through the App Store.',
-    testNote: 'No charge in this build — test unlock on this device only.',
+    iosOnly: 'Subscriptions are available on the iOS app only',
+    autoRenew: 'Subscription auto-renews unless canceled at least 24 hours before the period ends.',
+    manage: 'Manage or cancel in Settings → Apple ID → Subscriptions.',
+    privacy: 'Privacy Policy',
+    terms: 'Terms of Service',
     subtitle: {
       ai: "You've used today's AI quota on the free plan.",
       reminders: "You've reached the free reminder limit.",
       pets: 'Free plan supports up to 3 pets.',
       weekly: 'The full AI weekly report is a Pro feature.',
-      history: 'Full keyword search and advanced filters are Pro; free plan uses quick date ranges (7 / 30 days / this month).',
+      history: 'Advanced search and filters are Pro features.',
       pdf: 'PDF export is a Pro feature.',
       photos: "You've reached the free daily photo limit.",
       general: 'This feature requires Pro.',
@@ -102,7 +115,7 @@ export type PremiumUpsellSheetProps = {
   reason: PremiumUpsellReason;
   busy?: boolean;
   onClose: () => void;
-  onUpgrade: (period: BillingPeriod) => void;
+  onPurchase: (period: BillingPeriod) => void;
   onRestore: () => void;
 };
 
@@ -112,12 +125,23 @@ export function PremiumUpsellSheet({
   reason,
   busy = false,
   onClose,
-  onUpgrade,
+  onPurchase,
   onRestore,
 }: PremiumUpsellSheetProps) {
-  const [period, setPeriod] = useState<BillingPeriod>('yearly');
-  if (!open) return null;
   const t = premiumUpsellCopy[lang];
+  const iapAvailable = isNativeIapAvailable();
+  const [priceMonthly, setPriceMonthly] = useState(t.priceMonthly);
+  const [priceYearly, setPriceYearly] = useState(t.priceYearly);
+
+  useEffect(() => {
+    if (!open || !iapAvailable) return;
+    void fetchStoreProductPrices().then((prices) => {
+      if (prices.monthly) setPriceMonthly(prices.monthly);
+      if (prices.yearly) setPriceYearly(prices.yearly);
+    });
+  }, [open, iapAvailable, t.priceMonthly, t.priceYearly]);
+
+  if (!open) return null;
   const sub = t.subtitle[reason] ?? t.subtitle.general;
 
   return (
@@ -137,7 +161,10 @@ export function PremiumUpsellSheet({
       >
         <div className="mx-auto mt-2 h-1 w-10 shrink-0 rounded-full bg-stone-300/80" aria-hidden />
         <div className="max-h-[min(85vh,640px)] overflow-y-auto px-5 pb-5 pt-3">
-          <h2 id="premium-upsell-title" className="flex items-center justify-center gap-2 text-center text-lg font-bold tracking-tight text-stone-900">
+          <h2
+            id="premium-upsell-title"
+            className="flex items-center justify-center gap-2 text-center text-lg font-bold tracking-tight text-stone-900"
+          >
             <Crown className="h-5 w-5 shrink-0 text-amber-500" strokeWidth={2.2} aria-hidden />
             {t.title}
           </h2>
@@ -155,41 +182,52 @@ export function PremiumUpsellSheet({
           </ul>
 
           <div className="mt-4 grid grid-cols-2 gap-2">
-            {(['monthly', 'yearly'] as const).map((p) => (
-              <button
-                key={p}
-                type="button"
-                disabled={busy}
-                onClick={() => setPeriod(p)}
-                className={`rounded-2xl border px-3 py-2.5 text-center transition active:scale-[0.99] ${
-                  period === p
-                    ? 'border-orange-400 bg-orange-50 ring-2 ring-orange-200'
-                    : 'border-stone-200 bg-white'
-                }`}
-              >
-                <p className="text-sm font-bold text-stone-900">{p === 'monthly' ? t.priceMonthly : t.priceYearly}</p>
-                {p === 'yearly' ? (
-                  <p className="mt-1 text-[10px] font-semibold text-orange-800">{t.yearlySave}</p>
-                ) : null}
-              </button>
-            ))}
+            <div className="rounded-2xl border border-stone-200 bg-white px-3 py-2.5 text-center">
+              <p className="text-sm font-bold text-stone-900">{priceMonthly}</p>
+            </div>
+            <div className="rounded-2xl border-2 border-orange-300 bg-orange-50 px-3 py-2.5 text-center">
+              <p className="text-sm font-bold text-stone-900">{priceYearly}</p>
+              <p className="mt-1 text-[10px] font-semibold text-orange-800">{t.yearlySave}</p>
+            </div>
           </div>
 
-          <p className="mt-3 text-center text-[11px] leading-snug text-stone-600">{t.appStoreNote}</p>
-          <p className="mt-1 text-center text-[10px] leading-snug text-stone-500">{t.testNote}</p>
+          <div className="mt-3 space-y-1 text-[10px] leading-snug text-stone-500">
+            <p>{t.autoRenew}</p>
+            <p>{t.manage}</p>
+            <p className="flex justify-center gap-3">
+              <a href="/privacy" className="font-semibold text-orange-700 underline-offset-2 hover:underline">
+                {t.privacy}
+              </a>
+              <a href="/terms" className="font-semibold text-orange-700 underline-offset-2 hover:underline">
+                {t.terms}
+              </a>
+            </p>
+          </div>
+
+          {!iapAvailable ? (
+            <p className="mt-3 text-center text-[12px] font-semibold text-stone-600">{t.iosOnly}</p>
+          ) : null}
 
           <div className="mt-5 flex flex-col gap-2">
             <button
               type="button"
-              disabled={busy}
-              onClick={() => onUpgrade(period)}
-              className="w-full rounded-2xl bg-gradient-to-r from-orange-500 to-amber-500 py-3.5 text-[15px] font-bold text-white shadow-md shadow-orange-300/40 transition active:scale-[0.99] disabled:opacity-60"
+              disabled={busy || !iapAvailable}
+              onClick={() => onPurchase('monthly')}
+              className="w-full rounded-2xl border border-orange-200 bg-white py-3.5 text-[15px] font-bold text-orange-900 transition active:scale-[0.99] disabled:opacity-60"
             >
-              {t.upgrade}
+              {busy ? t.restoring : `${t.buyMonthly} · ${priceMonthly}`}
             </button>
             <button
               type="button"
-              disabled={busy}
+              disabled={busy || !iapAvailable}
+              onClick={() => onPurchase('yearly')}
+              className="w-full rounded-2xl bg-gradient-to-r from-orange-500 to-amber-500 py-3.5 text-[15px] font-bold text-white shadow-md shadow-orange-300/40 transition active:scale-[0.99] disabled:opacity-60"
+            >
+              {busy ? t.restoring : `${t.buyYearly} · ${priceYearly}`}
+            </button>
+            <button
+              type="button"
+              disabled={busy || !iapAvailable}
               onClick={onRestore}
               className="w-full rounded-2xl border border-orange-200 bg-orange-50 py-3 text-[14px] font-bold text-orange-800 transition active:scale-[0.99] disabled:opacity-60"
             >

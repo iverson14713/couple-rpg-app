@@ -84,7 +84,7 @@ export function formatActivityMessage(item: Pick<
     'complete:date_idea': `${who} 完成了約會${title}`,
     'complete:love_task': `${who} 完成了今日戀愛任務`,
     'complete:mini_game': `${who} 完成了一次情侶小遊戲`,
-    'upgrade:pro_plan': `${who} 開通了 Pro 體驗`,
+    'upgrade:pro_plan': `${who} 開通了 LoveQuest Pro`,
   };
 
   return templates[key] ?? `${who} 進行了一項操作`;

@@ -11,7 +11,7 @@ export function HomeProBanner() {
         className={`mb-2.5 flex items-center justify-between gap-2 rounded-2xl border border-violet-100 bg-violet-50/50 px-3 py-2.5 ${lq.cardSoft}`}
       >
         <p className="text-[13px] font-bold text-violet-900">
-          <span aria-hidden>✨</span> Pro 體驗中
+          <span aria-hidden>✨</span> Pro 已啟用
         </p>
         <p className="text-[11px] font-semibold text-violet-700">
           {planSnapshot.isShared ? '情侶空間已共享 Pro' : '你已解鎖進階功能'}

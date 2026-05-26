@@ -7,17 +7,14 @@ export const SUBSCRIPTION_STORAGE_KEY = 'petcare_subscription_status';
 export const LEGACY_AI_PLAN_KEY = 'cat-ai-plan';
 
 export const SUBSCRIPTION_PRICING = {
-  monthly: { amountTwd: 69, labelZh: 'NT$69 / 月', labelEn: 'NT$69 / month' },
-  yearly: { amountTwd: 649, labelZh: 'NT$649 / 年', labelEn: 'NT$649 / year' },
-  yearlySaveZh: '省約 22%',
-  yearlySaveEn: 'Save ~22%',
+  monthly: { amountTwd: 50, labelZh: 'NT$50 / 月', labelEn: 'NT$50 / month' },
+  yearly: { amountTwd: 490, labelZh: 'NT$490 / 年', labelEn: 'NT$490 / year' },
+  yearlySaveZh: '省約 18%',
+  yearlySaveEn: 'Save ~18%',
 } as const;
 
-/**
- * App Store Connect product identifiers — wire these in StoreKit / native IAP layer.
- * @see src/subscription/iapBridge.ts
- */
+/** App Store Connect subscription product identifiers */
 export const IAP_PRODUCT_IDS: Record<BillingPeriod, string> = {
-  monthly: 'com.petcare.pro.monthly',
-  yearly: 'com.petcare.pro.yearly',
+  monthly: 'com.wayne.lovequest.pro.monthly',
+  yearly: 'com.wayne.lovequest.pro.yearly',
 };

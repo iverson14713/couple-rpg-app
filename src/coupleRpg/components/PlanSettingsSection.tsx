@@ -1,17 +1,30 @@
 import { useSupabaseAuth } from '../../useSupabaseAuth';
+import { isLoveQuestDevMode } from '../lib/loveQuestDevMode';
+import { isNativeIapAvailable } from '../../subscription/iapBridge';
 import { useCoupleRpgNav } from '../context/CoupleRpgNavContext';
 import { useCoupleSpace } from '../context/CoupleSpaceContext';
 import { useUserPlan } from '../context/UserPlanContext';
 import { PlanStatusPill } from './ProBadge';
 import { lq } from '../theme';
 
-/** 設定頁：情侶共享方案與升級 / 測試切換 */
+/** 設定頁：情侶共享方案與 App Store 訂閱 */
 export function PlanSettingsSection() {
   const auth = useSupabaseAuth();
   const { isFullyBound } = useCoupleSpace();
-  const { isPro, planLoading, planSnapshot, resetToFree, setProForTesting, refreshPlan } =
-    useUserPlan();
+  const {
+    isPro,
+    planLoading,
+    iapBusy,
+    planSnapshot,
+    resetToFree,
+    setProForTesting,
+    refreshPlan,
+    restorePurchases,
+  } = useUserPlan();
   const { navigateTo } = useCoupleRpgNav();
+  const showDevPlanTools = isLoveQuestDevMode();
+  const iapAvailable = isNativeIapAvailable();
+  const busy = planLoading || iapBusy;
 
   const billingLabel = (() => {
     const owner = planSnapshot?.subscription?.billing_owner;
@@ -29,10 +42,10 @@ export function PlanSettingsSection() {
         <button
           type="button"
           onClick={() => void refreshPlan()}
-          disabled={planLoading}
+          disabled={busy}
           className="text-[12px] font-bold text-rose-600 underline-offset-2 hover:underline disabled:opacity-50"
         >
-          {planLoading ? '同步中…' : '重新整理方案'}
+          {busy ? '同步中…' : '重新整理方案'}
         </button>
       </div>
 
@@ -44,7 +57,7 @@ export function PlanSettingsSection() {
           {usesCoupleCloud ? (
             <p className="mt-0.5 text-[11px] text-stone-500">雲端同步 · 同一情侶空間兩人共用</p>
           ) : (
-            <p className="mt-0.5 text-[11px] text-stone-500">本機模擬 · 綁定另一半後可雲端共享</p>
+            <p className="mt-0.5 text-[11px] text-stone-500">完成綁定後，訂閱可與另一半共享</p>
           )}
           {billingLabel ? (
             <p className="mt-1 text-[11px] text-stone-500">{billingLabel}</p>
@@ -68,44 +81,58 @@ export function PlanSettingsSection() {
       )}
 
       <div className="mt-4 flex flex-col gap-2">
-        {isPro ? (
-          <>
-            <button
-              type="button"
-              onClick={() => void resetToFree()}
-              disabled={planLoading}
-              className="min-h-[44px] w-full rounded-xl border border-stone-200 bg-white text-[13px] font-bold text-stone-700 active:scale-[0.98] disabled:opacity-50"
-            >
-              切回 Free 測試
-            </button>
+        {!isPro ? (
+          <button
+            type="button"
+            onClick={() => navigateTo('upgrade')}
+            className={`min-h-[48px] w-full ${lq.btnPrimary}`}
+          >
+            升級 Pro
+          </button>
+        ) : null}
+
+        {iapAvailable ? (
+          <button
+            type="button"
+            onClick={() => void restorePurchases()}
+            disabled={busy}
+            className={`min-h-[44px] w-full ${lq.btnSecondary} disabled:opacity-50`}
+          >
+            恢復購買
+          </button>
+        ) : null}
+
+        {showDevPlanTools ? (
+          isPro ? (
+            <>
+              <button
+                type="button"
+                onClick={() => void resetToFree()}
+                disabled={busy}
+                className="min-h-[44px] w-full rounded-xl border border-stone-200 bg-white text-[13px] font-bold text-stone-700 active:scale-[0.98] disabled:opacity-50"
+              >
+                [Dev] 切回 Free
+              </button>
+              <button
+                type="button"
+                onClick={() => void setProForTesting()}
+                disabled={busy}
+                className="min-h-[44px] w-full rounded-xl border border-violet-200 bg-violet-50 text-[13px] font-bold text-violet-800 active:scale-[0.98] disabled:opacity-50"
+              >
+                [Dev] 切換 Pro
+              </button>
+            </>
+          ) : (
             <button
               type="button"
               onClick={() => void setProForTesting()}
-              disabled={planLoading}
-              className="min-h-[44px] w-full rounded-xl border border-violet-200 bg-violet-50 text-[13px] font-bold text-violet-800 active:scale-[0.98] disabled:opacity-50"
-            >
-              切換 Pro 測試
-            </button>
-          </>
-        ) : (
-          <>
-            <button
-              type="button"
-              onClick={() => navigateTo('upgrade')}
-              className={`min-h-[48px] w-full ${lq.btnPrimary}`}
-            >
-              升級 Pro
-            </button>
-            <button
-              type="button"
-              onClick={() => void setProForTesting()}
-              disabled={planLoading || !isFullyBound}
+              disabled={busy || !isFullyBound}
               className={`min-h-[44px] w-full ${lq.btnSecondary} disabled:opacity-50`}
             >
-              切換 Pro 測試{!isFullyBound ? '（需完成綁定）' : ''}
+              [Dev] 切換 Pro{!isFullyBound ? '（需完成綁定）' : ''}
             </button>
-          </>
-        )}
+          )
+        ) : null}
       </div>
     </section>
   );

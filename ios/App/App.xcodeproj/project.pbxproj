@@ -15,6 +15,8 @@
 		A1E5F0142FED79650016851F /* LoveQuestOAuthPlugin.m in Sources */ = {isa = PBXBuildFile; fileRef = A1E5F0132FED79650016851F /* LoveQuestOAuthPlugin.m */; };
 		A1E5F0222FED79650016851F /* LoveQuestAppleSignInPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1E5F0212FED79650016851F /* LoveQuestAppleSignInPlugin.swift */; };
 		A1E5F0242FED79650016851F /* LoveQuestAppleSignInPlugin.m in Sources */ = {isa = PBXBuildFile; fileRef = A1E5F0232FED79650016851F /* LoveQuestAppleSignInPlugin.m */; };
+		A1E5F0322FED79650016851F /* LoveQuestIAPPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1E5F0312FED79650016851F /* LoveQuestIAPPlugin.swift */; };
+		A1E5F0342FED79650016851F /* LoveQuestIAPPlugin.m in Sources */ = {isa = PBXBuildFile; fileRef = A1E5F0332FED79650016851F /* LoveQuestIAPPlugin.m */; };
 		504EC30D1FED79650016851F /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 504EC30B1FED79650016851F /* Main.storyboard */; };
 		504EC30F1FED79650016851F /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 504EC30E1FED79650016851F /* Assets.xcassets */; };
 		504EC3121FED79650016851F /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 504EC3101FED79650016851F /* LaunchScreen.storyboard */; };
@@ -30,6 +32,8 @@
 		A1E5F0132FED79650016851F /* LoveQuestOAuthPlugin.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = LoveQuestOAuthPlugin.m; sourceTree = "<group>"; };
 		A1E5F0212FED79650016851F /* LoveQuestAppleSignInPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoveQuestAppleSignInPlugin.swift; sourceTree = "<group>"; };
 		A1E5F0232FED79650016851F /* LoveQuestAppleSignInPlugin.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = LoveQuestAppleSignInPlugin.m; sourceTree = "<group>"; };
+		A1E5F0312FED79650016851F /* LoveQuestIAPPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoveQuestIAPPlugin.swift; sourceTree = "<group>"; };
+		A1E5F0332FED79650016851F /* LoveQuestIAPPlugin.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = LoveQuestIAPPlugin.m; sourceTree = "<group>"; };
 		504EC30C1FED79650016851F /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/Main.storyboard; sourceTree = "<group>"; };
 		504EC30E1FED79650016851F /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		504EC3111FED79650016851F /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/LaunchScreen.storyboard; sourceTree = "<group>"; };
@@ -77,6 +81,8 @@
 				A1E5F0132FED79650016851F /* LoveQuestOAuthPlugin.m */,
 				A1E5F0212FED79650016851F /* LoveQuestAppleSignInPlugin.swift */,
 				A1E5F0232FED79650016851F /* LoveQuestAppleSignInPlugin.m */,
+				A1E5F0312FED79650016851F /* LoveQuestIAPPlugin.swift */,
+				A1E5F0332FED79650016851F /* LoveQuestIAPPlugin.m */,
 				504EC30B1FED79650016851F /* Main.storyboard */,
 				504EC30E1FED79650016851F /* Assets.xcassets */,
 				504EC3101FED79650016851F /* LaunchScreen.storyboard */,
@@ -174,6 +180,8 @@
 				A1E5F0142FED79650016851F /* LoveQuestOAuthPlugin.m in Sources */,
 				A1E5F0222FED79650016851F /* LoveQuestAppleSignInPlugin.swift in Sources */,
 				A1E5F0242FED79650016851F /* LoveQuestAppleSignInPlugin.m in Sources */,
+				A1E5F0322FED79650016851F /* LoveQuestIAPPlugin.swift in Sources */,
+				A1E5F0342FED79650016851F /* LoveQuestIAPPlugin.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

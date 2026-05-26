@@ -48,7 +48,7 @@ export function UpgradeProPage() {
             {coupleContext}
           </p>
         ) : null}
-        <p className="mt-2 text-[11px] text-stone-400">價格僅供展示，尚未開放付款</p>
+        <p className="mt-2 text-[11px] text-stone-400">透過 App Store 安全訂閱 · 一人升級兩人共享</p>
       </section>
 
       <section className={`p-4 ${lq.card}`}>

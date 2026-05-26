@@ -1,46 +1,55 @@
 import { Crown, Lock } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { SUBSCRIPTION_PRICING } from '../subscription/constants';
+import { fetchStoreProductPrices, isNativeIapAvailable } from '../subscription/iapBridge';
 import type { BillingPeriod, SubscriptionStatus } from '../subscription/types';
+import {
+  PRO_LEGAL_AUTO_RENEW,
+  PRO_LEGAL_MANAGE,
+} from '../coupleRpg/lib/proPlanContent';
 
 type Lang = 'zh' | 'en';
 
 const copy = {
   zh: {
-    section: '訂閱方案',
-    paymentNote: '正式上架後將透過 App Store 訂閱結帳',
-    testNote: '目前為測試版：升級不會實際扣款，僅在本機開通 Pro 體驗。',
+    section: 'LoveQuest Pro',
+    paymentNote: '透過 App Store 安全訂閱',
     current: '目前方案',
     free: '免費版',
     pro: 'Pro',
     monthly: SUBSCRIPTION_PRICING.monthly.labelZh,
     yearly: SUBSCRIPTION_PRICING.yearly.labelZh,
     yearlySave: SUBSCRIPTION_PRICING.yearlySaveZh,
-    upgrade: '升級 Pro（測試開通）',
-    downgrade: '切回免費版',
+    buyMonthly: '訂閱月費',
+    buyYearly: '訂閱年費',
     restore: '恢復購買',
-    restoring: '恢復中…',
-    selectPlan: '選擇方案',
-    monthlyLabel: '月訂閱',
-    yearlyLabel: '年訂閱',
+    restoring: '處理中…',
+    iosOnly: '目前僅 iOS App 支援訂閱購買',
+    proActive: '已透過 App Store 開通 Pro',
+    autoRenew: PRO_LEGAL_AUTO_RENEW,
+    manage: PRO_LEGAL_MANAGE,
+    privacy: '隱私政策',
+    terms: '服務條款',
   },
   en: {
-    section: 'Subscription',
-    paymentNote: 'After launch, billing goes through the App Store',
-    testNote: 'Test build: upgrade does not charge — unlocks Pro on this device only.',
+    section: 'LoveQuest Pro',
+    paymentNote: 'Secure billing through the App Store',
     current: 'Current plan',
     free: 'Free',
     pro: 'Pro',
     monthly: SUBSCRIPTION_PRICING.monthly.labelEn,
     yearly: SUBSCRIPTION_PRICING.yearly.labelEn,
     yearlySave: SUBSCRIPTION_PRICING.yearlySaveEn,
-    upgrade: 'Upgrade to Pro (test)',
-    downgrade: 'Switch to Free',
+    buyMonthly: 'Subscribe monthly',
+    buyYearly: 'Subscribe yearly',
     restore: 'Restore purchases',
     restoring: 'Restoring…',
-    selectPlan: 'Choose a plan',
-    monthlyLabel: 'Monthly',
-    yearlyLabel: 'Yearly',
+    iosOnly: 'Subscriptions are available on the iOS app only',
+    proActive: 'Pro is active via the App Store',
+    autoRenew: 'Subscription auto-renews unless canceled at least 24 hours before the period ends.',
+    manage: 'Manage or cancel in Settings → Apple ID → Subscriptions.',
+    privacy: 'Privacy Policy',
+    terms: 'Terms of Service',
   },
 } as const;
 
@@ -48,8 +57,7 @@ export type ProSubscriptionPanelProps = {
   lang: Lang;
   status: SubscriptionStatus;
   busy?: boolean;
-  onUpgrade: (period: BillingPeriod) => void;
-  onDowngrade: () => void;
+  onPurchase: (period: BillingPeriod) => void;
   onRestore: () => void;
   compact?: boolean;
 };
@@ -58,13 +66,22 @@ export function ProSubscriptionPanel({
   lang,
   status,
   busy = false,
-  onUpgrade,
-  onDowngrade,
+  onPurchase,
   onRestore,
   compact = false,
 }: ProSubscriptionPanelProps) {
   const t = copy[lang];
-  const [period, setPeriod] = useState<BillingPeriod>('yearly');
+  const iapAvailable = isNativeIapAvailable();
+  const [priceMonthly, setPriceMonthly] = useState(t.monthly);
+  const [priceYearly, setPriceYearly] = useState(t.yearly);
+
+  useEffect(() => {
+    if (!iapAvailable) return;
+    void fetchStoreProductPrices().then((prices) => {
+      if (prices.monthly) setPriceMonthly(prices.monthly);
+      if (prices.yearly) setPriceYearly(prices.yearly);
+    });
+  }, [iapAvailable, t.monthly, t.yearly]);
 
   return (
     <section
@@ -101,64 +118,69 @@ export function ProSubscriptionPanel({
         </p>
       </div>
 
-      <p className="mt-3 text-xs leading-relaxed text-stone-600">{t.testNote}</p>
+      {status === 'pro' ? (
+        <p className="mt-3 text-xs leading-relaxed text-stone-600">{t.proActive}</p>
+      ) : null}
 
       {status === 'free' ? (
         <>
-          <p className="mt-4 text-[11px] font-bold uppercase tracking-wide text-stone-500">{t.selectPlan}</p>
-          <div className="mt-2 grid grid-cols-2 gap-2">
-            {(['monthly', 'yearly'] as const).map((p) => (
-              <button
-                key={p}
-                type="button"
-                disabled={busy}
-                onClick={() => setPeriod(p)}
-                className={`rounded-2xl border px-3 py-3 text-left transition active:scale-[0.99] ${
-                  period === p
-                    ? 'border-orange-400 bg-orange-50 ring-2 ring-orange-200'
-                    : 'border-stone-200 bg-white hover:border-orange-200'
-                }`}
-              >
-                <span className="block text-[11px] font-bold text-stone-500">
-                  {p === 'monthly' ? t.monthlyLabel : t.yearlyLabel}
-                </span>
-                <span className="mt-1 block text-sm font-bold text-stone-900">
-                  {p === 'monthly' ? t.monthly : t.yearly}
-                </span>
-                {p === 'yearly' ? (
-                  <span className="mt-1 inline-block rounded-full bg-orange-500/15 px-2 py-0.5 text-[10px] font-semibold text-orange-800">
-                    {t.yearlySave}
-                  </span>
-                ) : null}
-              </button>
-            ))}
+          <div className="mt-4 grid grid-cols-2 gap-2">
+            <div className="rounded-2xl border border-stone-200 bg-white px-3 py-3 text-center">
+              <p className="text-[11px] font-bold text-stone-500">{t.monthly.split(' ')[0]}</p>
+              <p className="mt-1 text-sm font-bold text-stone-900">{priceMonthly}</p>
+            </div>
+            <div className="rounded-2xl border-2 border-orange-300 bg-orange-50 px-3 py-3 text-center">
+              <p className="text-[11px] font-bold text-orange-800">{t.yearly.split(' ')[0]}</p>
+              <p className="mt-1 text-sm font-bold text-stone-900">{priceYearly}</p>
+              <p className="mt-1 text-[10px] font-semibold text-orange-800">{t.yearlySave}</p>
+            </div>
           </div>
 
-          <button
-            type="button"
-            disabled={busy}
-            onClick={() => onUpgrade(period)}
-            className="mt-4 w-full rounded-2xl bg-gradient-to-r from-orange-500 to-amber-500 px-4 py-3.5 text-sm font-bold text-white shadow-md shadow-orange-300/40 transition active:scale-[0.99] disabled:opacity-60"
-          >
-            {t.upgrade}
-          </button>
+          {!iapAvailable ? (
+            <p className="mt-3 rounded-xl bg-stone-100 px-3 py-2 text-center text-[12px] font-semibold text-stone-600">
+              {t.iosOnly}
+            </p>
+          ) : (
+            <div className="mt-3 flex flex-col gap-2">
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => onPurchase('monthly')}
+                className="w-full rounded-2xl border border-orange-200 bg-white px-4 py-3 text-sm font-bold text-orange-900 transition active:scale-[0.99] disabled:opacity-60"
+              >
+                {busy ? t.restoring : `${t.buyMonthly} · ${priceMonthly}`}
+              </button>
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => onPurchase('yearly')}
+                className="w-full rounded-2xl bg-gradient-to-r from-orange-500 to-amber-500 px-4 py-3.5 text-sm font-bold text-white shadow-md shadow-orange-300/40 transition active:scale-[0.99] disabled:opacity-60"
+              >
+                {busy ? t.restoring : `${t.buyYearly} · ${priceYearly}`}
+              </button>
+            </div>
+          )}
         </>
-      ) : (
-        <button
-          type="button"
-          disabled={busy}
-          onClick={onDowngrade}
-          className="mt-4 w-full rounded-2xl border border-stone-300 bg-white px-4 py-3 text-sm font-bold text-stone-700 transition active:scale-[0.99] disabled:opacity-60"
-        >
-          {t.downgrade}
-        </button>
-      )}
+      ) : null}
+
+      <div className="mt-3 space-y-1 text-[10px] leading-relaxed text-stone-500">
+        <p>{t.autoRenew}</p>
+        <p>{t.manage}</p>
+        <p className="flex flex-wrap gap-x-3">
+          <a href="/privacy" className="font-semibold text-orange-700 underline-offset-2 hover:underline">
+            {t.privacy}
+          </a>
+          <a href="/terms" className="font-semibold text-orange-700 underline-offset-2 hover:underline">
+            {t.terms}
+          </a>
+        </p>
+      </div>
 
       <button
         type="button"
-        disabled={busy}
+        disabled={busy || !iapAvailable}
         onClick={onRestore}
-        className="mt-2 w-full rounded-2xl border border-orange-200 bg-orange-50/80 py-3 text-sm font-bold text-orange-800 transition hover:bg-orange-50 active:scale-[0.99] disabled:opacity-60"
+        className="mt-3 w-full rounded-2xl border border-orange-200 bg-orange-50/80 py-3 text-sm font-bold text-orange-800 transition hover:bg-orange-50 active:scale-[0.99] disabled:opacity-60"
       >
         {busy ? t.restoring : t.restore}
       </button>

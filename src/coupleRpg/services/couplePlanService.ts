@@ -223,6 +223,82 @@ export async function activateCoupleProTrial(
   return row;
 }
 
+export type AppleSubscriptionSyncInput = {
+  productId: string;
+  period: 'monthly' | 'yearly';
+  originalTransactionId: string;
+  expiresAt: string | null;
+};
+
+/** App Store 訂閱成功後寫入情侶空間（兩人共享 Pro） */
+export async function activateCoupleProFromApple(
+  supabase: SupabaseClient,
+  coupleId: string,
+  userId: string,
+  apple: AppleSubscriptionSyncInput
+): Promise<CoupleSubscriptionRow> {
+  const now = new Date().toISOString();
+  const payload: Record<string, unknown> = {
+    couple_id: coupleId,
+    plan: 'pro',
+    status: 'active',
+    billing_owner: userId,
+    provider: 'apple',
+    provider_subscription_id: apple.originalTransactionId,
+    provider_customer_id: apple.productId,
+    current_period_start: now,
+    current_period_end: apple.expiresAt,
+    updated_at: now,
+  };
+
+  const { data: existing, error: selErr } = await supabase
+    .from('couple_subscriptions')
+    .select('id')
+    .eq('couple_id', coupleId)
+    .maybeSingle();
+
+  if (selErr) throw selErr;
+
+  if (existing?.id) {
+    const { error: upErr } = await supabase
+      .from('couple_subscriptions')
+      .update(payload)
+      .eq('id', existing.id as string);
+    if (upErr) throw upErr;
+  } else {
+    const { error: insErr } = await supabase.from('couple_subscriptions').insert(payload);
+    if (insErr) throw insErr;
+  }
+
+  const row = await fetchCoupleSubscription(supabase, coupleId);
+  if (!row) throw new Error('subscription upsert succeeded but row missing');
+  setUserPlan('pro');
+  console.log(`${LOG} apple subscription active couple_id=${coupleId}`);
+  return row;
+}
+
+/** Apple 訂閱已過期 — 情侶空間回到 Free */
+export async function expireCoupleProFromApple(
+  supabase: SupabaseClient,
+  coupleId: string
+): Promise<CoupleSubscriptionRow | null> {
+  const now = new Date().toISOString();
+  const { error } = await supabase
+    .from('couple_subscriptions')
+    .update({
+      plan: 'free',
+      status: 'expired',
+      current_period_end: now,
+      updated_at: now,
+    })
+    .eq('couple_id', coupleId)
+    .eq('provider', 'apple');
+
+  if (error) throw error;
+  setUserPlan('free');
+  return fetchCoupleSubscription(supabase, coupleId);
+}
+
 /** 開發測試：切換情侶空間方案 */
 export async function setCouplePlanForTesting(
   supabase: SupabaseClient,

@@ -601,7 +601,7 @@ const text = {
     settingsPlanCurrent: '目前方案',
     settingsPlanFree: '免費版',
     settingsPlanPro: 'Pro',
-    settingsPlanHint: '正式上架後將透過 App Store 訂閱；目前升級為測試開通，不會實際扣款。',
+    settingsPlanHint: 'LoveQuest Pro 透過 App Store 訂閱；同一情侶空間兩人共享。',
     settingsSwitchPro: '升級 Pro',
     settingsSwitchFree: '切回免費版',
     settingsPlanServerHint: '若畫面上顯示的方案狀態異常，可嘗試重新整理或重新登入帳號。',
@@ -609,7 +609,8 @@ const text = {
     restorePurchaseOk: '已恢復 Pro 訂閱（本機）',
     restorePurchaseNone: '找不到可恢復的購買紀錄',
     restorePurchaseFail: '恢復購買失敗，請稍後再試',
-    purchaseProOk: '已開通 Pro（測試）',
+    purchaseProOk: '已成功開通 Pro',
+    purchaseProFail: '無法完成購買，請稍後再試',
     settingsClientIdCaption: '裝置識別（排除問題時可能會請你提供）',
     planMultiCatUpgrade: '免費版最多可新增 3 隻寵物。升級 Pro 可管理更多寵物，並享有更多 AI 次數與進階功能。',
     planFreeMultiCatBanner:
@@ -1082,7 +1083,7 @@ const text = {
     settingsPlanCurrent: 'Current plan',
     settingsPlanFree: 'Free',
     settingsPlanPro: 'Pro',
-    settingsPlanHint: 'After App Store launch, billing will go through Apple. For now you can enable Pro here to try all features.',
+    settingsPlanHint: 'LoveQuest Pro is billed through the App Store and shared for your couple space.',
     settingsSwitchPro: 'Upgrade to Pro',
     settingsSwitchFree: 'Switch back to Free',
     settingsPlanServerHint: 'If your plan status looks wrong, try refreshing the page or signing in again.',
@@ -1090,7 +1091,8 @@ const text = {
     restorePurchaseOk: 'Pro subscription restored (on this device)',
     restorePurchaseNone: 'No purchases found to restore',
     restorePurchaseFail: 'Could not restore purchases. Try again later.',
-    purchaseProOk: 'Pro enabled (test)',
+    purchaseProOk: 'Pro subscription active',
+    purchaseProFail: 'Purchase could not be completed. Please try again.',
     settingsClientIdCaption: 'Device ID (support may ask for this if something looks wrong)',
     planMultiCatUpgrade:
       'Free plan supports up to 3 pets. Upgrade to Pro to manage more pets and unlock higher AI limits and advanced tools.',
@@ -1650,9 +1652,12 @@ export default function App() {
         persistAppPlan('pro');
         setPremiumSheetOpen(false);
         showToast(tr.purchaseProOk, 'success');
+        return;
       }
+      if (result.errorCode === 'USER_CANCELLED') return;
+      showToast(result.message ?? tr.purchaseProFail ?? 'Purchase failed', 'error');
     },
-    [showToast, tr.purchaseProOk]
+    [showToast, tr.purchaseProOk, tr.purchaseProFail]
   );
 
   const handleRestorePurchases = useCallback(async () => {
@@ -1665,6 +1670,7 @@ export default function App() {
       showToast(tr.restorePurchaseOk, 'success');
       return;
     }
+    if (result.errorCode === 'USER_CANCELLED') return;
     if (result.errorCode === 'NO_PURCHASES' || result.errorCode === 'IAP_NOT_CONFIGURED') {
       showToast(tr.restorePurchaseNone, 'error');
     } else {
@@ -5775,8 +5781,7 @@ export default function App() {
         lang={lang}
         status={appPlan}
         busy={subscriptionBusy}
-        onUpgrade={(period) => void handlePurchasePro(period)}
-        onDowngrade={() => persistAppPlan('free')}
+        onPurchase={(period) => void handlePurchasePro(period)}
         onRestore={() => void handleRestorePurchases()}
       />
       <p className="mb-4 px-0.5 text-[11px] leading-relaxed text-stone-500">{tr.settingsPlanServerHint}</p>
@@ -6412,7 +6417,7 @@ export default function App() {
         reason={premiumSheetReason}
         busy={subscriptionBusy}
         onClose={() => setPremiumSheetOpen(false)}
-        onUpgrade={(period) => void handlePurchasePro(period)}
+        onPurchase={(period) => void handlePurchasePro(period)}
         onRestore={() => void handleRestorePurchases()}
       />
         </>

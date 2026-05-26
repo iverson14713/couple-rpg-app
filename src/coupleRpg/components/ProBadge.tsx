@@ -98,7 +98,7 @@ export function PlanStatusPill({ isPro }: { isPro: boolean }) {
           : `${lq.accentBg} ${lq.accent} ring-rose-100`
       }`}
     >
-      {isPro ? '✨ Pro 體驗中' : 'Free'}
+      {isPro ? '✨ Pro' : 'Free'}
     </span>
   );
 }

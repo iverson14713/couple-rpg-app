@@ -7,15 +7,26 @@ import {
   useState,
   type ReactNode,
 } from 'react';
-import { useOnlineStatus } from '../../hooks/useOnlineStatus';
-import { useSupabaseAuth } from '../../useSupabaseAuth';
+import type { BillingPeriod } from '../../subscription/types';
+import { isLoveQuestDevMode } from '../lib/loveQuestDevMode';
 import {
   PRO_TOAST_COUPLE,
   PRO_TOAST_COUPLE_FREE,
   PRO_TOAST_LOCAL,
+  PRO_TOAST_PURCHASE_FAIL,
+  PRO_TOAST_RESTORE_FAIL,
+  PRO_TOAST_RESTORE_NONE,
+  PRO_TOAST_RESTORE_OK,
   PRO_TOAST_SYNC_FAILED,
 } from '../lib/proPlanContent';
+import { useOnlineStatus } from '../../hooks/useOnlineStatus';
+import { useSupabaseAuth } from '../../useSupabaseAuth';
 import { addActivityLog } from '../services/activityLogService';
+import {
+  purchaseLoveQuestPro,
+  restoreLoveQuestPurchases,
+  syncLoveQuestIapOnLaunch,
+} from '../services/loveQuestIapPlanService';
 import { loadCoupleExtendedProfile } from '../storage/coupleExtendedStore';
 import {
   activateCoupleProTrial,
@@ -31,10 +42,16 @@ type UserPlanContextValue = {
   plan: UserPlan;
   isPro: boolean;
   planLoading: boolean;
+  iapBusy: boolean;
   planSnapshot: CouplePlanSnapshot;
   refreshPlan: () => Promise<void>;
+  purchasePro: (period: BillingPeriod) => Promise<void>;
+  restorePurchases: () => Promise<void>;
+  /** @deprecated 開發測試 */
   tryProExperience: () => Promise<void>;
+  /** @deprecated 開發測試 */
   resetToFree: () => Promise<void>;
+  /** @deprecated 開發測試 */
   setProForTesting: () => Promise<void>;
   planToast: string | null;
   clearPlanToast: () => void;
@@ -62,6 +79,7 @@ export function UserPlanProvider({ children }: { children: ReactNode }) {
 
   const [planSnapshot, setPlanSnapshot] = useState<CouplePlanSnapshot>(INITIAL_SNAPSHOT);
   const [planLoading, setPlanLoading] = useState(false);
+  const [iapBusy, setIapBusy] = useState(false);
   const [planToast, setPlanToast] = useState<string | null>(null);
   const [upgradeModalOpen, setUpgradeModalOpen] = useState(false);
   const [upgradeModalHint, setUpgradeModalHint] = useState<string | null>(null);
@@ -85,6 +103,7 @@ export function UserPlanProvider({ children }: { children: ReactNode }) {
     if (coupleSpaceLoading) return;
     setPlanLoading(true);
     try {
+      await syncLoveQuestIapOnLaunch(syncInput);
       const snap = await getCouplePlan(syncInput);
       setPlanSnapshot(snap);
       setUserPlan(snap.plan);
@@ -100,16 +119,67 @@ export function UserPlanProvider({ children }: { children: ReactNode }) {
 
   const clearPlanToast = useCallback(() => setPlanToast(null), []);
 
+  const logProUpgrade = useCallback(() => {
+    addActivityLog(
+      { actionType: 'upgrade', targetType: 'pro_plan', targetTitle: 'LoveQuest Pro', coupleId },
+      { currentUserId: userId, coupleExtended: loadCoupleExtendedProfile() },
+      { isPro: true }
+    );
+  }, [coupleId, userId]);
+
+  const purchasePro = useCallback(
+    async (period: BillingPeriod) => {
+      setIapBusy(true);
+      try {
+        const outcome = await purchaseLoveQuestPro(syncInput, period);
+        if (outcome.cancelled) return;
+        if (!outcome.ok) {
+          setPlanToast(outcome.message ?? PRO_TOAST_PURCHASE_FAIL);
+          return;
+        }
+        await refreshPlan();
+        logProUpgrade();
+        setPlanToast(PRO_TOAST_COUPLE);
+        setUpgradeModalOpen(false);
+      } finally {
+        setIapBusy(false);
+      }
+    },
+    [syncInput, refreshPlan, logProUpgrade]
+  );
+
+  const restorePurchases = useCallback(async () => {
+    setIapBusy(true);
+    try {
+      const outcome = await restoreLoveQuestPurchases(syncInput);
+      if (outcome.cancelled) return;
+      if (!outcome.ok) {
+        setPlanToast(
+          outcome.message === '尚未找到有效訂閱'
+            ? PRO_TOAST_RESTORE_NONE
+            : outcome.message ?? PRO_TOAST_RESTORE_FAIL
+        );
+        return;
+      }
+      await refreshPlan();
+      logProUpgrade();
+      setPlanToast(PRO_TOAST_RESTORE_OK);
+      setUpgradeModalOpen(false);
+    } finally {
+      setIapBusy(false);
+    }
+  }, [syncInput, refreshPlan, logProUpgrade]);
+
   const tryProExperience = useCallback(async () => {
+    if (!isLoveQuestDevMode()) {
+      await purchasePro('yearly');
+      return;
+    }
     if (shouldUseCoupleSubscription(syncInput) && auth.supabase && coupleId && userId) {
       try {
         await activateCoupleProTrial(auth.supabase, coupleId, userId);
         await refreshPlan();
-        addActivityLog(
-          { actionType: 'upgrade', targetType: 'pro_plan', targetTitle: 'Pro 體驗', coupleId },
-          { currentUserId: userId, coupleExtended: loadCoupleExtendedProfile() },
-          { isPro: true }
-        );
+        logProUpgrade();
         setPlanToast(PRO_TOAST_COUPLE);
         setUpgradeModalOpen(false);
       } catch (e) {
@@ -129,14 +199,11 @@ export function UserPlanProvider({ children }: { children: ReactNode }) {
     }));
     setPlanToast(PRO_TOAST_LOCAL);
     setUpgradeModalOpen(false);
-    addActivityLog(
-      { actionType: 'upgrade', targetType: 'pro_plan', targetTitle: 'Pro 體驗', coupleId },
-      { currentUserId: userId, coupleExtended: loadCoupleExtendedProfile() },
-      { isPro: true }
-    );
-  }, [syncInput, auth.supabase, coupleId, userId, refreshPlan]);
+    logProUpgrade();
+  }, [syncInput, auth.supabase, coupleId, userId, refreshPlan, logProUpgrade, purchasePro]);
 
   const resetToFree = useCallback(async () => {
+    if (!isLoveQuestDevMode()) return;
     if (shouldUseCoupleSubscription(syncInput) && auth.supabase && coupleId && userId) {
       try {
         await setCouplePlanForTesting(auth.supabase, coupleId, userId, 'free');
@@ -162,6 +229,7 @@ export function UserPlanProvider({ children }: { children: ReactNode }) {
   }, [syncInput, auth.supabase, coupleId, userId, refreshPlan]);
 
   const setProForTesting = useCallback(async () => {
+    if (!isLoveQuestDevMode()) return;
     if (shouldUseCoupleSubscription(syncInput) && auth.supabase && coupleId && userId) {
       try {
         await setCouplePlanForTesting(auth.supabase, coupleId, userId, 'pro');
@@ -205,8 +273,11 @@ export function UserPlanProvider({ children }: { children: ReactNode }) {
       plan: planSnapshot.plan,
       isPro: planSnapshot.isPro,
       planLoading,
+      iapBusy,
       planSnapshot,
       refreshPlan,
+      purchasePro,
+      restorePurchases,
       tryProExperience,
       resetToFree,
       setProForTesting,
@@ -220,7 +291,10 @@ export function UserPlanProvider({ children }: { children: ReactNode }) {
     [
       planSnapshot,
       planLoading,
+      iapBusy,
       refreshPlan,
+      purchasePro,
+      restorePurchases,
       tryProExperience,
       resetToFree,
       setProForTesting,

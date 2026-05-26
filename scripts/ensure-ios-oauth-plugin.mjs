@@ -8,7 +8,11 @@ const capJsonPath = resolve('ios/App/App/capacitor.config.json');
 const capJSON = JSON.parse(readFileSync(capJsonPath, 'utf8'));
 const list = Array.isArray(capJSON.packageClassList) ? [...capJSON.packageClassList] : [];
 
-const localPlugins = ['LoveQuestOAuthPlugin', 'LoveQuestAppleSignInPlugin'];
+const localPlugins = [
+  'LoveQuestOAuthPlugin',
+  'LoveQuestAppleSignInPlugin',
+  'LoveQuestIAPPlugin',
+];
 let changed = false;
 
 for (const pluginClass of localPlugins) {
