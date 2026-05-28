@@ -9,6 +9,7 @@
     "dev:server": "node server/index.mjs",
     "verify:assistant": "node scripts/verify-assistant.mjs",
     "verify:cloud-sync": "node scripts/verify-cloud-sync.mjs",
+    "db:check-ai-favorites": "node scripts/check-ai-favorites-table.mjs",
     "generate:icons": "node scripts/generate-icons.mjs",
     "build": "vite build",
     "build:capacitor": "vite build --mode capacitor",

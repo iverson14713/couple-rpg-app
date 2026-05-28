@@ -48,8 +48,8 @@ function LazyRoute({ children }: { children: ReactNode }) {
 function normalizePath(pathname: string): string {
   const p = pathname.replace(/\/+$/, '') || '/';
   if (p === '/auth/callback' || p.startsWith('/auth/callback/')) return '/auth/callback';
-  if (p === '/privacy') return '/privacy';
-  if (p === '/terms') return '/terms';
+  if (p === '/privacy' || p.startsWith('/privacy/')) return '/privacy';
+  if (p === '/terms' || p.startsWith('/terms/')) return '/terms';
   if (p === '/app-store-screenshots') return '/app-store-screenshots';
   if (p === '/app-store-screenshot/lovequest') return '/app-store-screenshot/lovequest';
   return p;

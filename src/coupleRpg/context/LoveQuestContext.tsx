@@ -133,6 +133,17 @@ import {
   createActivityLogSyncScheduler,
   type ActivityLogSyncScheduler,
 } from '../services/activityLogSyncScheduler';
+import { ENABLE_AI_FAVORITES_CLOUD_SYNC } from '../constants/aiFavoritesSyncFlags';
+import { canSyncAiFavorites } from '../services/aiFavoritesSyncService';
+import {
+  createAiFavoritesSyncScheduler,
+  type AiFavoritesSyncScheduler,
+} from '../services/aiFavoritesSyncScheduler';
+import {
+  emitAiFavoritesSyncStatus,
+  registerAiFavoritesRetrySync,
+  registerAiFavoritesSyncScheduler,
+} from '../storage/aiFavoritesStore';
 import type { ActivityLogInput } from '../storage/activityLogTypes';
 import { ENABLE_CHORE_ITEMS_CLOUD_SYNC } from '../constants/choreSyncFlags';
 import {
@@ -518,6 +529,7 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
   const choreSchedulerRef = useRef<ChoreSyncScheduler | null>(null);
   const dinnerSchedulerRef = useRef<DinnerSyncScheduler | null>(null);
   const activityLogSchedulerRef = useRef<ActivityLogSyncScheduler | null>(null);
+  const aiFavoritesSchedulerRef = useRef<AiFavoritesSyncScheduler | null>(null);
   const coinWalletSchedulerRef = useRef<CoinWalletSyncScheduler | null>(null);
 
   const canSyncWallet = useMemo(
@@ -722,6 +734,63 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
     isOnline,
     isPro,
   ]);
+
+  useEffect(() => {
+    aiFavoritesSchedulerRef.current?.dispose();
+    const scheduler = createAiFavoritesSyncScheduler({
+      debounceMs: 400,
+      canSync: () =>
+        canSyncAiFavorites({
+          configured: auth.configured,
+          userId: currentUserId,
+          online: isOnline,
+        }),
+      getSupabase: () => auth.supabase,
+      getUserId: () => currentUserId,
+      onStatusChange: (status, error) => {
+        emitAiFavoritesSyncStatus(status, error);
+      },
+    });
+    aiFavoritesSchedulerRef.current = scheduler;
+    registerAiFavoritesSyncScheduler(scheduler.scheduleAiFavoritesSync);
+    registerAiFavoritesRetrySync(scheduler.retrySync);
+
+    if (
+      ENABLE_AI_FAVORITES_CLOUD_SYNC &&
+      canSyncAiFavorites({
+        configured: auth.configured,
+        userId: currentUserId,
+        online: isOnline,
+      })
+    ) {
+      void scheduler.pullFromRemote();
+    }
+
+    return () => {
+      registerAiFavoritesSyncScheduler(null);
+      registerAiFavoritesRetrySync(null);
+      scheduler.dispose();
+      aiFavoritesSchedulerRef.current = null;
+    };
+  }, [auth.configured, auth.supabase, currentUserId, isOnline]);
+
+  const wasAiFavoritesOnlineRef = useRef(isOnline);
+  useEffect(() => {
+    if (!ENABLE_AI_FAVORITES_CLOUD_SYNC) return;
+    const cameOnline = !wasAiFavoritesOnlineRef.current && isOnline;
+    wasAiFavoritesOnlineRef.current = isOnline;
+    if (
+      cameOnline &&
+      canSyncAiFavorites({
+        configured: auth.configured,
+        userId: currentUserId,
+        online: isOnline,
+      })
+    ) {
+      void aiFavoritesSchedulerRef.current?.pullFromRemote();
+      aiFavoritesSchedulerRef.current?.scheduleAiFavoritesSync('online');
+    }
+  }, [auth.configured, currentUserId, isOnline]);
 
   useEffect(() => {
     coinWalletSchedulerRef.current?.dispose();

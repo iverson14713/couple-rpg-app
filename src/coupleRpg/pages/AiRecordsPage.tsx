@@ -45,7 +45,13 @@ type PendingDelete =
 export function AiRecordsPage() {
   const { isPro, dateRecords, importantRecords, removeDateRecord, removeImportantRecord } =
     useAiRecords();
-  const { isFavorite } = useAiFavorites();
+  const {
+    isFavorite,
+    syncStatus,
+    syncError,
+    isLoadingFavorites,
+    retryFavoritesSync,
+  } = useAiFavorites();
   const { openUpgradeModal } = useUserPlan();
   const { navigateTo } = useCoupleRpgNav();
   const [listFilter, setListFilter] = useState<ListFilter>('all');
@@ -104,6 +110,28 @@ export function AiRecordsPage() {
         {isPro ? '本機保存，查看不扣 AI 次數。' : '免費版各保留最近一筆。'}
       </p>
       <p className={`mb-2 text-[10px] leading-snug ${lq.textMuted}`}>{AI_RECORD_RETENTION_HINT}</p>
+
+      {isPro && isLoadingFavorites ? (
+        <p className={`mb-2 text-[11px] ${lq.textMuted}`} role="status">
+          正在同步收藏…
+        </p>
+      ) : null}
+
+      {isPro && syncStatus === 'error' && syncError ? (
+        <div
+          className={`mb-2 flex items-center justify-between gap-2 rounded-xl border border-amber-200/80 bg-amber-50/90 px-3 py-2 text-[11px] text-amber-900`}
+          role="alert"
+        >
+          <span>{syncError}</span>
+          <button
+            type="button"
+            onClick={retryFavoritesSync}
+            className="shrink-0 font-bold text-amber-800 underline-offset-2 hover:underline"
+          >
+            重試
+          </button>
+        </div>
+      ) : null}
 
       {!empty ? (
         <div className={`mb-2 flex gap-1 rounded-xl p-0.5 ${lq.cardSoft}`}>

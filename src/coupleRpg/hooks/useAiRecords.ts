@@ -12,6 +12,7 @@ import {
 } from '../storage/importantDateAiCache';
 import { AI_FAVORITES_CHANGED_EVENT } from '../storage/aiFavoritesStore';
 import { maintainAllAiRecordsStorage } from '../storage/aiRecordMaintenance';
+import { STORAGE_USER_CHANGED_EVENT } from '../storage/storageSession';
 import { useUserPlan } from '../context/UserPlanContext';
 
 export function useAiRecords() {
@@ -50,9 +51,11 @@ export function useAiRecords() {
     sync();
     window.addEventListener(AI_RECORDS_CHANGED_EVENT, sync);
     window.addEventListener(AI_FAVORITES_CHANGED_EVENT, sync);
+    window.addEventListener(STORAGE_USER_CHANGED_EVENT, sync);
     return () => {
       window.removeEventListener(AI_RECORDS_CHANGED_EVENT, sync);
       window.removeEventListener(AI_FAVORITES_CHANGED_EVENT, sync);
+      window.removeEventListener(STORAGE_USER_CHANGED_EVENT, sync);
     };
   }, [sync]);
 

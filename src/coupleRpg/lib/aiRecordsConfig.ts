@@ -11,7 +11,7 @@ export const AI_RECORD_COLLAPSED_PREVIEW = 2;
 export const AI_RECORDS_CHANGED_EVENT = 'lovequest:ai-records-changed';
 
 export const AI_RECORD_RETENTION_HINT =
-  '未收藏的 AI 紀錄會保留 90 天，已收藏紀錄會永久保留，直到手動刪除。';
+  '未收藏的 AI 紀錄會保留 90 天；已收藏紀錄會同步至雲端帳號並永久保留（登出再登入仍會出現），直到手動刪除。';
 
 export function dispatchAiRecordsChanged(): void {
   if (typeof window !== 'undefined') {

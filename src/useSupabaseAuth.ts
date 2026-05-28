@@ -27,6 +27,7 @@ import {
   getActiveStorageUserId,
   setActiveStorageUserId,
 } from './coupleRpg/storage/storageSession';
+import { flushAiFavoritesBeforeLogout } from './coupleRpg/services/aiFavoritesSyncService';
 
 export type UserProfile = {
   id: string;
@@ -127,7 +128,13 @@ export function SupabaseAuthProvider({ children }: { children: ReactNode }) {
     } = supabase.auth.onAuthStateChange((event, s) => {
       authLog('auth.onAuthStateChange', { event, hasSession: Boolean(s) });
       if (event === 'SIGNED_OUT') {
-        clearLoveQuestUserData(getActiveStorageUserId());
+        const signedOutUserId = getActiveStorageUserId();
+        if (signedOutUserId) {
+          void flushAiFavoritesBeforeLogout(supabase, signedOutUserId).catch((e) => {
+            console.warn('[ai-favorites] logout flush failed:', e);
+          });
+        }
+        clearLoveQuestUserData(signedOutUserId);
         setActiveStorageUserId(null);
       } else if (s?.user?.id) {
         if (event === 'SIGNED_IN' || event === 'INITIAL_SESSION') {
@@ -210,6 +217,13 @@ export function SupabaseAuthProvider({ children }: { children: ReactNode }) {
   const signOut = useCallback(async () => {
     if (!supabase) return { error: null };
     const userId = session?.user?.id ?? getActiveStorageUserId();
+    if (userId) {
+      try {
+        await flushAiFavoritesBeforeLogout(supabase, userId);
+      } catch (e) {
+        console.warn('[ai-favorites] logout flush failed:', e);
+      }
+    }
     clearLoveQuestUserData(userId);
     setActiveStorageUserId(null);
     return supabase.auth.signOut();

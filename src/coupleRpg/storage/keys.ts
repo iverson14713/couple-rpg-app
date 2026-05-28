@@ -22,8 +22,10 @@ export const LQ_KEYS = {
   lastImportantDateAi: 'lovequest-last-important-date-ai',
   /** Pro：AI 重要日子歷史（local） */
   importantDateAiHistory: 'lovequest-important-date-ai-history',
-  /** Pro：AI 紀錄收藏 id 列表（local） */
+  /** Pro：AI 紀錄收藏 id 列表（local cache; cloud: user_ai_favorites） */
   aiFavorites: 'lovequest-ai-favorites',
+  /** 收藏雲端同步離線佇列 */
+  aiFavoritesPending: 'lovequest-ai-favorites-pending',
   anniversaries: 'lovequest-anniversaries',
   rewards: 'lovequest-rewards',
   /** Set after Phase 7 couple bind; until then bind reminder shows on home */
@@ -53,6 +55,31 @@ export const DEVICE_PREF_STORAGE_KEYS: readonly string[] = [
   LQ_KEYS.homeDatesExpanded,
   LQ_KEYS.dailyMessageExpanded,
 ];
+
+/**
+ * User-scoped keys kept on disk after logout (re-hydrate on same account login).
+ * Cloud sync is source of truth across devices once `user_ai_favorites` exists.
+ */
+export const LOGOUT_PRESERVED_USER_SCOPED_KEYS: readonly string[] = [
+  LQ_KEYS.aiFavorites,
+  LQ_KEYS.aiFavoritesPending,
+  LQ_KEYS.dateItineraryAiHistory,
+  LQ_KEYS.importantDateAiHistory,
+  LQ_KEYS.lastDateItineraryAi,
+  LQ_KEYS.lastImportantDateAi,
+];
+
+const LOGOUT_PRESERVED_PREFIXES = LOGOUT_PRESERVED_USER_SCOPED_KEYS.map(
+  (base) => `${base}-`
+);
+
+/** `lovequest-ai-favorites` or `lovequest-ai-favorites-{userId}` */
+export function isLogoutPreservedStorageKey(key: string): boolean {
+  if (LOGOUT_PRESERVED_USER_SCOPED_KEYS.includes(key as (typeof LOGOUT_PRESERVED_USER_SCOPED_KEYS)[number])) {
+    return true;
+  }
+  return LOGOUT_PRESERVED_PREFIXES.some((prefix) => key.startsWith(prefix));
+}
 
 const USER_SCOPED_SET = new Set<string>(USER_SCOPED_STORAGE_KEYS);
 
