@@ -1,13 +1,15 @@
 import { parseLoveQuestAiAuth } from './lovequest-ai-quota.mjs';
 import { getSupabaseAdmin, isSupabaseAdminConfigured } from './supabase-admin.mjs';
 
-const LOG = '[account-delete]';
+const LOG = '[ACCOUNT_DELETE]';
 
 /**
  * @param {unknown} body
  * @param {Record<string, string | string[] | undefined>} [headers]
  */
 export async function deleteAccountPOST(body, headers = {}) {
+  console.log(`${LOG} start`);
+
   const payload = body && typeof body === 'object' ? body : {};
   const confirmation =
     typeof payload.confirmation === 'string' ? payload.confirmation.trim() : '';
@@ -23,6 +25,7 @@ export async function deleteAccountPOST(body, headers = {}) {
   }
 
   if (!isSupabaseAdminConfigured()) {
+    console.error(`${LOG} failed`, 'SUPABASE_NOT_CONFIGURED');
     return {
       status: 503,
       json: {
@@ -34,11 +37,15 @@ export async function deleteAccountPOST(body, headers = {}) {
 
   const auth = await parseLoveQuestAiAuth(body, headers);
   if (!auth.ok) {
+    console.error(`${LOG} failed`, auth.json?.code ?? 'AUTH_FAILED');
     return { status: auth.status, json: auth.json };
   }
 
+  console.log(`${LOG} auth ok`);
+
   const admin = getSupabaseAdmin();
   if (!admin) {
+    console.error(`${LOG} failed`, 'SUPABASE_ADMIN_UNAVAILABLE');
     return {
       status: 503,
       json: {
@@ -53,9 +60,10 @@ export async function deleteAccountPOST(body, headers = {}) {
   try {
     await purgeUserCloudData(admin, userId);
 
+    console.log(`${LOG} delete user`, userId);
     const { error: deleteAuthError } = await admin.auth.admin.deleteUser(userId);
     if (deleteAuthError) {
-      console.error(`${LOG} auth.admin.deleteUser failed:`, deleteAuthError.message);
+      console.error(`${LOG} failed`, deleteAuthError);
       return {
         status: 500,
         json: {
@@ -65,14 +73,14 @@ export async function deleteAccountPOST(body, headers = {}) {
       };
     }
 
-    console.log(`${LOG} deleted user ${userId}`);
+    console.log(`${LOG} success`);
     return {
       status: 200,
       json: { ok: true, message: '帳號已永久刪除' },
     };
   } catch (e) {
+    console.error(`${LOG} failed`, e);
     const msg = e instanceof Error ? e.message : String(e);
-    console.error(`${LOG} failed:`, msg);
     return {
       status: 500,
       json: {
@@ -118,7 +126,7 @@ async function reconcileCouplesBeforeUserDelete(admin, userId) {
     if ((count ?? 0) <= 1) {
       const { error: delErr } = await admin.from('couples').delete().eq('id', coupleId);
       if (delErr) throw delErr;
-      console.log(`${LOG} deleted couple ${coupleId} (sole member)`);
+      console.log(`[account-delete] deleted couple ${coupleId} (sole member)`);
       continue;
     }
 
@@ -139,7 +147,7 @@ async function reconcileCouplesBeforeUserDelete(admin, userId) {
           .update({ owner_id: partner.user_id })
           .eq('id', coupleId);
         if (transferErr) throw transferErr;
-        console.log(`${LOG} transferred couple ${coupleId} owner to ${partner.user_id}`);
+        console.log(`[account-delete] transferred couple ${coupleId} owner to ${partner.user_id}`);
       }
     }
   }

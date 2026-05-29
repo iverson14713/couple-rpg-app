@@ -4,6 +4,9 @@ import { Spinner } from '../../components/SkeletonCard';
 import { useSupabaseAuth } from '../../useSupabaseAuth';
 import { useCoupleRpgNav } from '../context/CoupleRpgNavContext';
 import { postDeleteAccount } from '../lib/accountDeleteApi';
+import {
+  setAccountDeletionInProgress,
+} from '../lib/accountDeletionGuard';
 import { AUTH_LOGIN_ANCHOR_ID, DELETE_ACCOUNT_ANCHOR_ID } from '../lib/authNav';
 import { clearAllLocalDataForAccountDeletion } from '../storage/clearLoveQuestStorage';
 import { setActiveStorageUserId } from '../storage/storageSession';
@@ -21,6 +24,7 @@ export function DeleteAccountSection() {
   const [step, setStep] = useState<'idle' | 'warn' | 'confirm'>('idle');
   const [typed, setTyped] = useState('');
   const [busy, setBusy] = useState(false);
+  const [finishingDelete, setFinishingDelete] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
@@ -37,14 +41,17 @@ export function DeleteAccountSection() {
     setError(null);
   }, [busy]);
 
-  const finishAndReturnToLogin = useCallback(async () => {
+  const finishAfterDeleteSuccess = useCallback(async () => {
+    const supabase = auth.supabase;
+    try {
+      if (supabase) {
+        await supabase.auth.signOut({ scope: 'local' });
+      }
+    } catch (e) {
+      console.warn('[account-delete] signOut after delete failed', e);
+    }
     setActiveStorageUserId(null);
     await clearAllLocalDataForAccountDeletion();
-    try {
-      await auth.supabase?.auth.signOut({ scope: 'local' });
-    } catch (e) {
-      console.warn('[account-delete] local signOut failed', e);
-    }
     navigateTo('profile', {
       profileSection: 'settings',
       scrollToElementId: AUTH_LOGIN_ANCHOR_ID,
@@ -53,7 +60,9 @@ export function DeleteAccountSection() {
 
   const handleDelete = useCallback(async () => {
     setError(null);
-    if (!auth.user || !auth.session?.access_token) {
+    const accessToken = auth.session?.access_token;
+    const userId = auth.user?.id;
+    if (!userId || !accessToken) {
       setError('請先登入後再刪除帳號。');
       return;
     }
@@ -63,24 +72,37 @@ export function DeleteAccountSection() {
     }
 
     setBusy(true);
-    const result = await postDeleteAccount({
-      userId: auth.user.id,
-      accessToken: auth.session.access_token,
-    });
-    setBusy(false);
+    setAccountDeletionInProgress(true);
+    console.log('[account-delete] API request start', { userId });
 
-    if (!result.ok) {
-      setError(result.message);
-      return;
+    try {
+      const result = await postDeleteAccount({ userId, accessToken });
+
+      if (!result.ok) {
+        console.warn('[account-delete] API failed', result.message);
+        setError(result.message);
+        return;
+      }
+
+      console.log('[account-delete] API success');
+      setStep('idle');
+      setTyped('');
+      setSuccess(result.message);
+      setFinishingDelete(true);
+      await finishAfterDeleteSuccess();
+    } catch (e) {
+      console.error('[account-delete] unexpected error', e);
+      setError('刪除帳號時發生錯誤，請稍後再試。');
+    } finally {
+      setAccountDeletionInProgress(false);
+      setBusy(false);
+      setFinishingDelete(false);
     }
+  }, [auth.session?.access_token, auth.user?.id, finishAfterDeleteSuccess, typed]);
 
-    setStep('idle');
-    setTyped('');
-    setSuccess(result.message);
-    await finishAndReturnToLogin();
-  }, [auth.session?.access_token, auth.user, finishAndReturnToLogin, typed]);
+  const showSection = Boolean(auth.user) || finishingDelete || busy;
 
-  if (!auth.configured || !auth.authReady || !auth.user) {
+  if (!auth.configured || !auth.authReady || !showSection) {
     return null;
   }
 
@@ -88,7 +110,7 @@ export function DeleteAccountSection() {
 
   const dialog = dialogOpen ? (
     <div
-      className="fixed inset-0 z-[130] flex items-center justify-center p-4 sm:p-6"
+      className="fixed inset-0 z-[130] flex items-end justify-center p-4 sm:items-center sm:p-6 md:p-8"
       role="alertdialog"
       aria-modal="true"
       aria-labelledby="delete-account-title"
@@ -96,45 +118,89 @@ export function DeleteAccountSection() {
     >
       <button
         type="button"
-        className="absolute inset-0 cursor-default bg-black/50"
+        className="absolute inset-0 cursor-default bg-stone-900/45"
         aria-label="取消"
         disabled={busy}
         onClick={closeDialogs}
       />
-      <div className={`relative z-10 w-full max-w-md p-5 sm:p-6 ${lq.cardElevated}`}>
-        <p id="delete-account-title" className={`text-[17px] font-bold ${lq.text}`}>
+      <div className="relative z-10 w-full max-w-md rounded-2xl border border-stone-200 bg-white p-6 text-stone-900 shadow-[0_20px_50px_-12px_rgba(28,25,23,0.35)] dark:border-stone-600 dark:bg-neutral-900 dark:text-stone-100 sm:max-w-lg sm:p-8">
+        <p
+          id="delete-account-title"
+          className="text-[18px] font-bold leading-snug text-stone-950 dark:text-stone-50 sm:text-[20px]"
+        >
           {step === 'warn' ? '確定要刪除帳號？' : '最後確認'}
         </p>
-        <p id="delete-account-desc" className={`mt-2 text-[13px] leading-relaxed ${lq.textSecondary}`}>
-          {step === 'warn' ? FIRST_DIALOG_TEXT : '請在下方輸入 DELETE（全大寫）以永久刪除帳號。'}
-        </p>
+
+        <div
+          id="delete-account-desc"
+          className={
+            step === 'warn'
+              ? 'mt-5 rounded-xl border border-rose-200 bg-rose-50 px-4 py-4 dark:border-rose-800 dark:bg-rose-950 sm:px-5 sm:py-5'
+              : 'mt-5 rounded-xl border-2 border-stone-300 bg-stone-100 px-4 py-4 dark:border-stone-500 dark:bg-stone-800 sm:px-5 sm:py-5'
+          }
+        >
+          <p
+            className={
+              step === 'warn'
+                ? 'text-[15px] font-semibold leading-[1.55] text-stone-950 dark:text-stone-50 sm:text-[16px] sm:leading-[1.6]'
+                : 'text-[16px] font-bold leading-[1.6] text-stone-950 dark:text-stone-50 sm:text-[17px]'
+            }
+          >
+            {step === 'warn' ? (
+              FIRST_DIALOG_TEXT
+            ) : (
+              <>
+                請在下方輸入{' '}
+                <span className="font-mono text-rose-700 dark:text-rose-300">DELETE</span>
+                （全大寫）以永久刪除帳號。
+              </>
+            )}
+          </p>
+        </div>
 
         {step === 'confirm' ? (
-          <input
-            type="text"
-            value={typed}
-            onChange={(e) => {
-              setTyped(e.target.value);
-              setError(null);
-            }}
-            autoComplete="off"
-            autoCapitalize="characters"
-            autoCorrect="off"
-            spellCheck={false}
-            placeholder="輸入 DELETE"
-            className="mt-4 w-full rounded-xl border border-rose-200 bg-rose-50/60 px-3 py-3 text-[15px] font-mono outline-none focus:border-rose-400"
-            aria-label="輸入 DELETE 確認刪除"
-          />
+          <div className="mt-5">
+            <label
+              htmlFor="delete-account-confirm-input"
+              className="mb-2 block text-[14px] font-bold text-stone-950 dark:text-stone-50"
+            >
+              確認文字
+            </label>
+            <input
+              id="delete-account-confirm-input"
+              type="text"
+              value={typed}
+              onChange={(e) => {
+                setTyped(e.target.value);
+                setError(null);
+              }}
+              autoComplete="off"
+              autoCapitalize="characters"
+              autoCorrect="off"
+              spellCheck={false}
+              placeholder="輸入 DELETE"
+              className="min-h-[44px] w-full rounded-xl border-2 border-stone-400 bg-white px-4 py-3 text-[16px] font-mono font-bold text-stone-950 placeholder:font-sans placeholder:font-semibold placeholder:text-stone-600 outline-none focus:border-rose-500 focus:ring-2 focus:ring-rose-300 dark:border-stone-500 dark:bg-stone-950 dark:text-stone-50 dark:placeholder:text-stone-400 dark:focus:border-rose-400 dark:focus:ring-rose-900"
+              aria-label="輸入 DELETE 確認刪除"
+              aria-invalid={error ? true : undefined}
+            />
+          </div>
         ) : null}
 
-        {error ? <p className="mt-3 text-[12px] font-medium text-red-700">{error}</p> : null}
+        {error ? (
+          <p
+            role="alert"
+            className="mt-5 rounded-xl border-2 border-red-400 bg-red-50 px-4 py-3 text-[14px] font-semibold leading-snug text-red-950 sm:text-[15px]"
+          >
+            {error}
+          </p>
+        ) : null}
 
-        <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+        <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:gap-3">
           <button
             type="button"
             disabled={busy}
             onClick={closeDialogs}
-            className={`min-h-[44px] flex-1 ${lq.btnSecondary}`}
+            className="inline-flex min-h-[44px] flex-1 items-center justify-center rounded-[14px] border-2 border-stone-300 bg-stone-100 px-4 py-3 text-[15px] font-semibold text-stone-900 active:scale-[0.98] disabled:opacity-60"
           >
             取消
           </button>
@@ -146,7 +212,7 @@ export function DeleteAccountSection() {
                 setStep('confirm');
                 setError(null);
               }}
-              className="min-h-[44px] flex-1 inline-flex items-center justify-center rounded-[14px] bg-rose-600 px-4 text-[15px] font-semibold text-white active:scale-[0.98] disabled:opacity-60"
+              className="inline-flex min-h-[44px] flex-1 items-center justify-center rounded-[14px] bg-rose-600 px-4 py-3 text-[15px] font-semibold text-white active:scale-[0.98] disabled:opacity-60"
             >
               繼續刪除
             </button>
@@ -155,7 +221,7 @@ export function DeleteAccountSection() {
               type="button"
               disabled={busy || typed.trim() !== CONFIRM_WORD}
               onClick={() => void handleDelete()}
-              className="min-h-[44px] flex-1 inline-flex items-center justify-center gap-2 rounded-[14px] bg-rose-700 px-4 text-[15px] font-semibold text-white active:scale-[0.98] disabled:opacity-50"
+              className="inline-flex min-h-[44px] flex-1 items-center justify-center gap-2 rounded-[14px] bg-rose-700 px-4 py-3 text-[15px] font-semibold text-white active:scale-[0.98] disabled:opacity-50"
             >
               {busy ? <Spinner className="h-4 w-4 border-2 border-white/30 border-t-white" /> : null}
               永久刪除帳號

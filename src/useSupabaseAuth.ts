@@ -28,6 +28,7 @@ import {
   setActiveStorageUserId,
 } from './coupleRpg/storage/storageSession';
 import { flushAiFavoritesBeforeLogout } from './coupleRpg/services/aiFavoritesSyncService';
+import { isAccountDeletionInProgress } from './coupleRpg/lib/accountDeletionGuard';
 
 export type UserProfile = {
   id: string;
@@ -128,14 +129,20 @@ export function SupabaseAuthProvider({ children }: { children: ReactNode }) {
     } = supabase.auth.onAuthStateChange((event, s) => {
       authLog('auth.onAuthStateChange', { event, hasSession: Boolean(s) });
       if (event === 'SIGNED_OUT') {
-        const signedOutUserId = getActiveStorageUserId();
-        if (signedOutUserId) {
-          void flushAiFavoritesBeforeLogout(supabase, signedOutUserId).catch((e) => {
-            console.warn('[ai-favorites] logout flush failed:', e);
-          });
+        if (isAccountDeletionInProgress()) {
+          authLog('auth.onAuthStateChange.accountDelete', { event });
+          setActiveStorageUserId(null);
+          setProfile(null);
+        } else {
+          const signedOutUserId = getActiveStorageUserId();
+          if (signedOutUserId) {
+            void flushAiFavoritesBeforeLogout(supabase, signedOutUserId).catch((e) => {
+              console.warn('[ai-favorites] logout flush failed:', e);
+            });
+          }
+          clearLoveQuestUserData(signedOutUserId);
+          setActiveStorageUserId(null);
         }
-        clearLoveQuestUserData(signedOutUserId);
-        setActiveStorageUserId(null);
       } else if (s?.user?.id) {
         if (event === 'SIGNED_IN' || event === 'INITIAL_SESSION') {
           prepareLoveQuestStorageForLogin(s.user.id);
