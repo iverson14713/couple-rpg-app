@@ -79,8 +79,12 @@ export function DeleteAccountSection() {
       const result = await postDeleteAccount({ userId, accessToken });
 
       if (!result.ok) {
-        console.warn('[account-delete] API failed', result.message);
-        setError(result.message);
+        console.warn('[account-delete] API failed', result.message, result.detail ?? '');
+        const detail =
+          import.meta.env.DEV && result.detail?.trim()
+            ? `${result.message}（${result.detail.trim()}）`
+            : result.message;
+        setError(detail);
         return;
       }
 

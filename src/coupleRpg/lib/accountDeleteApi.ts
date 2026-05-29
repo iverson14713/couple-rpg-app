@@ -61,7 +61,10 @@ function errorMessageZh(body: AccountDeleteErrorBody, status: number, networkDet
 
 export async function postDeleteAccount(
   auth: AccountDeleteAuth
-): Promise<{ ok: true; message: string } | { ok: false; message: string; code?: string }> {
+): Promise<
+  | { ok: true; message: string }
+  | { ok: false; message: string; code?: string; detail?: string }
+> {
   const url = resolveAccountDeleteUrl();
   let res: Response;
   try {
@@ -90,7 +93,11 @@ export async function postDeleteAccount(
   }
 
   if (!res.ok) {
-    return { ok: false, message: errorMessageZh(body, res.status), code: body.code };
+    const message = errorMessageZh(body, res.status);
+    if (body.detail?.trim()) {
+      console.warn('[account-delete] API detail:', body.detail.trim());
+    }
+    return { ok: false, message, code: body.code, detail: body.detail };
   }
 
   const message =

@@ -4,6 +4,40 @@ import { getSupabaseAdmin, isSupabaseAdminConfigured } from './supabase-admin.mj
 const LOG = '[ACCOUNT_DELETE]';
 
 /**
+ * @param {{ code?: string; message?: string } | null | undefined} error
+ */
+function isIgnorableDbError(error) {
+  if (!error) return false;
+  const code = String(error.code ?? '');
+  const msg = String(error.message ?? '').toLowerCase();
+  if (['42P01', 'PGRST205', 'PGRST204', '42703'].includes(code)) return true;
+  if (/does not exist/i.test(msg)) return true;
+  if (/schema cache/i.test(msg)) return true;
+  if (/could not find the table/i.test(msg)) return true;
+  if (/column.*does not exist/i.test(msg)) return true;
+  return false;
+}
+
+/**
+ * @param {import('@supabase/supabase-js').SupabaseClient} admin
+ * @param {string} label
+ * @param {() => Promise<void>} fn
+ */
+async function runPurgeStep(label, fn) {
+  try {
+    await fn();
+  } catch (e) {
+    const err = e && typeof e === 'object' ? e : { message: String(e) };
+    if (isIgnorableDbError(err)) {
+      console.warn(`${LOG} skip ${label}`, err.message ?? err);
+      return;
+    }
+    console.error(`${LOG} purge failed at ${label}`, e);
+    throw e;
+  }
+}
+
+/**
  * @param {unknown} body
  * @param {Record<string, string | string[] | undefined>} [headers]
  */
@@ -58,7 +92,9 @@ export async function deleteAccountPOST(body, headers = {}) {
   const userId = auth.userId;
 
   try {
-    await purgeUserCloudData(admin, userId);
+    await runPurgeStep('couples', () => reconcileCouplesBeforeUserDelete(admin, userId));
+    await runPurgeStep('user_rows', () => deleteUserScopedRows(admin, userId));
+    await runPurgeStep('legacy_pets', () => deleteLegacyPetRows(admin, userId));
 
     console.log(`${LOG} delete user`, userId);
     const { error: deleteAuthError } = await admin.auth.admin.deleteUser(userId);
@@ -69,6 +105,7 @@ export async function deleteAccountPOST(body, headers = {}) {
         json: {
           error: '無法刪除帳號，請稍後再試或聯絡客服',
           code: 'AUTH_DELETE_FAILED',
+          detail: deleteAuthError.message,
         },
       };
     }
@@ -96,23 +133,16 @@ export async function deleteAccountPOST(body, headers = {}) {
  * @param {import('@supabase/supabase-js').SupabaseClient} admin
  * @param {string} userId
  */
-async function purgeUserCloudData(admin, userId) {
-  await reconcileCouplesBeforeUserDelete(admin, userId);
-  await deleteUserScopedRows(admin, userId);
-  await deleteLegacyPetRows(admin, userId);
-}
-
-/**
- * @param {import('@supabase/supabase-js').SupabaseClient} admin
- * @param {string} userId
- */
 async function reconcileCouplesBeforeUserDelete(admin, userId) {
   const { data: memberships, error } = await admin
     .from('couple_members')
     .select('couple_id, role')
     .eq('user_id', userId);
 
-  if (error) throw error;
+  if (error) {
+    if (isIgnorableDbError(error)) return;
+    throw error;
+  }
 
   for (const membership of memberships ?? []) {
     const coupleId = membership.couple_id;
@@ -121,11 +151,14 @@ async function reconcileCouplesBeforeUserDelete(admin, userId) {
       .select('*', { count: 'exact', head: true })
       .eq('couple_id', coupleId);
 
-    if (countErr) throw countErr;
+    if (countErr) {
+      if (isIgnorableDbError(countErr)) continue;
+      throw countErr;
+    }
 
     if ((count ?? 0) <= 1) {
       const { error: delErr } = await admin.from('couples').delete().eq('id', coupleId);
-      if (delErr) throw delErr;
+      if (delErr && !isIgnorableDbError(delErr)) throw delErr;
       console.log(`[account-delete] deleted couple ${coupleId} (sole member)`);
       continue;
     }
@@ -139,14 +172,20 @@ async function reconcileCouplesBeforeUserDelete(admin, userId) {
         .limit(1)
         .maybeSingle();
 
-      if (partnerErr) throw partnerErr;
+      if (partnerErr) {
+        if (isIgnorableDbError(partnerErr)) continue;
+        throw partnerErr;
+      }
 
       if (partner?.user_id) {
         const { error: transferErr } = await admin
           .from('couples')
           .update({ owner_id: partner.user_id })
           .eq('id', coupleId);
-        if (transferErr) throw transferErr;
+        if (transferErr) {
+          if (isIgnorableDbError(transferErr)) continue;
+          throw transferErr;
+        }
         console.log(`[account-delete] transferred couple ${coupleId} owner to ${partner.user_id}`);
       }
     }
@@ -170,6 +209,7 @@ async function deleteUserScopedRows(admin, userId) {
     'ai_usage_logs',
     'cat_members',
     'cat_invite_codes',
+    'couple_members',
   ];
 
   for (const table of tablesWithUserId) {
@@ -178,10 +218,10 @@ async function deleteUserScopedRows(admin, userId) {
 
   await deleteWhereEq(admin, 'profiles', 'id', userId);
 
-  await deleteWhereEq(admin, 'reward_card_records', 'owner_user_id', userId);
-  await deleteWhereEq(admin, 'reward_card_records', 'redeemed_by', userId);
-  await deleteWhereEq(admin, 'reward_card_records', 'used_by', userId);
-  await deleteWhereEq(admin, 'reward_card_records', 'target_user', userId);
+  const rewardCardColumns = ['owner_user_id', 'redeemed_by', 'used_by', 'target_user', 'completed_by'];
+  for (const column of rewardCardColumns) {
+    await deleteWhereEq(admin, 'reward_card_records', column, userId);
+  }
 
   await deleteWhereEq(admin, 'couple_activity_logs', 'actor_user_id', userId);
 }
@@ -192,7 +232,10 @@ async function deleteUserScopedRows(admin, userId) {
  */
 async function deleteLegacyPetRows(admin, userId) {
   const { data: cats, error } = await admin.from('cats').select('id').eq('owner_id', userId);
-  if (error) throw error;
+  if (error) {
+    if (isIgnorableDbError(error)) return;
+    throw error;
+  }
 
   for (const cat of cats ?? []) {
     if (!cat?.id) continue;
@@ -216,8 +259,6 @@ async function deleteLegacyPetRows(admin, userId) {
 async function deleteWhereEq(admin, table, column, value) {
   const { error } = await admin.from(table).delete().eq(column, value);
   if (!error) return;
-  if (error.code === '42P01' || /does not exist/i.test(error.message)) {
-    return;
-  }
+  if (isIgnorableDbError(error)) return;
   throw error;
 }
