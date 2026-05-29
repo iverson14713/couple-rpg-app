@@ -1,5 +1,6 @@
 import { Smartphone } from 'lucide-react';
 import { AuthSettingsSection } from '../components/AuthSettingsSection';
+import { DeleteAccountSection } from '../components/DeleteAccountSection';
 import { CloudSyncSection } from '../components/CloudSyncSection';
 import { CoupleBindSection } from '../components/CoupleBindSection';
 import { CoupleDetailsSection } from '../components/CoupleDetailsSection';
@@ -38,6 +39,10 @@ export function SettingsPage({ embedded }: { embedded?: boolean } = {}) {
 
       <SettingsSectionErrorBoundary sectionName="帳號登入">
         <AuthSettingsSection />
+      </SettingsSectionErrorBoundary>
+
+      <SettingsSectionErrorBoundary sectionName="刪除帳號">
+        <DeleteAccountSection />
       </SettingsSectionErrorBoundary>
 
       <SettingsSectionErrorBoundary sectionName="情侶空間綁定">

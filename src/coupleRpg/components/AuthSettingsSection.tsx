@@ -15,14 +15,14 @@ import {
 import { mapAuthErrorMessage } from '../../services/auth/authErrors';
 import { useLoveQuest } from '../context/LoveQuestContext';
 import { useCoupleRpgNav } from '../context/CoupleRpgNavContext';
-import { AUTH_LOGIN_ANCHOR_ID } from '../lib/authNav';
+import { AUTH_LOGIN_ANCHOR_ID, DELETE_ACCOUNT_ANCHOR_ID } from '../lib/authNav';
 import { isLoveQuestDevMode } from '../lib/loveQuestDevMode';
 import { lq } from '../theme';
 
 export function AuthSettingsSection() {
   const auth = useSupabaseAuth();
   const { displayNames } = useLoveQuest();
-  const { pendingScrollElementId, acknowledgePendingScroll } = useCoupleRpgNav();
+  const { pendingScrollElementId, acknowledgePendingScroll, navigateTo } = useCoupleRpgNav();
   const sectionRef = useRef<HTMLElement>(null);
   const emailInputRef = useRef<HTMLInputElement>(null);
   const [authMode, setAuthMode] = useState<'signIn' | 'signUp'>('signIn');
@@ -148,6 +148,18 @@ export function AuthSettingsSection() {
           className={`mt-3 w-full rounded-xl py-2.5 text-sm font-bold ${lq.btnSecondary}`}
         >
           登出
+        </button>
+        <button
+          type="button"
+          onClick={() =>
+            navigateTo('profile', {
+              profileSection: 'settings',
+              scrollToElementId: DELETE_ACCOUNT_ANCHOR_ID,
+            })
+          }
+          className="mt-3 w-full min-h-[44px] rounded-xl border-2 border-rose-600 bg-rose-50 px-4 py-2.5 text-sm font-bold text-rose-700 active:scale-[0.98]"
+        >
+          刪除帳號
         </button>
       </section>
     );

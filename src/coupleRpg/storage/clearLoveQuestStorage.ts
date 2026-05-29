@@ -57,3 +57,84 @@ export function prepareLoveQuestStorageForLogin(userId: string): void {
   clearLoveQuestLegacyGlobalUserKeys();
   void userId;
 }
+
+const SESSION_KEYS_TO_CLEAR = [
+  'lq_auth_return',
+  'lq_skip_splash_once',
+  'lq_auth_oauth_provider',
+] as const;
+
+function clearSupabaseAuthStorage(): void {
+  try {
+    const toRemove: string[] = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (!key) continue;
+      if (key.startsWith('sb-') && key.includes('auth')) {
+        toRemove.push(key);
+      }
+    }
+    for (const key of toRemove) {
+      safeRemoveItem(key);
+    }
+  } catch (e) {
+    console.warn('[lovequest-storage] supabase auth sweep failed', e);
+  }
+}
+
+function clearSessionStorageForAccountDeletion(): void {
+  try {
+    for (const key of SESSION_KEYS_TO_CLEAR) {
+      sessionStorage.removeItem(key);
+    }
+    const extra: string[] = [];
+    for (let i = 0; i < sessionStorage.length; i++) {
+      const key = sessionStorage.key(i);
+      if (!key) continue;
+      if (key.startsWith('lovequest-') || key.startsWith('lq_')) {
+        extra.push(key);
+      }
+    }
+    for (const key of extra) {
+      sessionStorage.removeItem(key);
+    }
+  } catch (e) {
+    console.warn('[lovequest-storage] sessionStorage sweep failed', e);
+  }
+}
+
+async function clearBrowserCachesIfAvailable(): Promise<void> {
+  if (typeof caches === 'undefined') return;
+  try {
+    const names = await caches.keys();
+    await Promise.all(names.map((name) => caches.delete(name)));
+  } catch (e) {
+    console.warn('[lovequest-storage] cache sweep failed', e);
+  }
+}
+
+/**
+ * Wipe all LoveQuest user data after permanent account deletion.
+ * Unlike logout, nothing is preserved (including AI favorites cache).
+ */
+export async function clearAllLocalDataForAccountDeletion(): Promise<void> {
+  try {
+    const toRemove: string[] = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (!key) continue;
+      if (key.startsWith('lovequest-') || key === ONBOARDING_DONE_KEY) {
+        toRemove.push(key);
+      }
+    }
+    for (const key of toRemove) {
+      safeRemoveItem(key);
+    }
+  } catch (e) {
+    console.warn('[lovequest-storage] localStorage sweep failed', e);
+  }
+
+  clearSupabaseAuthStorage();
+  clearSessionStorageForAccountDeletion();
+  await clearBrowserCachesIfAvailable();
+}

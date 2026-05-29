@@ -13,6 +13,7 @@ import {
   assistVetReportPOST,
   assistWeeklyReportPOST,
 } from './assistant-routes.mjs';
+import { deleteAccountPOST } from './account-delete.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT_DIR = path.join(__dirname, '..');
@@ -145,6 +146,12 @@ const server = http.createServer(async (req, res) => {
 
     if (pathname === '/api/assistant/important-date') {
       const { status, json } = await assistImportantDatePOST(body, req.headers);
+      sendJson(res, status, json);
+      return;
+    }
+
+    if (pathname === '/api/account/delete') {
+      const { status, json } = await deleteAccountPOST(body, req.headers);
       sendJson(res, status, json);
       return;
     }
