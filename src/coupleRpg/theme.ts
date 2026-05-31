@@ -85,5 +85,5 @@ export const lq = {
   themeColor: '#f9a8d4',
 } as const;
 
-export const APP_NAME = 'LoveQuest 情侶生活';
+export const APP_NAME = 'LoveQuest 情侶日常';
 export const APP_NAME_EN = 'LoveQuest';

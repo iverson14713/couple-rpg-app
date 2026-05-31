@@ -11,9 +11,16 @@ export function UpgradeModal() {
   if (!upgradeModalOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[60] flex flex-col justify-end bg-black/45" role="dialog" aria-modal="true">
-      <button type="button" className="absolute inset-0" aria-label="關閉" onClick={closeUpgradeModal} />
-      <div className="relative max-h-[90vh] overflow-hidden rounded-t-3xl bg-white shadow-2xl">
+    <div
+      className="fixed inset-0 z-[60] flex flex-col justify-end bg-black/45"
+      role="dialog"
+      aria-modal="true"
+      onClick={closeUpgradeModal}
+    >
+      <div
+        className="relative z-10 max-h-[90vh] overflow-hidden rounded-t-3xl bg-white shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className="border-b border-stone-100 px-4 py-3.5">
           <div className="flex items-start justify-between gap-2">
             <div className="min-w-0">

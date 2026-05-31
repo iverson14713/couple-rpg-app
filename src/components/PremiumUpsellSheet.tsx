@@ -182,13 +182,23 @@ export function PremiumUpsellSheet({
           </ul>
 
           <div className="mt-4 grid grid-cols-2 gap-2">
-            <div className="rounded-2xl border border-stone-200 bg-white px-3 py-2.5 text-center">
+            <button
+              type="button"
+              disabled={busy || !iapAvailable}
+              onClick={() => onPurchase('monthly')}
+              className="rounded-2xl border border-stone-200 bg-white px-3 py-2.5 text-center transition active:scale-[0.99] disabled:opacity-60"
+            >
               <p className="text-sm font-bold text-stone-900">{priceMonthly}</p>
-            </div>
-            <div className="rounded-2xl border-2 border-orange-300 bg-orange-50 px-3 py-2.5 text-center">
+            </button>
+            <button
+              type="button"
+              disabled={busy || !iapAvailable}
+              onClick={() => onPurchase('yearly')}
+              className="rounded-2xl border-2 border-orange-300 bg-orange-50 px-3 py-2.5 text-center transition active:scale-[0.99] disabled:opacity-60"
+            >
               <p className="text-sm font-bold text-stone-900">{priceYearly}</p>
               <p className="mt-1 text-[10px] font-semibold text-orange-800">{t.yearlySave}</p>
-            </div>
+            </button>
           </div>
 
           <div className="mt-3 space-y-1 text-[10px] leading-snug text-stone-500">

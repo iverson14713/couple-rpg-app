@@ -26,6 +26,7 @@ import {
   purchaseLoveQuestPro,
   restoreLoveQuestPurchases,
   syncLoveQuestIapOnLaunch,
+  type LoveQuestPurchaseOutcome,
 } from '../services/loveQuestIapPlanService';
 import { loadCoupleExtendedProfile } from '../storage/coupleExtendedStore';
 import {
@@ -45,7 +46,7 @@ type UserPlanContextValue = {
   iapBusy: boolean;
   planSnapshot: CouplePlanSnapshot;
   refreshPlan: () => Promise<void>;
-  purchasePro: (period: BillingPeriod) => Promise<void>;
+  purchasePro: (period: BillingPeriod) => Promise<LoveQuestPurchaseOutcome>;
   restorePurchases: () => Promise<void>;
   /** @deprecated 開發測試 */
   tryProExperience: () => Promise<void>;
@@ -128,19 +129,20 @@ export function UserPlanProvider({ children }: { children: ReactNode }) {
   }, [coupleId, userId]);
 
   const purchasePro = useCallback(
-    async (period: BillingPeriod) => {
+    async (period: BillingPeriod): Promise<LoveQuestPurchaseOutcome> => {
       setIapBusy(true);
       try {
         const outcome = await purchaseLoveQuestPro(syncInput, period);
-        if (outcome.cancelled) return;
+        if (outcome.cancelled) return outcome;
         if (!outcome.ok) {
           setPlanToast(outcome.message ?? PRO_TOAST_PURCHASE_FAIL);
-          return;
+          return outcome;
         }
         await refreshPlan();
         logProUpgrade();
         setPlanToast(PRO_TOAST_COUPLE);
         setUpgradeModalOpen(false);
+        return outcome;
       } finally {
         setIapBusy(false);
       }

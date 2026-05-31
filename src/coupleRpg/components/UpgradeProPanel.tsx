@@ -1,5 +1,5 @@
 import { Check } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import type { BillingPeriod } from '../../subscription/types';
 import { SUBSCRIPTION_PRICING } from '../../subscription/constants';
 import { fetchStoreProductPrices, isNativeIapAvailable } from '../../subscription/iapBridge';
@@ -21,6 +21,7 @@ import {
   PRO_PRICE_MONTHLY,
   PRO_PRICE_YEARLY,
   PRO_PRICE_YEARLY_AVG,
+  PRO_TOAST_PURCHASE_FAIL,
   getProCoupleContextMessage,
 } from '../lib/proPlanContent';
 import { useCoupleSpace } from '../context/CoupleSpaceContext';
@@ -41,14 +42,57 @@ export function UpgradeProPanel({ onLater, showLaterButton = true }: Props) {
 
   const [priceMonthly, setPriceMonthly] = useState(PRO_PRICE_MONTHLY);
   const [priceYearly, setPriceYearly] = useState(PRO_PRICE_YEARLY);
+  const [productsLoading, setProductsLoading] = useState(false);
+  const [productsLoaded, setProductsLoaded] = useState(!iapAvailable);
+  const [purchaseError, setPurchaseError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!iapAvailable) return;
-    void fetchStoreProductPrices().then((prices) => {
-      if (prices.monthly) setPriceMonthly(prices.monthly);
-      if (prices.yearly) setPriceYearly(prices.yearly);
-    });
+    if (!iapAvailable) {
+      setProductsLoaded(true);
+      return;
+    }
+    let cancelled = false;
+    setProductsLoading(true);
+    void fetchStoreProductPrices()
+      .then((prices) => {
+        if (cancelled) return;
+        if (prices.monthly) setPriceMonthly(prices.monthly);
+        if (prices.yearly) setPriceYearly(prices.yearly);
+        setProductsLoaded(true);
+      })
+      .catch(() => {
+        if (!cancelled) setProductsLoaded(true);
+      })
+      .finally(() => {
+        if (!cancelled) setProductsLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [iapAvailable]);
+
+  const handlePurchase = useCallback(
+    async (period: BillingPeriod) => {
+      setPurchaseError(null);
+      if (!iapAvailable) {
+        setPurchaseError(PRO_IAP_IOS_ONLY);
+        return;
+      }
+      if (productsLoading) {
+        setPurchaseError('商品載入中，請稍候…');
+        return;
+      }
+      if (!productsLoaded) {
+        setPurchaseError('商品尚未載入，請稍後再試');
+        return;
+      }
+      const outcome = await purchasePro(period);
+      if (!outcome.ok && !outcome.cancelled) {
+        setPurchaseError(outcome.message ?? PRO_TOAST_PURCHASE_FAIL);
+      }
+    },
+    [iapAvailable, productsLoading, productsLoaded, purchasePro]
+  );
 
   if (isPro) {
     return (
@@ -76,10 +120,17 @@ export function UpgradeProPanel({ onLater, showLaterButton = true }: Props) {
     );
   }
 
-  const purchase = (period: BillingPeriod) => {
-    if (!iapAvailable) return;
-    void purchasePro(period);
-  };
+  const purchaseDisabled = busy || !iapAvailable || productsLoading;
+  const monthlyLabel = busy
+    ? '處理中…'
+    : productsLoading
+      ? '載入商品中…'
+      : `${PRO_BTN_MONTHLY} · ${priceMonthly}`;
+  const yearlyLabel = busy
+    ? '處理中…'
+    : productsLoading
+      ? '載入商品中…'
+      : `${PRO_BTN_YEARLY} · ${priceYearly}`;
 
   return (
     <div className="space-y-4">
@@ -105,16 +156,26 @@ export function UpgradeProPanel({ onLater, showLaterButton = true }: Props) {
       </section>
 
       <section className="grid grid-cols-2 gap-2.5">
-        <div className="rounded-2xl border border-stone-100 bg-white p-3 text-center ring-1 ring-stone-100">
+        <button
+          type="button"
+          disabled={purchaseDisabled}
+          onClick={() => void handlePurchase('monthly')}
+          className="min-h-[88px] rounded-2xl border border-stone-100 bg-white p-3 text-center ring-1 ring-stone-100 transition active:scale-[0.98] disabled:opacity-60"
+        >
           <p className="text-[11px] font-bold text-stone-500">月費</p>
           <p className="mt-1 text-[20px] font-extrabold text-stone-900">{priceMonthly}</p>
           <p className="text-[10px] text-stone-400">{SUBSCRIPTION_PRICING.monthly.labelZh}</p>
-        </div>
-        <div className="rounded-2xl border-2 border-violet-200 bg-violet-50/80 p-3 text-center">
+        </button>
+        <button
+          type="button"
+          disabled={purchaseDisabled}
+          onClick={() => void handlePurchase('yearly')}
+          className="min-h-[88px] rounded-2xl border-2 border-violet-200 bg-violet-50/80 p-3 text-center transition active:scale-[0.98] disabled:opacity-60"
+        >
           <p className="text-[11px] font-bold text-violet-700">年費</p>
           <p className="mt-1 text-[20px] font-extrabold text-stone-900">{priceYearly}</p>
           <p className="text-[10px] font-semibold text-violet-600">{PRO_PRICE_YEARLY_AVG}</p>
-        </div>
+        </button>
       </section>
 
       <div className="space-y-2 text-[10px] leading-relaxed text-stone-500">
@@ -136,22 +197,31 @@ export function UpgradeProPanel({ onLater, showLaterButton = true }: Props) {
         </p>
       ) : null}
 
+      {purchaseError ? (
+        <p
+          role="alert"
+          className="rounded-xl border-2 border-red-300 bg-red-50 px-3 py-2.5 text-center text-[13px] font-semibold text-red-900"
+        >
+          {purchaseError}
+        </p>
+      ) : null}
+
       <div className="flex flex-col gap-2">
         <button
           type="button"
-          disabled={busy || !iapAvailable}
-          onClick={() => purchase('monthly')}
+          disabled={purchaseDisabled}
+          onClick={() => void handlePurchase('monthly')}
           className={`min-h-[48px] w-full ${lq.btnSecondary}`}
         >
-          {busy ? '處理中…' : `${PRO_BTN_MONTHLY} · ${priceMonthly}`}
+          {monthlyLabel}
         </button>
         <button
           type="button"
-          disabled={busy || !iapAvailable}
-          onClick={() => purchase('yearly')}
+          disabled={purchaseDisabled}
+          onClick={() => void handlePurchase('yearly')}
           className={`min-h-[48px] w-full ${lq.btnPrimary}`}
         >
-          {busy ? '處理中…' : `${PRO_BTN_YEARLY} · ${priceYearly}`}
+          {yearlyLabel}
         </button>
         <button
           type="button"
