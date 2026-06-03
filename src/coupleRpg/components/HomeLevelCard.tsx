@@ -2,7 +2,7 @@ import { useLoveQuest } from '../context/LoveQuestContext';
 import { lq } from '../theme';
 
 export function HomeLevelCard() {
-  const { coupleExpView, weeklyChallengeView } = useLoveQuest();
+  const { coupleExpView, weeklyChallengeView, coupleWeeklyRecapView } = useLoveQuest();
   const {
     level,
     title,
@@ -50,6 +50,11 @@ export function HomeLevelCard() {
           完成今日戀愛任務、小遊戲與互動可以累積 EXP。
         </p>
         <p className={`mt-1 text-[11px] font-semibold text-violet-800/90`}>{nextUnlockText}</p>
+        {coupleWeeklyRecapView.levelCardLine ? (
+          <p className={`mt-0.5 text-[11px] font-semibold text-violet-800/90`}>
+            {coupleWeeklyRecapView.levelCardLine}
+          </p>
+        ) : null}
         {weeklyChallengeView.unlocked && !weeklyChallengeView.claimed ? (
           <p className={`mt-0.5 text-[11px] font-semibold text-rose-700/90`}>
             {weeklyChallengeView.homeHintLine}

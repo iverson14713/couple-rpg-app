@@ -308,6 +308,10 @@ import {
   tryMarkWeeklyChallengeClaimed,
   type WeeklyChallengeView,
 } from '../storage/weeklyChallengeStore';
+import {
+  getCoupleWeeklyRecapView,
+  type CoupleWeeklyRecapView,
+} from '../lib/coupleWeeklyRecap';
 
 const DEFAULT_COUPLE: CoupleProfile = {
   nameA: '我',
@@ -326,6 +330,8 @@ type LoveQuestContextValue = {
   /** Phase 3C：本週情侶挑戰 */
   weeklyChallengeView: WeeklyChallengeView;
   claimWeeklyChallengeReward: () => Promise<boolean>;
+  /** Phase 3D：本週情侶回顧卡（Lv.5） */
+  coupleWeeklyRecapView: CoupleWeeklyRecapView;
   dinner: DinnerData;
   dinnerOptions: DinnerOption[];
   todayDinner: ReturnType<typeof getTodayDinner>;
@@ -758,6 +764,11 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
   const weeklyChallengeView = useMemo(
     () => getWeeklyChallengeView(ledgerCtx, coupleExpView.level, isPro),
     [ledgerCtx, coupleExpView.level, isPro, ledgerRevision, weeklyChallengeRevision]
+  );
+
+  const coupleWeeklyRecapView = useMemo(
+    () => getCoupleWeeklyRecapView(ledgerCtx, coupleExpView.level, isPro),
+    [ledgerCtx, coupleExpView.level, isPro, ledgerRevision, expRevision]
   );
 
   useEffect(() => {
@@ -2924,6 +2935,7 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
       coupleExpView,
       weeklyChallengeView,
       claimWeeklyChallengeReward,
+      coupleWeeklyRecapView,
       dinner,
       dinnerOptions,
       todayDinner: getTodayDinner(dinner.history),
@@ -3049,6 +3061,7 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
       coupleExpView,
       weeklyChallengeView,
       claimWeeklyChallengeReward,
+      coupleWeeklyRecapView,
       dinner,
       dinnerOptions,
       dinnerHomeStatus,

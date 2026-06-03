@@ -14,6 +14,7 @@ import { useProFeature } from '../hooks/useProFeature';
 import { NicknameSetupBanner } from '../components/NicknameSetupBanner';
 import { HomeLevelCard } from '../components/HomeLevelCard';
 import { WeeklyChallengeCard } from '../components/WeeklyChallengeCard';
+import { CoupleWeeklyRecapCard } from '../components/CoupleWeeklyRecapCard';
 import { PageHero } from '../components/ui';
 import { useLoveQuest } from '../context/LoveQuestContext';
 import { useToast } from '../../context/ToastContext';
@@ -309,6 +310,8 @@ export function RewardsPage({ embedded }: { embedded?: boolean } = {}) {
           </section>
 
           <HomeLevelCard />
+
+          <CoupleWeeklyRecapCard />
 
           <WeeklyChallengeCard />
         </div>

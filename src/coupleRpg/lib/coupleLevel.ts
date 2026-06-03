@@ -50,7 +50,7 @@ export function nextLevelInfo(level: number): {
 
 /** 等級卡：已解鎖／下一級預覽文案 */
 export function levelCardUnlockLine(level: number): string {
-  if (level >= 5) return '已達最高等級';
+  if (level >= 5) return `已解鎖：${LEVEL_UNLOCK_LINES[5]}`;
   if (level >= 4) return `已解鎖：${LEVEL_UNLOCK_LINES[4]}`;
   if (level >= 3) return `已解鎖：${LEVEL_UNLOCK_LINES[3]}`;
   if (level >= 2) return `已解鎖：${LEVEL_UNLOCK_LINES[2]}`;
@@ -92,7 +92,7 @@ export function expProgressInLevel(totalExp: number): {
       expToNext: 0,
       nextLevel: null,
       nextTitle: null,
-      nextUnlockText: '已達最高等級',
+      nextUnlockText: `已解鎖：${LEVEL_UNLOCK_LINES[5]}`,
     };
   }
 

@@ -1,9 +1,15 @@
+import { useCoupleRpgNav } from '../context/CoupleRpgNavContext';
 import { useLoveQuest } from '../context/LoveQuestContext';
+import { WEEKLY_RECAP_UNLOCK_HINT } from '../lib/coupleWeeklyRecap';
+import { useToast } from '../../context/ToastContext';
 import { lq } from '../theme';
 
 /** 首頁：愛情火苗 + 情侶等級合併（緊湊） */
 export function HomeTodayGrowthCard() {
-  const { loveFlameView, coupleExpView, weeklyChallengeView } = useLoveQuest();
+  const { navigateTo } = useCoupleRpgNav();
+  const { showToast } = useToast();
+  const { loveFlameView, coupleExpView, weeklyChallengeView, coupleWeeklyRecapView } =
+    useLoveQuest();
   const { currentStreak } = loveFlameView;
   const {
     level,
@@ -23,6 +29,15 @@ export function HomeTodayGrowthCard() {
       ? `距離 Lv.${nextLevel} 還差 ${expToNext} EXP`
       : null;
   const weeklyHint = weeklyChallengeView.homeHintLine?.trim();
+  const recapHint = coupleWeeklyRecapView.homeHintLine?.trim();
+
+  const onRecapEntry = () => {
+    if (!coupleWeeklyRecapView.unlocked) {
+      showToast(WEEKLY_RECAP_UNLOCK_HINT, 'info', { position: 'top' });
+      return;
+    }
+    navigateTo('rewards');
+  };
 
   return (
     <section
@@ -51,6 +66,17 @@ export function HomeTodayGrowthCard() {
       </div>
       {weeklyHint ? (
         <p className="mt-1 truncate text-[10px] font-medium text-stone-500">{weeklyHint}</p>
+      ) : null}
+      {recapHint ? (
+        <button
+          type="button"
+          onClick={onRecapEntry}
+          className={`mt-0.5 block max-w-full truncate text-left text-[10px] font-semibold ${
+            coupleWeeklyRecapView.unlocked ? 'text-violet-700' : 'text-stone-500'
+          } active:opacity-70`}
+        >
+          {recapHint}
+        </button>
       ) : null}
     </section>
   );
