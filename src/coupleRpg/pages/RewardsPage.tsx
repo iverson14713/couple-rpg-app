@@ -256,10 +256,6 @@ export function RewardsPage({ embedded }: { embedded?: boolean } = {}) {
 
       {tab === 'wallet' && (
         <div className="space-y-3">
-          <HomeLevelCard />
-
-          <WeeklyChallengeCard />
-
           <section className={`overflow-hidden p-4 ${lq.card}`}>
             <div className="flex items-center justify-between gap-3">
               <div>
@@ -311,6 +307,10 @@ export function RewardsPage({ embedded }: { embedded?: boolean } = {}) {
               家事 · 任務 · 小遊戲 · 約會 · 每日登入皆可累積 LoveCoin
             </p>
           </section>
+
+          <HomeLevelCard />
+
+          <WeeklyChallengeCard />
         </div>
       )}
 
