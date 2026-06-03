@@ -51,10 +51,15 @@ export function nextLevelInfo(level: number): {
 /** 等級卡：已解鎖／下一級預覽文案 */
 export function levelCardUnlockLine(level: number): string {
   if (level >= 5) return '已達最高等級';
-  if (level >= 4) return `Lv.4 解鎖：${LEVEL_UNLOCK_LINES[4]}`;
+  if (level >= 4) return `已解鎖：${LEVEL_UNLOCK_LINES[4]}`;
   if (level >= 3) return `已解鎖：${LEVEL_UNLOCK_LINES[3]}`;
   if (level >= 2) return `已解鎖：${LEVEL_UNLOCK_LINES[2]}`;
   return `Lv.2 解鎖：${LEVEL_UNLOCK_LINES[2]}`;
+}
+
+/** 等級卡附加：本週挑戰進度（Lv.4+） */
+export function weeklyChallengeProgressLine(progress: number, target: number): string {
+  return `本週挑戰 ${Math.min(progress, target)}/${target}`;
 }
 
 export function nextUnlockPreview(level: number): string {

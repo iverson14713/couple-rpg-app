@@ -18,6 +18,17 @@ export function level3ComboCoinKey(dateKey: string): string {
   return `earn:level3-combo:${dateKey}`;
 }
 
+export function weeklyChallengeCoinKey(
+  userId: string,
+  coupleId: string | null,
+  weekStartDate: string,
+  challengeId: string
+): string {
+  const u = userId?.trim() || 'guest';
+  const c = coupleId?.trim() || 'solo';
+  return `earn:weekly-challenge:${u}::${c}:${weekStartDate}:${challengeId}`;
+}
+
 export function loveFlameMilestoneKey(streak: number): string {
   return `earn:love-flame-milestone:${streak}`;
 }

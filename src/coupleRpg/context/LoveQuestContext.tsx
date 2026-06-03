@@ -229,6 +229,7 @@ import {
   loveFlameMilestoneKey,
   loveTaskAllCompleteKey,
   level3ComboCoinKey,
+  weeklyChallengeCoinKey,
   miniGameCoinKey,
   redeemCoinKey,
   taskCoinKey,
@@ -294,6 +295,7 @@ import { LevelUpModal } from '../components/LevelUpModal';
 import {
   expClaimKey,
   getCoupleExpView,
+  grantWeeklyChallengeExp,
   markLevelUpPopupShown,
   migrateLegacyRpgXpIntoExp,
   shouldShowLevelUpPopup,
@@ -301,6 +303,11 @@ import {
   type CoupleExpView,
   type ExpGrantSource,
 } from '../storage/coupleExpStore';
+import {
+  getWeeklyChallengeView,
+  tryMarkWeeklyChallengeClaimed,
+  type WeeklyChallengeView,
+} from '../storage/weeklyChallengeStore';
 
 const DEFAULT_COUPLE: CoupleProfile = {
   nameA: '我',
@@ -316,6 +323,9 @@ type LoveQuestContextValue = {
   rpgView: ReturnType<typeof rpgSnapshot> & { miniGamesRewardCap: number };
   /** Phase 3A：情侶 EXP 等級（與 LoveCoin 分離） */
   coupleExpView: CoupleExpView;
+  /** Phase 3C：本週情侶挑戰 */
+  weeklyChallengeView: WeeklyChallengeView;
+  claimWeeklyChallengeReward: () => Promise<boolean>;
   dinner: DinnerData;
   dinnerOptions: DinnerOption[];
   todayDinner: ReturnType<typeof getTodayDinner>;
@@ -540,7 +550,13 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
   } | null>(null);
   const clearLevel3ComboNotice = useCallback(() => setLevel3ComboNotice(null), []);
 
-  const [tasks, setTasks] = useState(() => loadTasks(isPro, { userId: currentUserId, coupleId }));
+  const [tasks, setTasks] = useState(() =>
+    loadTasks(
+      isPro,
+      { userId: currentUserId, coupleId },
+      getCoupleExpView({ userId: currentUserId, coupleId }).level
+    )
+  );
   const [coupleExtended, setCoupleExtendedState] = useState(loadCoupleExtendedProfile);
   const [importantDateReminders, setImportantDateReminders] = useState(loadImportantDateReminders);
 
@@ -731,6 +747,17 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
   const coupleExpView = useMemo(
     () => getCoupleExpView(ledgerCtx, todayKey()),
     [ledgerCtx, expRevision]
+  );
+
+  const [weeklyChallengeRevision, setWeeklyChallengeRevision] = useState(0);
+  const bumpWeeklyChallenge = useCallback(
+    () => setWeeklyChallengeRevision((n) => n + 1),
+    []
+  );
+
+  const weeklyChallengeView = useMemo(
+    () => getWeeklyChallengeView(ledgerCtx, coupleExpView.level, isPro),
+    [ledgerCtx, coupleExpView.level, isPro, ledgerRevision, weeklyChallengeRevision]
   );
 
   useEffect(() => {
@@ -1034,14 +1061,14 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     migrateLegacyRewardsIntoLedger(ledgerCtx);
-    setTasks(loadTasks(isPro, ledgerCtx));
+    setTasks(loadTasks(isPro, ledgerCtx, getCoupleExpView(ledgerCtx).level));
     bumpLedger();
-  }, [ledgerCtx, isPro, bumpLedger]);
+  }, [ledgerCtx, isPro, bumpLedger, expRevision]);
 
   useEffect(() => {
     const onStorageUser = () => {
       migrateLegacyRewardsIntoLedger(ledgerCtx);
-      setTasks(loadTasks(isPro, ledgerCtx));
+      setTasks(loadTasks(isPro, ledgerCtx, getCoupleExpView(ledgerCtx).level));
       bumpLedger();
     };
     window.addEventListener(STORAGE_USER_CHANGED_EVENT, onStorageUser);
@@ -1221,6 +1248,88 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
       logTodayActivity,
     ]
   );
+
+  const claimWeeklyChallengeReward = useCallback(async (): Promise<boolean> => {
+    const result = tryMarkWeeklyChallengeClaimed(ledgerCtx, coupleExpView.level, isPro);
+    if (!result.ok) return false;
+
+    grantReward(
+      {
+        heart: 0,
+        compatibility: 0,
+        xp: 0,
+        houseworkPoints: 0,
+        loveCoins: result.loveCoins,
+      },
+      `完成本週挑戰`,
+      { source: 'task', title: '每週情侶挑戰', emoji: '🏆' },
+      weeklyChallengeCoinKey(
+        currentUserId ?? '',
+        coupleId,
+        result.weekStartDate,
+        result.challengeId
+      )
+    );
+
+    const previousLevel = coupleExpView.level;
+    const expResult = grantWeeklyChallengeExp(
+      ledgerCtx,
+      result.expAmount,
+      result.weekStartDate,
+      result.challengeId
+    );
+    if (expResult.granted > 0) {
+      bumpExp();
+      syncRpgExpFromStore(expResult.totalExp);
+      const newLevel = levelFromTotalExp(expResult.totalExp);
+      if (newLevel > previousLevel) {
+        let highestUnshown: number | null = null;
+        for (let lv = previousLevel + 1; lv <= newLevel; lv++) {
+          if (shouldShowLevelUpPopup(ledgerCtx, lv)) highestUnshown = lv;
+        }
+        if (highestUnshown != null) {
+          for (let lv = previousLevel + 1; lv <= newLevel; lv++) {
+            markLevelUpPopupShown(ledgerCtx, lv);
+          }
+          setPendingLevelUp((prev) =>
+            prev == null || highestUnshown > prev ? highestUnshown : prev
+          );
+        }
+      }
+      if (canSyncWallet && coupleId && currentUserId) {
+        const key = `exp:weekly:${result.weekStartDate}:${result.challengeId}`;
+        void recordGrowthEvent(auth.supabase, true, {
+          coupleId,
+          userId: currentUserId,
+          txType: 'earn',
+          source: 'task',
+          idempotencyKey: key,
+          expDelta: expResult.granted,
+          loveCoinDelta: 0,
+          heartDelta: 0,
+          bondDelta: 0,
+        }).then((res) => {
+          if (res.ok) applyGrowthSnapshot(res.snapshot);
+        });
+      }
+    }
+
+    bumpWeeklyChallenge();
+    return true;
+  }, [
+    applyGrowthSnapshot,
+    auth.supabase,
+    bumpExp,
+    bumpWeeklyChallenge,
+    canSyncWallet,
+    coupleExpView.level,
+    coupleId,
+    currentUserId,
+    grantReward,
+    isPro,
+    ledgerCtx,
+    syncRpgExpFromStore,
+  ]);
 
   const recordValidInteractionToday = useCallback(() => {
     const { recordedToday, newMilestones } = tryRecordLoveFlameToday(ledgerCtx);
@@ -2813,6 +2922,8 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
       rpg,
       rpgView,
       coupleExpView,
+      weeklyChallengeView,
+      claimWeeklyChallengeReward,
       dinner,
       dinnerOptions,
       todayDinner: getTodayDinner(dinner.history),
@@ -2936,6 +3047,8 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
       rpg,
       rpgView,
       coupleExpView,
+      weeklyChallengeView,
+      claimWeeklyChallengeReward,
       dinner,
       dinnerOptions,
       dinnerHomeStatus,

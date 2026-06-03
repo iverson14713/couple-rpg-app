@@ -49,6 +49,8 @@ export type CoupleExpScopeRecord = {
   lastLevelUpAt: string | null;
   levelUpShownLevels: number[];
   days: Record<string, DailyExpDayRecord>;
+  /** Phase 3C：每週挑戰 EXP（不計入每日 80 上限） */
+  weeklyExpClaims?: Record<string, true>;
 };
 
 export type CoupleExpStoreData = {
@@ -115,12 +117,19 @@ function normalizeScope(raw: unknown): CoupleExpScopeRecord {
   const shown = Array.isArray(o.levelUpShownLevels)
     ? o.levelUpShownLevels.filter((n) => typeof n === 'number' && n >= 1 && n <= 5)
     : [];
+  const weeklyExpClaims: Record<string, true> = {};
+  if (o.weeklyExpClaims && typeof o.weeklyExpClaims === 'object') {
+    for (const [k, v] of Object.entries(o.weeklyExpClaims)) {
+      if (v) weeklyExpClaims[k] = true;
+    }
+  }
   return {
     totalExp: typeof o.totalExp === 'number' && o.totalExp >= 0 ? Math.floor(o.totalExp) : 0,
     lastLevelUpAt:
       typeof o.lastLevelUpAt === 'string' && o.lastLevelUpAt ? o.lastLevelUpAt : null,
     levelUpShownLevels: [...new Set(shown)].sort((a, b) => a - b),
     days,
+    weeklyExpClaims,
   };
 }
 
@@ -396,4 +405,41 @@ export function isLevelUpPopupShown(ctx: LedgerContext, level: number): boolean 
 /** 本次升級是否應顯示彈窗（尚未顯示過該等級） */
 export function shouldShowLevelUpPopup(ctx: LedgerContext, level: number): boolean {
   return level >= 2 && level <= 5 && !isLevelUpPopupShown(ctx, level);
+}
+
+/** Phase 3C：每週挑戰 EXP（不計入每日 80 上限） */
+export function grantWeeklyChallengeExp(
+  ctx: LedgerContext,
+  amount: number,
+  weekStartDate: string,
+  challengeId: string
+): { granted: number; totalExp: number; alreadyClaimed: boolean } {
+  const empty = {
+    granted: 0,
+    totalExp: getExpScopeRecord(ctx).totalExp,
+    alreadyClaimed: false,
+  };
+  if (!isLedgerWritable(ctx) || amount <= 0) return empty;
+
+  const claimKey = `${weekStartDate}:${challengeId}`;
+  let result = empty;
+
+  writeExpScope(ctx, (scope) => {
+    const claims = { ...(scope.weeklyExpClaims ?? {}) };
+    if (claims[claimKey]) {
+      result = { granted: 0, totalExp: scope.totalExp, alreadyClaimed: true };
+      return scope;
+    }
+    const granted = Math.floor(amount);
+    claims[claimKey] = true;
+    const totalExp = scope.totalExp + granted;
+    const previousLevel = levelFromTotalExp(scope.totalExp);
+    const newLevel = levelFromTotalExp(totalExp);
+    const lastLevelUpAt =
+      newLevel > previousLevel ? new Date().toISOString() : scope.lastLevelUpAt;
+    result = { granted, totalExp, alreadyClaimed: false };
+    return { ...scope, totalExp, lastLevelUpAt, weeklyExpClaims: claims };
+  });
+
+  return result;
 }

@@ -4,18 +4,12 @@ import {
   syncTasksRewardFlagsFromLedger,
   type LedgerContext,
 } from './dailyRewardLedgerStore';
-import { getCoupleExpView } from './coupleExpStore';
 import { makeId } from '../lib/id';
 import { shuffleWithSeed } from '../lib/seededRandom';
 import { todayKey } from '../lib/dates';
 import type { LoveTask, TasksData } from './types';
 import { LQ_KEYS } from './keys';
 import { loadJson, saveJson } from './persist';
-
-export function resolveCoupleLevelForTasks(ctx?: LedgerContext): number {
-  if (!ctx?.userId) return 1;
-  return getCoupleExpView(ctx).level;
-}
 
 export function generateDailyTasks(
   dateKey: string,
@@ -141,8 +135,11 @@ function rawNeedsMigration(raw: unknown, next: TasksData, parsed: TasksData): bo
   return false;
 }
 
-export function loadTasks(isPro = false, ledgerCtx?: LedgerContext): TasksData {
-  const coupleLevel = resolveCoupleLevelForTasks(ledgerCtx);
+export function loadTasks(
+  isPro = false,
+  ledgerCtx?: LedgerContext,
+  coupleLevel = 1
+): TasksData {
   const raw = loadJson<unknown>(LQ_KEYS.tasks, null);
   const parsed = migrateLegacyTasks(raw) ?? defaultTasksData(isPro, coupleLevel);
   let next = ensureTodayTasks(parsed, isPro, coupleLevel);

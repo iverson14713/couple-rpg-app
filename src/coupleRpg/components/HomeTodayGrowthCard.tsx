@@ -3,7 +3,7 @@ import { lq } from '../theme';
 
 /** 首頁：愛情火苗 + 情侶等級合併（緊湊） */
 export function HomeTodayGrowthCard() {
-  const { loveFlameView, coupleExpView } = useLoveQuest();
+  const { loveFlameView, coupleExpView, weeklyChallengeView } = useLoveQuest();
   const { currentStreak } = loveFlameView;
   const {
     level,
@@ -48,6 +48,9 @@ export function HomeTodayGrowthCard() {
           style={{ width: `${progressPct}%` }}
         />
       </div>
+      <p className={`mt-1.5 truncate text-[11px] font-semibold text-rose-700/90`}>
+        {weeklyChallengeView.homeHintLine}
+      </p>
     </section>
   );
 }
