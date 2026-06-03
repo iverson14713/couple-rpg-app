@@ -48,11 +48,17 @@ export function nextLevelInfo(level: number): {
   };
 }
 
+/** 等級卡：已解鎖／下一級預覽文案 */
+export function levelCardUnlockLine(level: number): string {
+  if (level >= 5) return '已達最高等級';
+  if (level >= 4) return `Lv.4 解鎖：${LEVEL_UNLOCK_LINES[4]}`;
+  if (level >= 3) return `已解鎖：${LEVEL_UNLOCK_LINES[3]}`;
+  if (level >= 2) return `已解鎖：${LEVEL_UNLOCK_LINES[2]}`;
+  return `Lv.2 解鎖：${LEVEL_UNLOCK_LINES[2]}`;
+}
+
 export function nextUnlockPreview(level: number): string {
-  const target = Math.min(level + 1, MAX_COUPLE_LEVEL);
-  const unlock = LEVEL_UNLOCK_LINES[target];
-  if (!unlock) return '已達最高等級';
-  return `Lv.${target} 解鎖：${unlock}`;
+  return levelCardUnlockLine(level);
 }
 
 export function expProgressInLevel(totalExp: number): {

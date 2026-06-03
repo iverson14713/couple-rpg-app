@@ -1,10 +1,10 @@
-import { LOVE_TASK_POOL } from '../data/loveTaskPool';
-import { LOVE_TASK_POOL_PRO } from '../data/loveTaskPoolPro';
 import { LOVE_TASKS_PER_DAY } from '../lib/loveTaskRewards';
+import { buildDailyLoveTaskPool } from '../lib/loveTaskPoolBuild';
 import {
   syncTasksRewardFlagsFromLedger,
   type LedgerContext,
 } from './dailyRewardLedgerStore';
+import { getCoupleExpView } from './coupleExpStore';
 import { makeId } from '../lib/id';
 import { shuffleWithSeed } from '../lib/seededRandom';
 import { todayKey } from '../lib/dates';
@@ -12,14 +12,24 @@ import type { LoveTask, TasksData } from './types';
 import { LQ_KEYS } from './keys';
 import { loadJson, saveJson } from './persist';
 
-export function generateDailyTasks(dateKey: string, isPro = false): LoveTask[] {
-  const pool = isPro ? [...LOVE_TASK_POOL, ...LOVE_TASK_POOL_PRO] : LOVE_TASK_POOL;
+export function resolveCoupleLevelForTasks(ctx?: LedgerContext): number {
+  if (!ctx?.userId) return 1;
+  return getCoupleExpView(ctx).level;
+}
+
+export function generateDailyTasks(
+  dateKey: string,
+  isPro = false,
+  coupleLevel = 1
+): LoveTask[] {
+  const pool = buildDailyLoveTaskPool(isPro, coupleLevel);
   const shuffled = shuffleWithSeed(pool, `${dateKey}-tasks`);
   return shuffled.slice(0, LOVE_TASKS_PER_DAY).map((t) => ({
     id: makeId(),
     templateId: t.id,
     label: t.label,
     emoji: t.emoji,
+    kind: t.kind === 'chemistry' ? 'chemistry' : undefined,
     done: false,
   }));
 }
@@ -67,18 +77,18 @@ export function normalizeTasksShape(raw: Partial<TasksData> & { dailyTasks?: Lov
   };
 }
 
-export function defaultTasksData(isPro = false): TasksData {
+export function defaultTasksData(isPro = false, coupleLevel = 1): TasksData {
   const today = todayKey();
   return normalizeTasksShape({
     date: today,
-    dailyTasks: generateDailyTasks(today, isPro),
+    dailyTasks: generateDailyTasks(today, isPro, coupleLevel),
     rewardedTaskIds: [],
     dailyAllCompleteRewardDate: null,
     rerollsByTaskId: {},
   });
 }
 
-export function ensureTodayTasks(data: TasksData, isPro = false): TasksData {
+export function ensureTodayTasks(data: TasksData, isPro = false, coupleLevel = 1): TasksData {
   const today = todayKey();
   const cur = normalizeTasksShape(data);
 
@@ -89,7 +99,7 @@ export function ensureTodayTasks(data: TasksData, isPro = false): TasksData {
   if (cur.date === today && cur.dailyTasks.length > 0 && cur.dailyTasks.length !== LOVE_TASKS_PER_DAY) {
     return {
       ...cur,
-      dailyTasks: generateDailyTasks(today, isPro),
+      dailyTasks: generateDailyTasks(today, isPro, coupleLevel),
       rewardedTaskIds: [],
       dailyAllCompleteRewardDate: null,
       rerollsByTaskId: {},
@@ -99,13 +109,13 @@ export function ensureTodayTasks(data: TasksData, isPro = false): TasksData {
   if (cur.date === today && cur.dailyTasks.length === 0) {
     return {
       ...cur,
-      dailyTasks: generateDailyTasks(today, isPro),
+      dailyTasks: generateDailyTasks(today, isPro, coupleLevel),
     };
   }
 
   return {
     date: today,
-    dailyTasks: generateDailyTasks(today, isPro),
+    dailyTasks: generateDailyTasks(today, isPro, coupleLevel),
     rewardedTaskIds: [],
     dailyAllCompleteRewardDate: null,
     rerollsByTaskId: {},
@@ -132,9 +142,10 @@ function rawNeedsMigration(raw: unknown, next: TasksData, parsed: TasksData): bo
 }
 
 export function loadTasks(isPro = false, ledgerCtx?: LedgerContext): TasksData {
+  const coupleLevel = resolveCoupleLevelForTasks(ledgerCtx);
   const raw = loadJson<unknown>(LQ_KEYS.tasks, null);
-  const parsed = migrateLegacyTasks(raw) ?? defaultTasksData(isPro);
-  let next = ensureTodayTasks(parsed, isPro);
+  const parsed = migrateLegacyTasks(raw) ?? defaultTasksData(isPro, coupleLevel);
+  let next = ensureTodayTasks(parsed, isPro, coupleLevel);
   if (ledgerCtx) {
     next = syncTasksRewardFlagsFromLedger(ledgerCtx, next);
   }
@@ -163,12 +174,17 @@ export function toggleDailyTask(data: TasksData, id: string): { data: TasksData;
  * Replace one daily love task with another template (no reward).
  * Does not reset per-task reward or reroll counts for other slots.
  */
-export function replaceLoveTask(data: TasksData, taskId: string, isPro = false): TasksData {
+export function replaceLoveTask(
+  data: TasksData,
+  taskId: string,
+  isPro = false,
+  coupleLevel = 1
+): TasksData {
   const base = normalizeTasksShape(data);
   const task = base.dailyTasks.find((t) => t.id === taskId);
   if (!task) return base;
 
-  const pool = isPro ? [...LOVE_TASK_POOL, ...LOVE_TASK_POOL_PRO] : LOVE_TASK_POOL;
+  const pool = buildDailyLoveTaskPool(isPro, coupleLevel);
   const usedByOthers = new Set(base.dailyTasks.filter((t) => t.id !== taskId).map((t) => t.templateId));
   const candidates = pool.filter((tpl) => tpl.id !== task.templateId && !usedByOthers.has(tpl.id));
   const pickPool = candidates.length > 0 ? candidates : pool.filter((tpl) => tpl.id !== task.templateId);
@@ -179,6 +195,7 @@ export function replaceLoveTask(data: TasksData, taskId: string, isPro = false):
     templateId: picked.id,
     label: picked.label,
     emoji: picked.emoji,
+    kind: picked.kind === 'chemistry' ? 'chemistry' : undefined,
     done: false,
   };
 

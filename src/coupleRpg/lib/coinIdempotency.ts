@@ -14,6 +14,10 @@ export function loveTaskAllCompleteKey(dateKey: string): string {
   return `earn:love-task-all:${dateKey}`;
 }
 
+export function level3ComboCoinKey(dateKey: string): string {
+  return `earn:level3-combo:${dateKey}`;
+}
+
 export function loveFlameMilestoneKey(streak: number): string {
   return `earn:love-flame-milestone:${streak}`;
 }

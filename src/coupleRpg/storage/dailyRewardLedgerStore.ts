@@ -36,6 +36,8 @@ export type DailyDayRewardRecord = {
   miniGameRewardCount: number;
   /** 愛情火苗：今日是否已記錄有效互動／延續 */
   loveFlameRecorded: boolean;
+  /** Lv.3+ 今日 2/2 連擊加成是否已領 */
+  level3ComboClaimed: boolean;
 };
 
 export type DailyRewardScopeRecord = {
@@ -69,6 +71,7 @@ function defaultDayRecord(): DailyDayRewardRecord {
     loveTaskAllComplete: false,
     miniGameRewardCount: 0,
     loveFlameRecorded: false,
+    level3ComboClaimed: false,
   };
 }
 
@@ -98,6 +101,7 @@ function normalizeDayRecord(raw: unknown): DailyDayRewardRecord {
         ? Math.floor(o.miniGameRewardCount)
         : 0,
     loveFlameRecorded: Boolean(o.loveFlameRecorded),
+    level3ComboClaimed: Boolean(o.level3ComboClaimed),
   };
 }
 
@@ -312,6 +316,14 @@ export function isLoveTaskAllCompleteClaimed(
   return getDay(getScopeRecord(ctx, ledger), dateKey).loveTaskAllComplete;
 }
 
+export function isLevel3ComboClaimed(
+  ctx: LedgerContext,
+  dateKey: string,
+  ledger?: DailyRewardLedgerData
+): boolean {
+  return getDay(getScopeRecord(ctx, ledger), dateKey).level3ComboClaimed;
+}
+
 export function getMiniGameRewardCount(
   ctx: LedgerContext,
   dateKey: string,
@@ -404,6 +416,19 @@ export function tryClaimLoveTaskAllComplete(ctx: LedgerContext, dateKey: string)
     if (day.loveTaskAllComplete) return scope;
     claimed = true;
     return setDay(scope, dateKey, { ...day, loveTaskAllComplete: true });
+  });
+  return claimed;
+}
+
+/** Lv.3+ 今日 2/2 連擊加成（每日一次）；先寫入帳本再發獎 */
+export function tryClaimLevel3Combo(ctx: LedgerContext, dateKey: string): boolean {
+  if (!isLedgerWritable(ctx)) return false;
+  let claimed = false;
+  writeScope(ctx, (scope) => {
+    const day = getDay(scope, dateKey);
+    if (day.level3ComboClaimed) return scope;
+    claimed = true;
+    return setDay(scope, dateKey, { ...day, level3ComboClaimed: true });
   });
   return claimed;
 }

@@ -154,6 +154,8 @@ export type LoveTask = {
   label: string;
   emoji: string;
   done: boolean;
+  /** Lv.2+ 默契型任務 */
+  kind?: 'standard' | 'chemistry';
 };
 
 export type TasksData = {

@@ -83,7 +83,7 @@ function useBodyScrollLock(active: boolean): void {
   }, [active]);
 }
 
-export function TodayActivityFeed() {
+export function TodayActivityFeed({ standalone = false }: { standalone?: boolean }) {
   const { pullActivityLogsFromCloud } = useLoveQuest();
   const { isPro } = useUserPlan();
   const [expanded, setExpanded] = useState(false);
@@ -130,13 +130,21 @@ export function TodayActivityFeed() {
     setQuote(shuffleTodayMessage());
   }, []);
 
+  const wrapperClass = standalone
+    ? `${lq.cardElevated} px-3 py-2`
+    : 'border-t border-stone-200/40 px-4 py-2.5';
+
   return (
     <>
-      <div className="border-t border-stone-200/40 px-4 py-2.5">
+      <div className={wrapperClass}>
         <button
           type="button"
           onClick={() => setExpanded((v) => !v)}
-          className="flex min-h-[48px] w-full items-center justify-between gap-2 rounded-2xl bg-gradient-to-r from-rose-50/90 to-white px-3 py-2.5 text-left shadow-sm ring-1 ring-rose-100/80 transition active:scale-[0.99]"
+          className={`flex min-h-[40px] w-full items-center justify-between gap-2 text-left transition active:scale-[0.99] ${
+            standalone
+              ? 'rounded-xl px-1 py-1'
+              : 'rounded-2xl bg-gradient-to-r from-rose-50/90 to-white px-3 py-2.5 shadow-sm ring-1 ring-rose-100/80'
+          }`}
           aria-expanded={expanded}
         >
           <span className="text-[13px] font-bold text-stone-800">今日動態</span>
@@ -151,7 +159,7 @@ export function TodayActivityFeed() {
         </button>
 
         {expanded ? (
-          <div className={`mt-2 space-y-1.5 px-1 py-1 ${lq.cardSoft}`}>
+          <div className={`mt-1.5 space-y-1.5 ${standalone ? '' : 'px-1 py-1'} ${lq.cardSoft}`}>
             {todayLogs.length === 0 ? (
               <p className="px-2 py-3 text-center text-[12px] text-stone-500">今天還沒有新動態，去完成一項甜蜜任務吧</p>
             ) : (

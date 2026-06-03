@@ -24,6 +24,7 @@ export const EXP_AMOUNT = {
   dinner: 5,
   dateIdea: 10,
   loveFlame: 5,
+  level3Combo: 5,
 } as const;
 
 export const CHORE_EXP_DAILY_MAX = 3;
@@ -35,7 +36,8 @@ export type ExpGrantSource =
   | { type: 'chore'; taskId: string }
   | { type: 'dinner' }
   | { type: 'date_idea' }
-  | { type: 'love_flame' };
+  | { type: 'love_flame' }
+  | { type: 'level3_combo' };
 
 export type DailyExpDayRecord = {
   expEarned: number;
@@ -220,6 +222,8 @@ export function expClaimKey(source: ExpGrantSource): string {
       return 'date';
     case 'love_flame':
       return 'flame';
+    case 'level3_combo':
+      return 'l3combo';
     default:
       return 'unknown';
   }
@@ -241,6 +245,8 @@ function baseAmountForSource(source: ExpGrantSource): number {
       return EXP_AMOUNT.dateIdea;
     case 'love_flame':
       return EXP_AMOUNT.loveFlame;
+    case 'level3_combo':
+      return EXP_AMOUNT.level3Combo;
     default:
       return 0;
   }

@@ -1,8 +1,11 @@
 /** App Store–safe daily love task pool (wholesome, non-explicit). */
+export type LoveTaskKind = 'standard' | 'chemistry';
+
 export type LoveTaskTemplate = {
   id: string;
   label: string;
   emoji: string;
+  kind?: LoveTaskKind;
 };
 
 export const LOVE_TASK_POOL: LoveTaskTemplate[] = [

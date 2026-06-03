@@ -4,6 +4,9 @@ import { useCoupleRpgNav } from '../context/CoupleRpgNavContext';
 import { useLoveQuest } from '../context/LoveQuestContext';
 import { useUserPlan } from '../context/UserPlanContext';
 import { DailyRewardsLoginHint } from '../components/DailyRewardsLoginHint';
+import { Level3ComboNotice } from '../components/Level3ComboNotice';
+import { isChemistryLoveTask } from '../lib/loveTaskPoolBuild';
+import { MIN_COUPLE_LEVEL_FOR_COMBO } from '../lib/level3ComboReward';
 import { EmptyState } from '../components/EmptyState';
 import { FlirtGamesPanel } from '../components/FlirtGamesPanel';
 import { RpgMiniStats } from '../components/RpgMiniStats';
@@ -35,6 +38,7 @@ export function TasksPage({
     isLoveTaskSlotRewardClaimed,
     isLoveTaskAllCompleteRewardClaimed,
     canEarnDailyRewards,
+    coupleExpView,
   } = useLoveQuest();
   const { done, total, pct } = taskProgress;
   const showTasks = section === 'all' || section === 'tasks';
@@ -108,6 +112,8 @@ export function TasksPage({
             )}
           </section>
 
+          <Level3ComboNotice />
+
           <section className={`p-4 ${lq.card}`}>
             <h3 className={`mb-3 flex items-center gap-1.5 ${lq.sectionTitleSm}`}>
               <span aria-hidden>✨</span>
@@ -154,6 +160,15 @@ export function TasksPage({
               <RewardPill emoji="✨" label="EXP" value="+10" />
               <RewardPill emoji="🔥" label="愛情火苗" value="延續" />
             </ul>
+            {coupleExpView.level >= MIN_COUPLE_LEVEL_FOR_COMBO ? (
+              <>
+                <p className="mt-3 text-[13px] font-semibold text-violet-800">Lv.3 甜蜜連擊（每日一次）：</p>
+                <ul className="mt-2 grid grid-cols-2 gap-2 text-[13px] font-bold text-stone-800">
+                  <RewardPill emoji="🪙" label="LoveCoin" value="+15" />
+                  <RewardPill emoji="✨" label="EXP" value="+5" />
+                </ul>
+              </>
+            ) : null}
             <p className="mt-3 text-[11px] leading-relaxed text-stone-500">
               每項任務獎勵僅發放一次；換一個任務不會重置已領獎勵。
             </p>
@@ -254,13 +269,20 @@ function TaskCard({
         </span>
 
         <div className="min-w-0 flex-1">
-          <p
-            className={`text-[16px] font-extrabold leading-snug ${
-              item.done ? 'text-stone-500 line-through decoration-stone-300' : 'text-stone-900'
-            }`}
-          >
-            {item.label}
-          </p>
+          <div className="flex flex-wrap items-center gap-1.5">
+            <p
+              className={`text-[16px] font-extrabold leading-snug ${
+                item.done ? 'text-stone-500 line-through decoration-stone-300' : 'text-stone-900'
+              }`}
+            >
+              {item.label}
+            </p>
+            {isChemistryLoveTask(item) ? (
+              <span className="rounded-full bg-violet-100/90 px-1.5 py-0.5 text-[9px] font-bold text-violet-800 ring-1 ring-violet-200/70">
+                Lv.2 默契任務
+              </span>
+            ) : null}
+          </div>
           <p className="mt-1 text-[13px] leading-relaxed text-stone-500">{hint}</p>
           <p className="mt-1.5 text-[11px] font-semibold text-stone-400">{statusHint}</p>
         </div>

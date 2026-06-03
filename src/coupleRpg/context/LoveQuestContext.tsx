@@ -65,6 +65,8 @@ import {
   syncTasksRewardFlagsFromLedger,
   tryClaimFlameMilestone,
   tryClaimLoveTaskAllComplete,
+  tryClaimLevel3Combo,
+  isLevel3ComboClaimed,
   tryClaimLoveTaskSlot,
   tryClaimMiniGameReward,
   tryRecordLoveFlameToday,
@@ -226,11 +228,16 @@ import {
   fallbackEarnCoinKey,
   loveFlameMilestoneKey,
   loveTaskAllCompleteKey,
+  level3ComboCoinKey,
   miniGameCoinKey,
   redeemCoinKey,
   taskCoinKey,
 } from '../lib/coinIdempotency';
 import { canRerollLoveTask } from '../lib/loveTaskRewards';
+import {
+  LEVEL3_COMBO_LOVE_COINS,
+  MIN_COUPLE_LEVEL_FOR_COMBO,
+} from '../lib/level3ComboReward';
 import {
   canSyncCoinWallet,
   getCachedCoinBalance,
@@ -331,6 +338,10 @@ type LoveQuestContextValue = {
   /** 帳本：今日戀愛任務槽位是否已領獎（localStorage，防刷） */
   isLoveTaskSlotRewardClaimed: (slotIndex: number) => boolean;
   isLoveTaskAllCompleteRewardClaimed: () => boolean;
+  isLevel3ComboClaimedToday: () => boolean;
+  /** Lv.3 連擊加成剛領取時的提示（完成 2/2 後） */
+  level3ComboNotice: { coins: number; expGranted: number } | null;
+  clearLevel3ComboNotice: () => void;
   /** 已登入且可寫入每日獎勵帳本（未登入時完成互動不發獎） */
   canEarnDailyRewards: boolean;
   coupleExtended: CoupleExtendedProfile;
@@ -523,6 +534,11 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
   const [expRevision, setExpRevision] = useState(0);
   const bumpExp = useCallback(() => setExpRevision((n) => n + 1), []);
   const [pendingLevelUp, setPendingLevelUp] = useState<number | null>(null);
+  const [level3ComboNotice, setLevel3ComboNotice] = useState<{
+    coins: number;
+    expGranted: number;
+  } | null>(null);
+  const clearLevel3ComboNotice = useCallback(() => setLevel3ComboNotice(null), []);
 
   const [tasks, setTasks] = useState(() => loadTasks(isPro, { userId: currentUserId, coupleId }));
   const [coupleExtended, setCoupleExtendedState] = useState(loadCoupleExtendedProfile);
@@ -1033,8 +1049,8 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
   }, [ledgerCtx, isPro, bumpLedger]);
 
   useEffect(() => {
-    setTasks((prev) => ensureTodayTasks(prev, isPro));
-  }, [isPro]);
+    setTasks((prev) => ensureTodayTasks(prev, isPro, coupleExpView.level));
+  }, [isPro, coupleExpView.level]);
 
   const ledgerScope = useMemo(
     () => getScopeRecord(ledgerCtx),
@@ -1059,6 +1075,11 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
 
   const isLoveTaskAllCompleteRewardClaimed = useCallback(
     () => isLoveTaskAllCompleteClaimed(ledgerCtx, todayKey()),
+    [ledgerCtx, ledgerRevision]
+  );
+
+  const isLevel3ComboClaimedToday = useCallback(
+    () => isLevel3ComboClaimed(ledgerCtx, todayKey()),
     [ledgerCtx, ledgerRevision]
   );
 
@@ -1847,12 +1868,12 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
       if (!canRerollLoveTask(tasks, taskId, isPro)) return;
       setTasks((prev) => {
         if (!canRerollLoveTask(prev, taskId, isPro)) return prev;
-        const next = replaceLoveTask(prev, taskId, isPro);
+        const next = replaceLoveTask(prev, taskId, isPro, coupleExpView.level);
         saveTasks(next);
         return next;
       });
     },
-    [isPro, tasks]
+    [isPro, tasks, coupleExpView.level]
   );
 
   const toggleDailyTaskFn = useCallback(
@@ -1893,6 +1914,31 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
               loveTaskAllCompleteKey(day)
             );
             applyExpGrant({ type: 'love_task_all_complete' });
+
+            const comboLevel = getCoupleExpView(ledgerCtx).level;
+            if (
+              comboLevel >= MIN_COUPLE_LEVEL_FOR_COMBO &&
+              tryClaimLevel3Combo(ledgerCtx, day)
+            ) {
+              bumpLedger();
+              const expResult = applyExpGrant({ type: 'level3_combo' });
+              grantReward(
+                {
+                  heart: 0,
+                  compatibility: 0,
+                  xp: 0,
+                  houseworkPoints: 0,
+                  loveCoins: LEVEL3_COMBO_LOVE_COINS,
+                },
+                '甜蜜連擊完成',
+                { source: 'task', title: '甜蜜連擊加成', emoji: '💕' },
+                level3ComboCoinKey(day)
+              );
+              const expGranted = expResult.granted;
+              queueMicrotask(() =>
+                setLevel3ComboNotice({ coins: LEVEL3_COMBO_LOVE_COINS, expGranted })
+              );
+            }
           }
 
           next = syncTasksRewardFlagsFromLedger(ledgerCtx, next, day);
@@ -2784,6 +2830,9 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
       canRerollLoveTaskFor,
       isLoveTaskSlotRewardClaimed,
       isLoveTaskAllCompleteRewardClaimed,
+      isLevel3ComboClaimedToday,
+      level3ComboNotice,
+      clearLevel3ComboNotice,
       canEarnDailyRewards,
       coupleExtended,
       displayNames,
@@ -2903,6 +2952,9 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
       canRerollLoveTaskFor,
       isLoveTaskSlotRewardClaimed,
       isLoveTaskAllCompleteRewardClaimed,
+      isLevel3ComboClaimedToday,
+      level3ComboNotice,
+      clearLevel3ComboNotice,
       canEarnDailyRewards,
       coupleExtended,
       displayNames,
