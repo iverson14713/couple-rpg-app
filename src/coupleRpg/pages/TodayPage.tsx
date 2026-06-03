@@ -90,7 +90,7 @@ export function TodayPage() {
             title="今日戀愛任務"
             description="完成 2 個小任務，延續愛情火苗"
             badge={total > 0 ? `${done}/${total}` : '0/2'}
-            cta="💌 去完成"
+            cta={total > 0 && done >= total ? '💌 今日已完成' : '💌 去完成'}
             onAction={() => navigateTo('tasks')}
           />
           <HomeCoreFeatureCard

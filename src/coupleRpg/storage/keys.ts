@@ -77,6 +77,14 @@ export const LOGOUT_PRESERVED_USER_SCOPED_KEYS: readonly string[] = [
   LQ_KEYS.importantDateAiHistory,
   LQ_KEYS.lastDateItineraryAi,
   LQ_KEYS.lastImportantDateAi,
+  /** 防刷：每日獎勵帳本（scopes 在 JSON 內，含 couple scope） */
+  LQ_KEYS.dailyRewardLedger,
+  /** 防刷：情侶 EXP */
+  LQ_KEYS.coupleExp,
+  /** 防刷：家事領獎紀錄 */
+  LQ_KEYS.choreRewardClaims,
+  /** 防刷：每週挑戰進度／領獎狀態 */
+  LQ_KEYS.weeklyChallenge,
 ];
 
 const LOGOUT_PRESERVED_PREFIXES = LOGOUT_PRESERVED_USER_SCOPED_KEYS.map(

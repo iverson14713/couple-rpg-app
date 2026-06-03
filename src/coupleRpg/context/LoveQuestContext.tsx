@@ -47,11 +47,13 @@ import {
   dailyTaskProgress,
   ensureTodayTasks,
   loadTasks,
+  loadTasksWithLedgerSync,
   replaceLoveTask,
   saveTasks,
   toggleDailyTask,
 } from '../storage/tasksStore';
 import {
+  getLoveTaskProgressFromLedger,
   getMiniGameRewardCount,
   getScopeRecord,
   isLedgerWritable,
@@ -60,7 +62,6 @@ import {
   isLoveTaskSlotClaimed,
   LOVE_FLAME_MILESTONE_COINS,
   loveFlameDisplayFromScope,
-  migrateLegacyRewardsIntoLedger,
   scopeToLoveFlameData,
   syncTasksRewardFlagsFromLedger,
   tryClaimFlameMilestone,
@@ -220,6 +221,7 @@ import type { CoupleExtendedProfile } from '../storage/coupleExtendedTypes';
 import type { WeeklyHouseworkStats } from '../storage/houseworkStore';
 import { makeId } from '../lib/id';
 import { todayKey } from '../lib/dates';
+import { restoreLoveQuestRewardState } from '../lib/restoreLoveQuestRewardState';
 import { STORAGE_USER_CHANGED_EVENT } from '../storage/storageSession';
 import {
   choreCoinKey,
@@ -297,7 +299,6 @@ import {
   getCoupleExpView,
   grantWeeklyChallengeExp,
   markLevelUpPopupShown,
-  migrateLegacyRpgXpIntoExp,
   shouldShowLevelUpPopup,
   tryGrantCoupleExp,
   type CoupleExpView,
@@ -732,23 +733,51 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
     ]
   );
 
+  const hydrateRewardState = useCallback(() => {
+    if (!currentUserId) return;
+    const legacyXp = loadRpg().xp;
+    const { totalExp } = restoreLoveQuestRewardState(ledgerCtx, { legacyRpgXp: legacyXp });
+    bumpExp();
+    bumpLedger();
+    syncRpgExpFromStore(totalExp);
+    setTasks(loadTasksWithLedgerSync(isPro, ledgerCtx, levelFromTotalExp(totalExp)));
+    if (canSyncWallet) {
+      const cachedCoins = getCachedCoinBalance();
+      setRpg((prev) => {
+        const normalized = normalizeRpgState(prev);
+        if (normalized.loveCoins === cachedCoins) return prev;
+        const next = { ...normalized, loveCoins: cachedCoins };
+        saveRpg(next);
+        return next;
+      });
+    }
+  }, [
+    bumpExp,
+    bumpLedger,
+    canSyncWallet,
+    currentUserId,
+    isPro,
+    ledgerCtx,
+    syncRpgExpFromStore,
+  ]);
+
   useEffect(() => {
     if (!isLedgerWritable(ledgerCtx)) return;
-    migrateLegacyRpgXpIntoExp(ledgerCtx, loadRpg().xp);
-    bumpExp();
-    syncRpgExpFromStore(getCoupleExpView(ledgerCtx).totalExp);
-  }, [ledgerCtx, coupleId, currentUserId, bumpExp, syncRpgExpFromStore]);
+    hydrateRewardState();
+  }, [ledgerCtx, coupleId, currentUserId, hydrateRewardState]);
 
   useEffect(() => {
     const onStorageUser = () => {
-      if (!isLedgerWritable(ledgerCtx)) return;
-      migrateLegacyRpgXpIntoExp(ledgerCtx, loadRpg().xp);
-      bumpExp();
-      syncRpgExpFromStore(getCoupleExpView(ledgerCtx).totalExp);
+      if (!currentUserId) {
+        setRpg(normalizeRpgState(defaultRpgState()));
+        return;
+      }
+      setRpg(normalizeRpgState(loadRpg()));
+      hydrateRewardState();
     };
     window.addEventListener(STORAGE_USER_CHANGED_EVENT, onStorageUser);
     return () => window.removeEventListener(STORAGE_USER_CHANGED_EVENT, onStorageUser);
-  }, [ledgerCtx, bumpExp, syncRpgExpFromStore]);
+  }, [currentUserId, hydrateRewardState]);
 
   const coupleExpView = useMemo(
     () => getCoupleExpView(ledgerCtx, todayKey()),
@@ -1068,27 +1097,27 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
   const [draftPick, setDraftPick] = useState<string | null>(null);
   const [spinning, setSpinning] = useState(false);
 
-  const taskProgress = useMemo(() => dailyTaskProgress(tasks.dailyTasks), [tasks.dailyTasks]);
+  const taskProgress = useMemo(() => {
+    const fromLedger = getLoveTaskProgressFromLedger(ledgerCtx);
+    const fromTasks = dailyTaskProgress(tasks.dailyTasks);
+    const done = Math.max(fromLedger.done, fromTasks.done);
+    const total = fromLedger.total || fromTasks.total || 2;
+    const pct = total ? Math.round((done / total) * 100) : 0;
+    return { done, total, pct };
+  }, [ledgerCtx, ledgerRevision, tasks.dailyTasks]);
+
 
   useEffect(() => {
-    migrateLegacyRewardsIntoLedger(ledgerCtx);
-    setTasks(loadTasks(isPro, ledgerCtx, getCoupleExpView(ledgerCtx).level));
-    bumpLedger();
-  }, [ledgerCtx, isPro, bumpLedger, expRevision]);
-
-  useEffect(() => {
-    const onStorageUser = () => {
-      migrateLegacyRewardsIntoLedger(ledgerCtx);
-      setTasks(loadTasks(isPro, ledgerCtx, getCoupleExpView(ledgerCtx).level));
-      bumpLedger();
-    };
-    window.addEventListener(STORAGE_USER_CHANGED_EVENT, onStorageUser);
-    return () => window.removeEventListener(STORAGE_USER_CHANGED_EVENT, onStorageUser);
-  }, [ledgerCtx, isPro, bumpLedger]);
-
-  useEffect(() => {
-    setTasks((prev) => ensureTodayTasks(prev, isPro, coupleExpView.level));
-  }, [isPro, coupleExpView.level]);
+    if (!ledgerCtx.userId) return;
+    setTasks((prev) => {
+      const next = syncTasksRewardFlagsFromLedger(
+        ledgerCtx,
+        ensureTodayTasks(prev, isPro, coupleExpView.level)
+      );
+      saveTasks(next);
+      return next;
+    });
+  }, [isPro, coupleExpView.level, ledgerCtx, ledgerRevision]);
 
   const ledgerScope = useMemo(
     () => getScopeRecord(ledgerCtx),
@@ -1181,6 +1210,21 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
         (localFields.dateAchievements ?? 0) > 0 ||
         (localFields.anniversaryAchievements ?? 0) > 0;
 
+      const coinOnlyReward: RpgReward = {
+        heart: 0,
+        compatibility: 0,
+        xp: 0,
+        houseworkPoints: 0,
+        loveCoins: deltas.loveCoinDelta,
+      };
+      if (deltas.loveCoinDelta > 0 && (useCloud || options?.skipRpg)) {
+        setRpg((prev) => {
+          const next = applyReward(normalizeRpgState(prev), coinOnlyReward);
+          saveRpg(next);
+          return next;
+        });
+      }
+
       if (!options?.skipRpg) {
         if (useCloud) {
           if (hasLocalFields) {
@@ -1222,14 +1266,6 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
               coinWalletSchedulerRef.current?.scheduleSync();
             }
           });
-        } else if (!useCloud) {
-          if (options?.skipRpg) {
-            setRpg((prev) => {
-              const next = applyReward(normalizeRpgState(prev), rewardForRpg);
-              saveRpg(next);
-              return next;
-            });
-          }
         }
 
         if (deltas.loveCoinDelta > 0 && coin) {
@@ -1390,27 +1426,25 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
       setRpg((prev) => {
         const rolled = rollDailyGuardForToday(normalizeRpgState(prev));
         const g = rolled.dailyGuard ?? defaultDailyGuard();
-        const out: RpgState = canSyncWallet
-          ? {
-              ...rolled,
-              dailyGuard: {
-                ...g,
-                miniGamesRewardCount: slotNum,
-              },
-            }
-          : {
-              ...applyReward(rolled, { ...REWARDS.miniGameComplete, loveCoins: 0 }),
-              dailyGuard: {
-                ...g,
-                miniGamesRewardCount: slotNum,
-              },
-            };
+        const out: RpgState = {
+          ...rolled,
+          dailyGuard: {
+            ...g,
+            miniGamesRewardCount: slotNum,
+          },
+        };
         saveRpg(out);
         return out;
       });
 
       grantReward(
-        REWARDS.miniGameComplete,
+        {
+          heart: 0,
+          compatibility: 0,
+          xp: 0,
+          houseworkPoints: 0,
+          loveCoins: REWARDS.miniGameComplete.loveCoins,
+        },
         '完成情侶小遊戲',
         {
           source: 'game',
@@ -2001,6 +2035,9 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
       const day = todayKey();
       setTasks((prev) => {
         const slotIndex = prev.dailyTasks.findIndex((t) => t.id === id);
+        if (slotIndex >= 0 && isLoveTaskSlotClaimed(ledgerCtx, day, slotIndex)) {
+          return prev;
+        }
         const wasDone = prev.dailyTasks.find((t) => t.id === id)?.done ?? false;
         const { data: nextBase, task } = toggleDailyTask(prev, id);
         let next = nextBase;
@@ -2022,7 +2059,7 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
             addCompletion('task', task.label, task.emoji);
           }
 
-          const progress = dailyTaskProgress(next.dailyTasks);
+          const progress = getLoveTaskProgressFromLedger(ledgerCtx, day);
           const allComplete =
             progress.total >= 2 && progress.done === progress.total;
           if (allComplete && tryClaimLoveTaskAllComplete(ledgerCtx, day)) {

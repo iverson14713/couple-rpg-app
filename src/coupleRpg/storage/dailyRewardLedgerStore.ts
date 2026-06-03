@@ -265,12 +265,15 @@ export function migrateLegacyRewardsIntoLedger(ctx: LedgerContext): void {
       const slots = [...dayRec.loveTaskSlotsClaimed];
       const rewarded = Array.isArray(legacyTasks.rewardedTaskIds) ? legacyTasks.rewardedTaskIds : [];
       legacyTasks.dailyTasks.forEach((t, idx) => {
-        if (idx < LOVE_TASKS_PER_DAY && t.done && rewarded.includes(t.id)) {
+        if (idx < LOVE_TASKS_PER_DAY && t.done) {
           slots[idx] = true;
         }
       });
       dayRec = { ...dayRec, loveTaskSlotsClaimed: slots };
-      if (legacyTasks.dailyAllCompleteRewardDate === today) {
+      const allDone =
+        legacyTasks.dailyAllCompleteRewardDate === today ||
+        slots.every(Boolean);
+      if (allDone) {
         dayRec = { ...dayRec, loveTaskAllComplete: true };
       }
       next = setDay(next, today, dayRec);
@@ -533,7 +536,20 @@ export function tryClaimFlameMilestone(ctx: LedgerContext, milestone: number): b
   return claimed;
 }
 
-/** 同步 tasks 快取欄位（僅供 UI；帳本為準） */
+/** 今日戀愛任務進度（以 ledger 為準，供首頁／任務頁顯示） */
+export function getLoveTaskProgressFromLedger(
+  ctx: LedgerContext,
+  dateKey: string = todayKey(),
+  ledger?: DailyRewardLedgerData
+): { done: number; total: number; pct: number } {
+  const day = getDay(getScopeRecord(ctx, ledger), dateKey);
+  const done = day.loveTaskSlotsClaimed.filter(Boolean).length;
+  const total = LOVE_TASKS_PER_DAY;
+  const pct = total ? Math.round((done / total) * 100) : 0;
+  return { done, total, pct };
+}
+
+/** 同步 tasks UI（done / rewardedTaskIds）；帳本為準，只補狀態不發獎 */
 export function syncTasksRewardFlagsFromLedger(
   ctx: LedgerContext,
   tasks: TasksData,
@@ -542,11 +558,16 @@ export function syncTasksRewardFlagsFromLedger(
   if (tasks.date !== dateKey) return tasks;
   const scope = getScopeRecord(ctx);
   const day = getDay(scope, dateKey);
-  const rewardedTaskIds = tasks.dailyTasks
+  const dailyTasks = tasks.dailyTasks.map((t, idx) => {
+    const slotClaimed = Boolean(day.loveTaskSlotsClaimed[idx]);
+    return slotClaimed ? { ...t, done: true } : t;
+  });
+  const rewardedTaskIds = dailyTasks
     .map((t, idx) => (day.loveTaskSlotsClaimed[idx] ? t.id : null))
     .filter((id): id is string => Boolean(id));
   return {
     ...tasks,
+    dailyTasks,
     rewardedTaskIds,
     dailyAllCompleteRewardDate: day.loveTaskAllComplete ? dateKey : null,
   };

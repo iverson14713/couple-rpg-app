@@ -16,7 +16,12 @@ import {
   loveTaskRerollLimit,
   loveTaskRerollsUsed,
 } from '../lib/loveTaskRewards';
-import { pickTaskEncouragement, taskHintForTemplate } from '../lib/taskPageCopy';
+import {
+  LOVE_TASK_ALREADY_CLAIMED_MSG,
+  pickTaskEncouragement,
+  taskHintForTemplate,
+} from '../lib/taskPageCopy';
+import { useToast } from '../../context/ToastContext';
 import type { LoveTask } from '../storage/types';
 import { lq } from '../theme';
 
@@ -28,6 +33,7 @@ export function TasksPage({
   section?: 'tasks' | 'games' | 'all';
 } = {}) {
   const { navigateTo } = useCoupleRpgNav();
+  const { showToast } = useToast();
   const { isPro } = useUserPlan();
   const {
     tasks,
@@ -134,7 +140,13 @@ export function TasksPage({
                     rerollLimit={loveTaskRerollLimit(isPro)}
                     isPro={isPro}
                     canEarnDailyRewards={canEarnDailyRewards}
-                    onToggle={() => toggleDailyTask(item.id)}
+                    onToggle={() => {
+                      if (isLoveTaskSlotRewardClaimed(slotIndex)) {
+                        showToast(LOVE_TASK_ALREADY_CLAIMED_MSG, 'info', { position: 'top' });
+                        return;
+                      }
+                      toggleDailyTask(item.id);
+                    }}
                     onReroll={() => rerollLoveTask(item.id)}
                   />
                 ))}
@@ -236,13 +248,13 @@ function TaskCard({
   onReroll: () => void;
 }) {
   const hint = taskHintForTemplate(item.templateId, item.label);
-  const statusHint = item.done
-    ? rewarded
-      ? '獎勵已領取'
-      : !canEarnDailyRewards
+  const statusHint = rewarded
+    ? '獎勵已領取 · 今日已完成'
+    : item.done
+      ? !canEarnDailyRewards
         ? '已完成 · 登入後可領獎'
         : '已完成'
-    : '點擊右側完成';
+      : '點擊右側完成';
 
   const rerollHint = canReroll
     ? `今日還可換 ${rerollLimit - rerollsUsed} 次`
@@ -290,14 +302,25 @@ function TaskCard({
         <button
           type="button"
           onClick={onToggle}
-          aria-label={item.done ? `取消完成：${item.label}` : `完成：${item.label}`}
+          disabled={rewarded}
+          aria-label={
+            rewarded
+              ? `今日已完成：${item.label}`
+              : item.done
+                ? `取消完成：${item.label}`
+                : `完成：${item.label}`
+          }
           className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border-2 transition active:scale-95 ${
-            item.done
+            rewarded || item.done
               ? 'border-emerald-400 bg-emerald-500 text-white shadow-sm'
               : 'border-stone-200 bg-white text-stone-300 hover:border-rose-200'
-          }`}
+          } ${rewarded ? 'cursor-default opacity-90' : ''}`}
         >
-          {item.done ? <Check className="h-6 w-6" strokeWidth={2.5} /> : <span className="h-5 w-5 rounded-md border-2 border-stone-300" />}
+          {rewarded || item.done ? (
+            <Check className="h-6 w-6" strokeWidth={2.5} />
+          ) : (
+            <span className="h-5 w-5 rounded-md border-2 border-stone-300" />
+          )}
         </button>
       </div>
 

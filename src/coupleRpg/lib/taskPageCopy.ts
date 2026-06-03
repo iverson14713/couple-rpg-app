@@ -1,3 +1,7 @@
+/** 帳本已領獎、使用者再次點完成時提示 */
+export const LOVE_TASK_ALREADY_CLAIMED_MSG =
+  '今日戀愛任務獎勵已領取，明天再來完成新的任務吧。';
+
 /** 任務頁 UI 文案（不寫入 localStorage） */
 export const TASK_PAGE_ENCOURAGEMENTS = [
   '完成一件小事，就讓今天更甜一點。',

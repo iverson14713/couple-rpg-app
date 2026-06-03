@@ -74,7 +74,7 @@ function buildDisplay(
           ? !canEarnDailyRewards
             ? DAILY_REWARDS_LOGIN_HINT
             : atCap
-              ? '今日獎勵已達上限，仍可繼續玩'
+              ? '今日小遊戲獎勵已領完，明天再來玩吧'
               : '本次未發放獎勵，仍可繼續玩'
           : '';
     return {
@@ -232,7 +232,7 @@ export function MiniGamesPage() {
         </p>
         <p className="mt-0.5 text-[10px] leading-snug text-stone-500">
           {atCap
-            ? '今日獎勵已滿，仍可繼續玩'
+            ? '今日小遊戲獎勵已領完，明天再來玩吧'
             : `完成一次 🪙+5 ✨+3（${isPro ? 'Pro' : 'Free'} 每日 ${cap} 次）`}
         </p>
         <DailyRewardsLoginHint className="mt-2" />

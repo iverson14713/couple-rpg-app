@@ -135,17 +135,33 @@ function rawNeedsMigration(raw: unknown, next: TasksData, parsed: TasksData): bo
   return false;
 }
 
-export function loadTasks(
-  isPro = false,
-  ledgerCtx?: LedgerContext,
+/** 確保今日任務存在並依 ledger 還原 slot 完成／已領狀態（登入 hydrate 用） */
+export function loadTasksWithLedgerSync(
+  isPro: boolean,
+  ledgerCtx: LedgerContext,
   coupleLevel = 1
 ): TasksData {
   const raw = loadJson<unknown>(LQ_KEYS.tasks, null);
   const parsed = migrateLegacyTasks(raw) ?? defaultTasksData(isPro, coupleLevel);
   let next = ensureTodayTasks(parsed, isPro, coupleLevel);
-  if (ledgerCtx) {
-    next = syncTasksRewardFlagsFromLedger(ledgerCtx, next);
+  next = syncTasksRewardFlagsFromLedger(ledgerCtx, next);
+  if (rawNeedsMigration(raw, next, parsed)) {
+    saveTasks(next);
   }
+  return next;
+}
+
+export function loadTasks(
+  isPro = false,
+  ledgerCtx?: LedgerContext,
+  coupleLevel = 1
+): TasksData {
+  if (ledgerCtx?.userId) {
+    return loadTasksWithLedgerSync(isPro, ledgerCtx, coupleLevel);
+  }
+  const raw = loadJson<unknown>(LQ_KEYS.tasks, null);
+  const parsed = migrateLegacyTasks(raw) ?? defaultTasksData(isPro, coupleLevel);
+  const next = ensureTodayTasks(parsed, isPro, coupleLevel);
   if (rawNeedsMigration(raw, next, parsed)) {
     saveTasks(next);
   }
