@@ -8,6 +8,7 @@ import { ImportantDateRemindersSection } from '../components/ImportantDateRemind
 import { UpgradeCard } from '../components/UpgradeCard';
 import { OnboardingSettingsSection } from '../components/OnboardingSettingsSection';
 import { PlanSettingsSection } from '../components/PlanSettingsSection';
+import { PromoCodeSection } from '../components/PromoCodeSection';
 import { LegalSettingsSection } from '../components/LegalSettingsSection';
 import { SettingsSectionErrorBoundary } from '../components/SettingsSectionErrorBoundary';
 import { lq } from '../theme';
@@ -17,6 +18,10 @@ export function SettingsPage({ embedded }: { embedded?: boolean } = {}) {
     <>
       <SettingsSectionErrorBoundary sectionName="訂閱方案">
         <PlanSettingsSection />
+      </SettingsSectionErrorBoundary>
+
+      <SettingsSectionErrorBoundary sectionName="兌換碼">
+        <PromoCodeSection />
       </SettingsSectionErrorBoundary>
 
       <SettingsSectionErrorBoundary sectionName="Pro 升級">

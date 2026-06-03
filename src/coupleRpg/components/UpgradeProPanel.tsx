@@ -22,8 +22,13 @@ import {
   PRO_PRICE_YEARLY,
   PRO_PRICE_YEARLY_AVG,
   PRO_TOAST_PURCHASE_FAIL,
+  PRO_MARKETING_UPGRADE_LINE,
   getProCoupleContextMessage,
 } from '../lib/proPlanContent';
+import {
+  PRO_UPGRADE_AI_HEADLINE,
+  PRO_UPGRADE_AI_SUBLINE,
+} from '../lib/aiQuotaMessages';
 import { useCoupleSpace } from '../context/CoupleSpaceContext';
 import { useUserPlan } from '../context/UserPlanContext';
 import { lq } from '../theme';
@@ -135,9 +140,11 @@ export function UpgradeProPanel({ onLater, showLaterButton = true }: Props) {
   return (
     <div className="space-y-4">
       <div>
-        <p className="text-[20px] font-extrabold tracking-tight text-stone-900">{PRO_PLAN_TITLE}</p>
-        <p className="mt-1 text-[15px] font-bold text-rose-600">{PRO_PLAN_TAGLINE}</p>
-        <p className={`mt-2 text-[13px] leading-relaxed ${lq.textSecondary}`}>{PRO_PLAN_DESCRIPTION}</p>
+        <p className="text-[20px] font-extrabold tracking-tight text-stone-900">{PRO_UPGRADE_AI_HEADLINE}</p>
+        <p className="mt-1 text-[14px] font-bold leading-snug text-rose-700">{PRO_UPGRADE_AI_SUBLINE}</p>
+        <p className="mt-2 text-[13px] font-semibold text-violet-900">{PRO_PLAN_TAGLINE}</p>
+        <p className={`mt-1 text-[12px] leading-relaxed ${lq.textSecondary}`}>{PRO_MARKETING_UPGRADE_LINE}</p>
+        <p className={`mt-2 text-[12px] leading-relaxed ${lq.textSecondary}`}>{PRO_PLAN_DESCRIPTION}</p>
         <p className="mt-2 rounded-xl bg-rose-50/70 px-3 py-2 text-[12px] font-semibold text-rose-900/90 ring-1 ring-rose-100/80">
           {coupleContext}
         </p>

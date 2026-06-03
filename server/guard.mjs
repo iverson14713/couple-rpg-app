@@ -5,8 +5,8 @@ import { fileURLToPath } from 'node:url';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const USAGE_PERSIST_FILE = path.join(__dirname, 'logs', 'ai-daily-usage.json');
 
-const FREE_DEFAULT = 3;
-const PRO_DEFAULT = 30;
+const FREE_DEFAULT = 1;
+const PRO_DEFAULT = 10;
 const RATE_WINDOW_MS = 60_000;
 const RATE_MAX = 3;
 

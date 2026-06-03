@@ -31,6 +31,7 @@ import { useAiToast } from '../context/AiToastContext';
 import { useAiResultReveal } from '../hooks/useAiResultReveal';
 import { useAiUsage } from '../hooks/useAiUsage';
 import { useProFeature } from '../hooks/useProFeature';
+import { AI_IMPORTANT_DATE_PRO_LOCK } from '../lib/aiQuotaMessages';
 import { useUserPlan } from '../context/UserPlanContext';
 import { AiUsageQuotaLabel } from './AiUsageQuotaLabel';
 import { ProBadgeIfNeeded } from './ProBadge';
@@ -100,7 +101,7 @@ export function ImportantDateAiSheet({
   );
 
   const aiPro = useProFeature('ai_in_app');
-  const { isPro } = useUserPlan();
+  const { isPro, openUpgradeModal } = useUserPlan();
   const aiUsage = useAiUsage();
   const { showAiGenerated, showError } = useAiToast();
   const { scrollRef, resultRef, highlight, revealResult } = useAiResultReveal();
@@ -130,7 +131,8 @@ export function ImportantDateAiSheet({
     return buildImportantDateItineraryPrompt(input);
   }, [event, budget, customBudget, style, partnerPrefs]);
 
-  const generateDisabled = loading || aiUsage.aiCallInFlight || !aiUsage.canUseAi;
+  const generateDisabled =
+    loading || aiUsage.aiCallInFlight || !isPro || (isPro && !aiUsage.canUseAi);
 
   useEffect(() => {
     void aiUsage.refreshAiQuota();
@@ -145,6 +147,10 @@ export function ImportantDateAiSheet({
   }, [plan, revealResult]);
 
   const onGenerate = useCallback(async () => {
+    if (!isPro) {
+      openUpgradeModal(AI_IMPORTANT_DATE_PRO_LOCK);
+      return;
+    }
     const gate = aiUsage.ensureCanCallAi();
     if (!gate.ok) {
       setError(gate.message);
@@ -197,6 +203,7 @@ export function ImportantDateAiSheet({
     customBudget,
     style,
     isPro,
+    openUpgradeModal,
   ]);
 
   const sheet = (

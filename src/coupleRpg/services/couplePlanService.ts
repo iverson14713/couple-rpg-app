@@ -3,6 +3,11 @@
  */
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { getUserPlan, isProUser, setUserPlan, type UserPlan } from '../storage/planStore';
+import {
+  isPromoGrantActive,
+  loadPromoGrantedUntil,
+  savePromoGrantedUntil,
+} from '../storage/promoGrantStore';
 
 const LOG = '[couple-plan]';
 
@@ -73,8 +78,20 @@ export function shouldUseCoupleSubscription(input: CouplePlanSyncInput): boolean
   );
 }
 
-function localSnapshot(): CouplePlanSnapshot {
-  const plan = getUserPlan();
+/** 兌換碼 Pro 到期後，若僅靠 promo 授予則還原為 Free（不影響 IAP／開發手動 Pro） */
+export function syncLocalPlanAfterPromoExpiry(userId: string): void {
+  const until = loadPromoGrantedUntil(userId);
+  if (!until || isPromoGrantActive(userId)) return;
+  savePromoGrantedUntil(userId, null);
+  if (getUserPlan() === 'pro') {
+    setUserPlan('free');
+  }
+}
+
+function localSnapshot(userId: string | null = null): CouplePlanSnapshot {
+  if (userId) syncLocalPlanAfterPromoExpiry(userId);
+  const plan: UserPlan =
+    userId && isPromoGrantActive(userId) ? 'pro' : getUserPlan();
   return {
     plan,
     isPro: isProUser(plan),
@@ -142,7 +159,7 @@ export async function fetchCoupleSubscription(
  */
 export async function getCouplePlan(input: CouplePlanSyncInput): Promise<CouplePlanSnapshot> {
   if (!shouldUseCoupleSubscription(input)) {
-    return localSnapshot();
+    return localSnapshot(input.userId);
   }
 
   const coupleId = input.coupleId!;
@@ -155,7 +172,7 @@ export async function getCouplePlan(input: CouplePlanSyncInput): Promise<CoupleP
     return snap;
   } catch (e) {
     console.warn(`${LOG} getCouplePlan fallback local:`, e);
-    return localSnapshot();
+    return localSnapshot(input.userId);
   }
 }
 

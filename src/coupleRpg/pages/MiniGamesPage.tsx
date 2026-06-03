@@ -133,7 +133,7 @@ export function MiniGamesPage() {
     (next: CoupleGameModeId) => {
       const def = getModeDef(next);
       if (def?.proOnly && !isPro) {
-        openUpgradeModal('升級 Pro 解鎖更多情侶互動題庫');
+        openUpgradeModal('解鎖約會破冰、驚喜任務與 500+ 進階互動題庫，讓每天都有新的話題與任務。');
         return;
       }
       clearTimers();
@@ -203,10 +203,14 @@ export function MiniGamesPage() {
         {!isPro ? (
           <button
             type="button"
-            onClick={() => openUpgradeModal('升級 Pro 解鎖更多情侶互動題庫')}
+            onClick={() =>
+              openUpgradeModal(
+                '解鎖約會破冰、驚喜任務與 500+ 進階互動題庫，讓每天都有新的話題與任務。'
+              )
+            }
             className="mt-2 text-[11px] font-bold text-rose-600 underline-offset-2 active:opacity-70"
           >
-            升級 Pro 解鎖更多題目 →
+            查看 Pro 題庫 →
           </button>
         ) : null}
       </div>

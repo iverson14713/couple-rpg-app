@@ -1082,8 +1082,8 @@ async function runLoveQuestAssistantOpenAiCounted(opts) {
   if (!reserved.ok) {
     const errorZh =
       plan === 'pro'
-        ? `今日 AI 次數已達上限（${reserved.limit} 次），請明天再試`
-        : '今日免費 AI 次數已用完，升級 Pro 可每日使用 30 次';
+        ? '今日 AI 額度已用完，明天會自動恢復'
+        : '今日免費 AI 試用已用完。升級 Pro 可開啟 AI 約會規劃、重要日子驚喜建議與更多進階靈感。';
     return {
       status: 429,
       json: {

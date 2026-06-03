@@ -20,8 +20,14 @@ import type { ReminderOffsetDays } from '../storage/importantDateReminderTypes';
 import { ImportantDateReminderList } from './ImportantDateReminderList';
 import { ImportantDatePushSettings } from './ImportantDatePushSettings';
 import { ImportantDateDebugNotificationButton } from './ImportantDateDebugNotificationButton';
+import {
+  AI_IMPORTANT_DATE_PRO_LOCK,
+  AI_IMPORTANT_DATE_SUBTITLE,
+  AI_IMPORTANT_DATE_TITLE,
+} from '../lib/aiQuotaMessages';
 import { useAiUsage } from '../hooks/useAiUsage';
 import { useProFeature } from '../hooks/useProFeature';
+import { useUserPlan } from '../context/UserPlanContext';
 import { AiUsageQuotaLabel } from './AiUsageQuotaLabel';
 import { ProBadgeIfNeeded } from './ProBadge';
 import { lq } from '../theme';
@@ -51,6 +57,7 @@ export function ImportantDateRemindersSection({ showBack, compactHero }: Props) 
   const datesPro = useProFeature('important_dates_unlimited');
   const aiPro = useProFeature('ai_in_app');
   const aiUsage = useAiUsage();
+  const { isPro, openUpgradeModal } = useUserPlan();
 
   const events = useMemo(() => {
     try {
@@ -123,10 +130,17 @@ export function ImportantDateRemindersSection({ showBack, compactHero }: Props) 
     [patchImportantDateReminder]
   );
 
-  const openAi = useCallback((eventId: string) => {
-    const ev = events.find((e) => e.id === eventId);
-    if (ev) setAiEvent(ev);
-  }, [events]);
+  const openAi = useCallback(
+    (eventId: string) => {
+      if (!isPro) {
+        openUpgradeModal(AI_IMPORTANT_DATE_PRO_LOCK);
+        return;
+      }
+      const ev = events.find((e) => e.id === eventId);
+      if (ev) setAiEvent(ev);
+    },
+    [events, isPro, openUpgradeModal]
+  );
 
   const saveOffsets = useCallback(
     (eventId: string) => {
@@ -142,7 +156,11 @@ export function ImportantDateRemindersSection({ showBack, compactHero }: Props) 
     [offsetDrafts, patchImportantDateReminder, closeEdit, flashSaved]
   );
 
-  const aiButtonLabel = !aiUsage.canUseAi ? 'AI 次數已用完' : 'AI 行程';
+  const aiButtonLabel = !isPro
+    ? 'Pro 解鎖'
+    : !aiUsage.canUseAi
+      ? 'AI 額度已用完'
+      : 'AI 行程';
 
   return (
     <section id={IMPORTANT_DATE_REMINDERS_ANCHOR_ID} className={compactHero ? '' : 'mb-4'}>
@@ -191,7 +209,28 @@ export function ImportantDateRemindersSection({ showBack, compactHero }: Props) 
             </button>
           ) : null}
         </header>
-      ) : (
+      ) : null}
+
+      <section className={`mb-3 p-3.5 ${lq.cardSoft}`}>
+        <p className="flex flex-wrap items-center gap-1.5 text-[14px] font-extrabold text-stone-900">
+          ✨ {AI_IMPORTANT_DATE_TITLE}
+          <ProBadgeIfNeeded show={!isPro} feature="ai_in_app" size="sm" />
+        </p>
+        <p className={`mt-1 text-[12px] leading-relaxed ${lq.textSecondary}`}>
+          {AI_IMPORTANT_DATE_SUBTITLE}
+        </p>
+        {!isPro ? (
+          <button
+            type="button"
+            onClick={() => openUpgradeModal(AI_IMPORTANT_DATE_PRO_LOCK)}
+            className="mt-2.5 text-[12px] font-bold text-violet-700 underline-offset-2 active:opacity-70"
+          >
+            升級 Pro 解鎖 →
+          </button>
+        ) : null}
+      </section>
+
+      {!compactHero ? null : (
         <div className={`mb-3 flex items-center gap-2 px-0.5`}>
           <Bell className="h-5 w-5 text-rose-500" aria-hidden />
           <div>
@@ -308,9 +347,9 @@ export function ImportantDateRemindersSection({ showBack, compactHero }: Props) 
                 onToggleGift={toggleGift}
                 onToggleActivity={toggleActivity}
                 onOpenAi={openAi}
-                aiDisabled={!aiUsage.canUseAi}
+                aiDisabled={isPro && !aiUsage.canUseAi}
+                showAiProBadge={!isPro || aiPro.showProBadge}
                 aiButtonLabel={aiButtonLabel}
-                showAiProBadge={aiPro.showProBadge}
               />
             );
           })}

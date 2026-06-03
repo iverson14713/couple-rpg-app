@@ -31,7 +31,7 @@ export function TodayPage() {
   const dinnerDescription = todayDinner?.label
     ? `晚餐：${todayDinner.label}`
     : '不知道吃什麼就交給命運決定';
-  const { done, total, pct } = taskProgress;
+  const { done, total } = taskProgress;
 
   return (
     <>
@@ -111,9 +111,9 @@ export function TodayPage() {
           <HomeCoreFeatureCard
             emoji="💌"
             title="今日戀愛任務"
-            description="完成小任務，累積愛心幣"
-            badge={total > 0 ? `${done}/${total}` : undefined}
-            cta="💌 任務"
+            description="完成 2 個小任務，延續愛情火苗"
+            badge={total > 0 ? `${done}/${total}` : '0/2'}
+            cta="💌 去完成"
             onAction={() => navigateTo('tasks')}
           />
           <HomeCoreFeatureCard
@@ -127,11 +127,9 @@ export function TodayPage() {
         </div>
       </div>
 
-      {total > 0 && pct < 100 ? (
-        <p className={`mt-3 text-center text-[12px] ${lq.textMuted}`}>
-          今日任務 {pct}% · 完成可獲 LoveCoin
-        </p>
-      ) : null}
+      <p className={`mt-3 text-center text-[12px] ${lq.textMuted}`}>
+        今日任務 {done}/{total || 2}・完成可獲 LoveCoin + EXP
+      </p>
     </>
   );
 }

@@ -27,7 +27,9 @@ export function HomeProBanner() {
       </span>
       <div className="min-w-0 flex-1">
         <p className="text-[13px] font-extrabold leading-tight text-stone-900">解鎖 LoveQuest Pro</p>
-        <p className="text-[11px] leading-snug text-stone-600">AI 約會規劃、禮物建議、完整同步</p>
+        <p className="text-[11px] leading-snug text-stone-600">
+          AI 約會規劃、重要日子驚喜、500+ 進階題庫
+        </p>
       </div>
       <button
         type="button"

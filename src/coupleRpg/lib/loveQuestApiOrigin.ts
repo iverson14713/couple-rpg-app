@@ -35,3 +35,53 @@ export function loveQuestApiUrl(path: string): string {
   const origin = resolveLoveQuestApiOrigin();
   return origin ? `${origin}${normalized}` : normalized;
 }
+
+/** Local assistant / promo API (see `npm run dev:server`). */
+export const LOVEQUEST_DEV_API_BASE = 'http://127.0.0.1:8788';
+
+/** Capacitor WebView uses hostname lovequest.app — not a real API host. */
+export function isLoveQuestCapacitorWebView(): boolean {
+  try {
+    if (Capacitor.isNativePlatform()) {
+      return true;
+    }
+  } catch {
+    /* Capacitor unavailable (tests) */
+  }
+  if (typeof window === 'undefined') {
+    return false;
+  }
+  return window.location.hostname === 'lovequest.app';
+}
+
+/**
+ * Absolute URL for LoveQuest serverless / assistant routes.
+ * - Native Capacitor → Vercel (or VITE_* override)
+ * - Vite dev localhost → 127.0.0.1:8788
+ * - Vite dev LAN / production web → same-origin relative path
+ */
+export function resolveLoveQuestApiEndpoint(path: string): string {
+  const normalized = path.startsWith('/') ? path : `/${path}`;
+  const fromOrigin = loveQuestApiUrl(normalized);
+  if (fromOrigin.startsWith('http')) {
+    return fromOrigin;
+  }
+
+  if (isLoveQuestCapacitorWebView()) {
+    return `${LOVEQUEST_ASSISTANT_API_ORIGIN_DEFAULT}${normalized}`;
+  }
+
+  if (import.meta.env.PROD) {
+    return `${LOVEQUEST_ASSISTANT_API_ORIGIN_DEFAULT}${normalized}`;
+  }
+
+  if (typeof window !== 'undefined') {
+    const host = window.location.hostname;
+    if (host === 'localhost' || host === '127.0.0.1') {
+      return `${LOVEQUEST_DEV_API_BASE}${normalized}`;
+    }
+    return fromOrigin;
+  }
+
+  return `${LOVEQUEST_DEV_API_BASE}${normalized}`;
+}

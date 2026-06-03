@@ -2,8 +2,11 @@ import { useMemo, useState } from 'react';
 import {
   COST_LABEL,
   DATE_FILTER_OPTIONS,
+  DATE_IDEAS_PRO_PREVIEW_COUNT,
   DURATION_LABEL,
 } from '../data/dateIdeasPool';
+import { PRO_MARKETING_UPGRADE_LINE } from '../lib/proPlanContent';
+import { useUserPlan } from '../context/UserPlanContext';
 import { DateItineraryAiSheet } from '../components/DateItineraryAiSheet';
 import { RecentDateItineraryAiCard } from '../components/RecentDateItineraryAiCard';
 import {
@@ -33,6 +36,7 @@ export function DatesPage({ embedded }: { embedded?: boolean } = {}) {
     completeCurrentDate,
   } = useLoveQuest();
 
+  const { isPro, openUpgradeModal } = useUserPlan();
   const current = datePlanner.current;
   const activeCount = useMemo(
     () => DATE_FILTER_OPTIONS.filter((o) => datePlanner.filters[o.key]).length,
@@ -109,6 +113,30 @@ export function DatesPage({ embedded }: { embedded?: boolean } = {}) {
       </section>
 
       <RecentDateItineraryAiCard onView={(record) => openAiSheet(record)} className="mb-3" />
+
+      {!isPro ? (
+        <section className={`mb-3 p-3.5 ${lq.cardSoft}`}>
+          <p className="flex flex-wrap items-center gap-1.5 text-[14px] font-extrabold text-stone-900">
+            💑 進階約會靈感庫
+            <span className="rounded-full bg-violet-100 px-2 py-0.5 text-[10px] font-bold text-violet-800">
+              Pro
+            </span>
+          </p>
+          <p className={`mt-1 text-[12px] leading-relaxed ${lq.textSecondary}`}>
+            解鎖雨天、低預算、紀念日、室內、週末半日與驚喜約會靈感，讓每次約會更省腦、更有新鮮感。
+          </p>
+          <p className="mt-1 text-[11px] font-semibold text-stone-500">
+            另有 {DATE_IDEAS_PRO_PREVIEW_COUNT}+ 則進階靈感等你解鎖
+          </p>
+          <button
+            type="button"
+            onClick={() => openUpgradeModal(PRO_MARKETING_UPGRADE_LINE)}
+            className="mt-2 text-[12px] font-bold text-violet-700 underline-offset-2 active:opacity-70"
+          >
+            升級 Pro 解鎖 →
+          </button>
+        </section>
+      ) : null}
 
       <section className={`mb-3 p-3 ${lq.card}`}>
         <PrimaryButton onClick={handleGenerate}>🎲 隨機產生約會建議</PrimaryButton>

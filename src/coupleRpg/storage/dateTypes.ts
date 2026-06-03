@@ -14,8 +14,11 @@ export type DateDuration = '1h' | 'half' | 'full';
 
 export type DateFilters = Record<DateFilterKey, boolean>;
 
+export type DateIdeaTier = 'free' | 'pro';
+
 export type DateIdeaTemplate = {
   id: string;
+  tier: DateIdeaTier;
   title: string;
   emoji: string;
   tags: DateFilterKey[];

@@ -50,16 +50,16 @@ export function getCoupleGameLibraryStatus(isPro: boolean): {
   const availableCount = isPro ? freePromptCount + proPromptCount : freePromptCount;
   if (isPro) {
     return {
-      headline: '目前題庫：完整題庫已解鎖',
-      subline: `共 ${availableCount} 題（基本 + Pro 進階）`,
+      headline: '目前題庫：基本題庫 150+ · 進階已解鎖',
+      subline: 'Pro 進階互動題庫 500+ 已全部開放',
       freePromptCount,
       proPromptCount,
       availableCount,
     };
   }
   return {
-    headline: '目前題庫：基本題庫',
-    subline: '升級 Pro 解鎖更多題目',
+    headline: '目前題庫：基本題庫 150+',
+    subline: 'Pro 解鎖進階互動題庫 500+',
     freePromptCount,
     proPromptCount,
     availableCount,

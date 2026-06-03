@@ -1,4 +1,4 @@
-import { DATE_IDEAS_POOL } from '../data/dateIdeasPool';
+import { getDateIdeasForPlan } from '../data/dateIdeasPool';
 import { makeId } from '../lib/id';
 import { todayKey, timeLabel } from '../lib/dates';
 import type { DateFilterKey, DateFilters, DateHistoryEntry, DatePlannerData, DateSuggestion } from './dateTypes';
@@ -34,14 +34,15 @@ export function getActiveFilterKeys(filters: DateFilters): DateFilterKey[] {
   return (Object.keys(filters) as DateFilterKey[]).filter((k) => filters[k]);
 }
 
-export function filterIdeas(filters: DateFilters) {
+export function filterIdeas(filters: DateFilters, isPro = false) {
+  const base = getDateIdeasForPlan(isPro);
   const active = getActiveFilterKeys(filters);
-  if (active.length === 0) return [...DATE_IDEAS_POOL];
-  return DATE_IDEAS_POOL.filter((idea) => active.every((key) => idea.tags.includes(key)));
+  if (active.length === 0) return [...base];
+  return base.filter((idea) => active.every((key) => idea.tags.includes(key)));
 }
 
-export function pickRandomDateIdea(filters: DateFilters): DateSuggestion | null {
-  const pool = filterIdeas(filters);
+export function pickRandomDateIdea(filters: DateFilters, isPro = false): DateSuggestion | null {
+  const pool = filterIdeas(filters, isPro);
   if (pool.length === 0) return null;
   const picked = pool[Math.floor(Math.random() * pool.length)]!;
   return {
@@ -91,6 +92,6 @@ export function getRecentDateHistory(history: DateHistoryEntry[], limit = 7): Da
   return history.slice(0, limit);
 }
 
-export function getFavoriteIdeas(favoriteIds: string[]) {
-  return DATE_IDEAS_POOL.filter((i) => favoriteIds.includes(i.id));
+export function getFavoriteIdeas(favoriteIds: string[], isPro = false) {
+  return getDateIdeasForPlan(isPro).filter((i) => favoriteIds.includes(i.id));
 }

@@ -42,6 +42,8 @@ export const LQ_KEYS = {
   importantDateReminders: 'lovequest-important-date-reminders',
   /** 使用者方案：free | pro（local 模擬，尚未接金流） */
   userPlan: 'lovequest-user-plan',
+  /** Pro 兌換碼授予到期（ISO；user-scoped） */
+  promoGrantedUntil: 'lovequest-promo-granted-until',
   /** LoveCoin 雲端錢包快取（非 source of truth） */
   coinWalletCache: 'lovequest-coin-wallet-cache',
 } as const;

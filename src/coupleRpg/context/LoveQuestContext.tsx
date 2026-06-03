@@ -1712,7 +1712,7 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
   const generateDateIdea = useCallback(() => {
     let ok = false;
     setDatePlanner((prev) => {
-      const suggestion = pickRandomDateIdea(prev.filters);
+      const suggestion = pickRandomDateIdea(prev.filters, isPro);
       if (!suggestion) return prev;
       ok = true;
       const next: DatePlannerData = { ...prev, current: suggestion };
@@ -1720,7 +1720,7 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
       return next;
     });
     return ok;
-  }, []);
+  }, [isPro]);
 
   const toggleDateFavoriteFn = useCallback((ideaId: string) => {
     setDatePlanner((prev) => {
@@ -2514,7 +2514,7 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
       isFlirtGameDoneToday: isFlirtGameDoneTodayFn,
       datePlanner,
       dateHistory: getRecentDateHistory(datePlanner.history),
-      favoriteIdeas: getFavoriteIdeas(datePlanner.favoriteIds),
+      favoriteIdeas: getFavoriteIdeas(datePlanner.favoriteIds, isPro),
       setDateFilter,
       clearDateFilters,
       generateDateIdea,
@@ -2655,6 +2655,7 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
       rewardCardSyncError,
       highlightCouponId,
       clearHighlightCoupon,
+      isPro,
       partnerName,
       partnerEmoji,
     ]

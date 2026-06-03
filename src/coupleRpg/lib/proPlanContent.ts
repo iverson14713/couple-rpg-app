@@ -9,16 +9,20 @@ export const PRO_PLAN_SUBTITLE = PRO_PLAN_TAGLINE;
 
 export const PRO_BENEFIT_LINES = [
   '💞 一人升級，兩人共享 Pro',
+  '✨ AI 約會規劃',
+  '🎂 AI 重要日子驚喜建議',
+  '💑 進階約會靈感庫',
+  '💌 進階戀愛任務',
+  '🎲 約會破冰 · 驚喜任務 · 500+ 進階互動題庫',
+  '🤖 每日 AI 額度提升至 10 次',
   '☁️ 完整情侶雲端同步',
-  '✨ AI 約會行程規劃',
-  '🎁 AI 禮物建議',
-  '💌 AI 情話 / 卡片文字',
-  '🎂 重要日子無上限',
   '🎟️ 自訂獎勵卡券',
-  '🎲 更多情侶小遊戲題庫',
   '📜 完整歷史紀錄',
   '🚫 無廣告',
 ] as const;
+
+export const PRO_MARKETING_UPGRADE_LINE =
+  '解鎖 500+ 進階互動題庫、約會破冰、驚喜任務、AI 約會規劃與重要日子驚喜建議。';
 
 export const PRO_PRICE_MONTHLY = 'NT$50';
 export const PRO_PRICE_YEARLY = 'NT$490';

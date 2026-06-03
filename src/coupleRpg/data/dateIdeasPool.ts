@@ -1,4 +1,5 @@
 import type { DateCost, DateDuration, DateFilterKey, DateIdeaTemplate } from '../storage/dateTypes';
+import { PRO_DATE_IDEAS_POOL } from './dateIdeasProPool';
 
 export const DATE_FILTER_OPTIONS: { key: DateFilterKey; label: string; emoji: string }[] = [
   { key: 'budget', label: '省錢', emoji: '💰' },
@@ -19,8 +20,9 @@ export const DURATION_LABEL: Record<DateDuration, string> = {
   full: '一日',
 };
 
-export const DATE_IDEAS_POOL: DateIdeaTemplate[] = [
+const FREE_DATE_IDEAS_POOL: DateIdeaTemplate[] = [
   {
+    tier: 'free',
     id: 'd-park-walk',
     title: '公園散步野餐',
     emoji: '🧺',
@@ -31,6 +33,7 @@ export const DATE_IDEAS_POOL: DateIdeaTemplate[] = [
     scenario: '天氣穩定、想輕鬆約會',
   },
   {
+    tier: 'free',
     id: 'd-home-movie',
     title: '居家電影之夜',
     emoji: '🎬',
@@ -41,6 +44,7 @@ export const DATE_IDEAS_POOL: DateIdeaTemplate[] = [
     scenario: '不想出門或下雨天',
   },
   {
+    tier: 'free',
     id: 'd-cafe',
     title: '文青咖啡約會',
     emoji: '☕',
@@ -51,6 +55,7 @@ export const DATE_IDEAS_POOL: DateIdeaTemplate[] = [
     scenario: '下班後短暫約會',
   },
   {
+    tier: 'free',
     id: 'd-night-market',
     title: '夜市邊走邊吃',
     emoji: '🏮',
@@ -61,6 +66,7 @@ export const DATE_IDEAS_POOL: DateIdeaTemplate[] = [
     scenario: '省錢又熱鬧',
   },
   {
+    tier: 'free',
     id: 'd-cook-together',
     title: '一起下廚晚餐',
     emoji: '👩‍🍳',
@@ -71,6 +77,7 @@ export const DATE_IDEAS_POOL: DateIdeaTemplate[] = [
     scenario: '想有儀式感又不花太多',
   },
   {
+    tier: 'free',
     id: 'd-museum',
     title: '博物館／展覽',
     emoji: '🖼️',
@@ -81,6 +88,7 @@ export const DATE_IDEAS_POOL: DateIdeaTemplate[] = [
     scenario: '雨天或避暑',
   },
   {
+    tier: 'free',
     id: 'd-bike-river',
     title: '河濱騎車',
     emoji: '🚲',
@@ -91,6 +99,7 @@ export const DATE_IDEAS_POOL: DateIdeaTemplate[] = [
     scenario: '想動一動又不太累',
   },
   {
+    tier: 'free',
     id: 'd-sunset',
     title: '看夕陽吹風',
     emoji: '🌅',
@@ -101,6 +110,7 @@ export const DATE_IDEAS_POOL: DateIdeaTemplate[] = [
     scenario: '傍晚浪漫時刻',
   },
   {
+    tier: 'free',
     id: 'd-boardgame',
     title: '桌遊之夜',
     emoji: '🎲',
@@ -111,6 +121,7 @@ export const DATE_IDEAS_POOL: DateIdeaTemplate[] = [
     scenario: '室內輕鬆互動',
   },
   {
+    tier: 'free',
     id: 'd-brunch',
     title: '週末早午餐',
     emoji: '🥞',
@@ -121,6 +132,7 @@ export const DATE_IDEAS_POOL: DateIdeaTemplate[] = [
     scenario: '週末半日約會',
   },
   {
+    tier: 'free',
     id: 'd-spa-foot',
     title: '足浴／按摩放鬆',
     emoji: '💆',
@@ -131,6 +143,7 @@ export const DATE_IDEAS_POOL: DateIdeaTemplate[] = [
     scenario: '工作累需要恢復',
   },
   {
+    tier: 'free',
     id: 'd-bookstore',
     title: '書店約會',
     emoji: '📚',
@@ -141,6 +154,7 @@ export const DATE_IDEAS_POOL: DateIdeaTemplate[] = [
     scenario: '安靜雨天',
   },
   {
+    tier: 'free',
     id: 'd-zoo',
     title: '動物園／農場',
     emoji: '🐰',
@@ -151,6 +165,7 @@ export const DATE_IDEAS_POOL: DateIdeaTemplate[] = [
     scenario: '一日輕旅行',
   },
   {
+    tier: 'free',
     id: 'd-beach',
     title: '海邊／湖邊走走',
     emoji: '🌊',
@@ -161,6 +176,7 @@ export const DATE_IDEAS_POOL: DateIdeaTemplate[] = [
     scenario: '天氣晴朗',
   },
   {
+    tier: 'free',
     id: 'd-fancy-dinner',
     title: '儀式感晚餐',
     emoji: '🕯️',
@@ -171,6 +187,7 @@ export const DATE_IDEAS_POOL: DateIdeaTemplate[] = [
     scenario: '紀念日或特別日子',
   },
   {
+    tier: 'free',
     id: 'd-escape',
     title: '密室逃脫',
     emoji: '🔐',
@@ -181,6 +198,7 @@ export const DATE_IDEAS_POOL: DateIdeaTemplate[] = [
     scenario: '喜歡刺激互動',
   },
   {
+    tier: 'free',
     id: 'd-art-craft',
     title: '手作體驗',
     emoji: '🎨',
@@ -191,6 +209,7 @@ export const DATE_IDEAS_POOL: DateIdeaTemplate[] = [
     scenario: '一起做點什麼',
   },
   {
+    tier: 'free',
     id: 'd-hike-light',
     title: '郊山健行',
     emoji: '⛰️',
@@ -201,6 +220,7 @@ export const DATE_IDEAS_POOL: DateIdeaTemplate[] = [
     scenario: '喜歡戶外運動',
   },
   {
+    tier: 'free',
     id: 'd-hotpot',
     title: '火鍋聚餐',
     emoji: '🍲',
@@ -211,6 +231,7 @@ export const DATE_IDEAS_POOL: DateIdeaTemplate[] = [
     scenario: '天冷或想吃飽',
   },
   {
+    tier: 'free',
     id: 'd-photo-walk',
     title: '城市拍照散步',
     emoji: '📷',
@@ -221,6 +242,7 @@ export const DATE_IDEAS_POOL: DateIdeaTemplate[] = [
     scenario: '留下回憶',
   },
   {
+    tier: 'free',
     id: 'd-tea-house',
     title: '茶館下午茶',
     emoji: '🍵',
@@ -231,6 +253,7 @@ export const DATE_IDEAS_POOL: DateIdeaTemplate[] = [
     scenario: '優雅放鬆',
   },
   {
+    tier: 'free',
     id: 'd-concert',
     title: '音樂現場／演出',
     emoji: '🎵',
@@ -241,6 +264,7 @@ export const DATE_IDEAS_POOL: DateIdeaTemplate[] = [
     scenario: '有共同喜歡的藝人',
   },
   {
+    tier: 'free',
     id: 'd-stargaze',
     title: '看星星計畫',
     emoji: '✨',
@@ -251,6 +275,7 @@ export const DATE_IDEAS_POOL: DateIdeaTemplate[] = [
     scenario: '晴朗夜晚',
   },
   {
+    tier: 'free',
     id: 'd-day-trip',
     title: '小鎮一日遊',
     emoji: '🚃',
@@ -260,4 +285,237 @@ export const DATE_IDEAS_POOL: DateIdeaTemplate[] = [
     description: '搭車到附近小鎮，老街＋在地小吃。',
     scenario: '週末一日行程',
   },
+
+  {
+    tier: 'free',
+    id: 'd-walk-talk',
+    title: '一起散步聊天',
+    emoji: '🚶',
+    tags: ['outdoor', 'budget', 'relax', 'romantic'],
+    cost: 'low',
+    duration: '1h',
+    description: '不設目的地，邊走邊聊今天的小事。',
+    scenario: '下班後想放鬆',
+  },
+  {
+    tier: 'free',
+    id: 'd-dessert',
+    title: '吃甜點小約會',
+    emoji: '🍰',
+    tags: ['food', 'indoor', 'budget', 'romantic'],
+    cost: 'low',
+    duration: '1h',
+    description: '選一間甜點店，分享一盤蛋糕或冰淇淋。',
+    scenario: '想甜一下',
+  },
+  {
+    tier: 'free',
+    id: 'd-supermarket',
+    title: '逛超市採買',
+    emoji: '🛒',
+    tags: ['indoor', 'budget', 'relax', 'food'],
+    cost: 'low',
+    duration: '1h',
+    description: '一起列清單、挑食材，回家順便煮點簡單的。',
+    scenario: '日常默契',
+  },
+  {
+    tier: 'free',
+    id: 'd-binge-watch',
+    title: '一起追劇',
+    emoji: '📺',
+    tags: ['indoor', 'budget', 'relax', 'rainy'],
+    cost: 'low',
+    duration: '1h',
+    description: '選一集都感興趣的劇，準備零食毯子窝在一起。',
+    scenario: '不想出門',
+  },
+  {
+    tier: 'free',
+    id: 'd-cat-cafe',
+    title: '去貓咖放鬆',
+    emoji: '🐱',
+    tags: ['indoor', 'relax', 'budget', 'rainy'],
+    cost: 'low',
+    duration: '1h',
+    description: '邊喝咖啡邊擼貓，拍照留念。',
+    scenario: '療癒下午',
+  },
+  {
+    tier: 'free',
+    id: 'd-mall-window',
+    title: '逛百貨隨意走走',
+    emoji: '🛍️',
+    tags: ['indoor', 'budget', 'halfDay'],
+    cost: 'low',
+    duration: 'half',
+    description: '不一定要消費，看看櫥窗、試吃小點。',
+    scenario: '天氣太熱或太冷',
+  },
+  {
+    tier: 'free',
+    id: 'd-workout-pair',
+    title: '一起運動',
+    emoji: '🏃',
+    tags: ['outdoor', 'budget', 'relax', 'halfDay'],
+    cost: 'low',
+    duration: '1h',
+    description: '慢跑、瑜伽或球類，運動完買飲料犒賞。',
+    scenario: '想動一動',
+  },
+  {
+    tier: 'free',
+    id: 'd-life-photos',
+    title: '拍一組生活照',
+    emoji: '📷',
+    tags: ['outdoor', 'romantic', 'budget', 'halfDay'],
+    cost: 'low',
+    duration: '1h',
+    description: '在熟悉街區互拍，不用追求完美構圖。',
+    scenario: '留下日常回憶',
+  },
+  {
+    tier: 'free',
+    id: 'd-new-restaurant',
+    title: '去新餐廳踩點',
+    emoji: '🍽️',
+    tags: ['food', 'romantic', 'budget', 'halfDay'],
+    cost: 'mid',
+    duration: '1h',
+    description: '選一間沒去過的店，點招牌菜分享。',
+    scenario: '想嚐鮮',
+  },
+  {
+    tier: 'free',
+    id: 'd-dessert-diy',
+    title: '一起做甜點',
+    emoji: '🧁',
+    tags: ['indoor', 'food', 'romantic', 'budget'],
+    cost: 'low',
+    duration: '1h',
+    description: '從拌麵糊到裝飾，過程比結果更重要。',
+    scenario: '居家約會',
+  },
+  {
+    tier: 'free',
+    id: 'd-riverside',
+    title: '去河邊或海邊看風景',
+    emoji: '🌊',
+    tags: ['outdoor', 'relax', 'romantic', 'budget'],
+    cost: 'low',
+    duration: 'half',
+    description: '帶飲料，看夕陽或夜景聊天。',
+    scenario: '想靜靜相處',
+  },
+  {
+    tier: 'free',
+    id: 'd-creative-market',
+    title: '逛文創市集',
+    emoji: '🎪',
+    tags: ['outdoor', 'budget', 'halfDay', 'food'],
+    cost: 'low',
+    duration: 'half',
+    description: '看看手作小物，偶爾買個小紀念品。',
+    scenario: '週末半日',
+  },
+  {
+    tier: 'free',
+    id: 'd-tidy-room',
+    title: '一起整理房間',
+    emoji: '🧹',
+    tags: ['indoor', 'budget', 'relax'],
+    cost: 'low',
+    duration: '1h',
+    description: '播音樂分工整理，結束後點外送慶祝。',
+    scenario: '把生活變可愛',
+  },
+  {
+    tier: 'free',
+    id: 'd-pick-outfit',
+    title: '互相挑一件衣服',
+    emoji: '👕',
+    tags: ['indoor', 'romantic', 'budget'],
+    cost: 'low',
+    duration: '1h',
+    description: '從衣櫃選一套給對方，理由要說出口。',
+    scenario: '甜蜜小事',
+  },
+  {
+    tier: 'free',
+    id: 'd-conbini-snack',
+    title: '便利商店宵夜散步',
+    emoji: '🏪',
+    tags: ['outdoor', 'food', 'budget', 'relax'],
+    cost: 'low',
+    duration: '1h',
+    description: '買喜歡的零食飲料，边走边吃聊八卦。',
+    scenario: '夜間小約會',
+  },
+  {
+    tier: 'free',
+    id: 'd-home-hotpot',
+    title: '在家火鍋',
+    emoji: '🍲',
+    tags: ['indoor', 'food', 'budget', 'rainy'],
+    cost: 'low',
+    duration: '1h',
+    description: '準備鍋具與食材，边吃边聊。',
+    scenario: '天冷或懶得出門',
+  },
+  {
+    tier: 'free',
+    id: 'd-music-chat',
+    title: '一起聽歌聊天',
+    emoji: '🎧',
+    tags: ['indoor', 'relax', 'romantic', 'budget'],
+    cost: 'low',
+    duration: '1h',
+    description: '分享歌單，轮流放一首并说明原因。',
+    scenario: '窩在家也浪漫',
+  },
+  {
+    tier: 'free',
+    id: 'd-new-shop',
+    title: '去附近沒去過的小店',
+    emoji: '🗺️',
+    tags: ['outdoor', 'budget', 'food', 'halfDay'],
+    cost: 'low',
+    duration: '1h',
+    description: '地圖搜尋一家新店，當小小探險。',
+    scenario: '日常新鮮感',
+  },
+  {
+    tier: 'free',
+    id: 'd-plan-trip',
+    title: '一起規劃下次旅行',
+    emoji: '✈️',
+    tags: ['indoor', 'romantic', 'budget', 'relax'],
+    cost: 'low',
+    duration: '1h',
+    description: '列出想去的地方與預算，畫出願望清單。',
+    scenario: '期待感約會',
+  },
+  {
+    tier: 'free',
+    id: 'd-late-snack',
+    title: '吃宵夜小約會',
+    emoji: '🌙',
+    tags: ['food', 'budget', 'outdoor', 'relax'],
+    cost: 'low',
+    duration: '1h',
+    description: '找間營業到很晚的店，聊聊今天。',
+    scenario: '夜貓族',
+  },
+
 ];
+
+export const DATE_IDEAS_POOL: DateIdeaTemplate[] = [
+  ...FREE_DATE_IDEAS_POOL,
+  ...PRO_DATE_IDEAS_POOL,
+];
+
+export function getDateIdeasForPlan(isPro: boolean): DateIdeaTemplate[] {
+  return isPro ? DATE_IDEAS_POOL : FREE_DATE_IDEAS_POOL;
+}
+
+export const DATE_IDEAS_PRO_PREVIEW_COUNT = PRO_DATE_IDEAS_POOL.length;

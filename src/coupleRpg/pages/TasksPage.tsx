@@ -62,7 +62,7 @@ export function TasksPage({
                 <p className={lq.label}>LoveQuest</p>
                 <h2 className={`mt-0.5 flex items-center gap-2 ${lq.sectionTitle}`}>
                   <span className={`h-9 w-9 text-xl ${lq.iconChip}`}>💌</span>
-                  今日任務中心
+                  今日戀愛任務
                 </h2>
               </div>
               <span className={`shrink-0 ${lq.badgeAccent}`}>隨機 {total} 項</span>

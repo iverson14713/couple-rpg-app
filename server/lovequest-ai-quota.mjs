@@ -6,8 +6,8 @@ import {
   trustClientPlan,
 } from './guard.mjs';
 
-const FREE_DEFAULT = 3;
-const PRO_DEFAULT = 30;
+const FREE_DEFAULT = 1;
+const PRO_DEFAULT = 10;
 
 let adminClient = null;
 
@@ -321,8 +321,8 @@ export async function lovequestAssistantRateAndQuota(opts) {
   if (!daily.ok) {
     const errorZh =
       daily.plan === 'pro'
-        ? `今日 AI 次數已達上限（${daily.limit} 次），請明天再試`
-        : '今日免費 AI 次數已用完，升級 Pro 可每日使用 30 次';
+        ? '今日 AI 額度已用完，明天會自動恢復'
+        : '今日免費 AI 試用已用完。升級 Pro 可開啟 AI 約會規劃、重要日子驚喜建議與更多進階靈感。';
     return {
       ok: false,
       status: 429,

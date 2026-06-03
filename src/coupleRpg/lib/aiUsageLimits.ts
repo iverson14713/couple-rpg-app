@@ -1,6 +1,8 @@
+import { AI_QUOTA_FREE_EXHAUSTED, AI_QUOTA_PRO_EXHAUSTED } from './aiQuotaMessages';
+
 /** LoveQuest daily AI pool — shared with server guard.mjs defaults. */
-export const AI_USAGE_LIMIT_FREE = 3;
-export const AI_USAGE_LIMIT_PRO = 30;
+export const AI_USAGE_LIMIT_FREE = 1;
+export const AI_USAGE_LIMIT_PRO = 10;
 
 export type AiPlanTier = 'free' | 'pro';
 
@@ -39,8 +41,5 @@ export function formatAiQuotaDisplay(
 }
 
 export function aiQuotaExhaustedMessage(isPro: boolean): string {
-  if (isPro) {
-    return `今日 AI 次數已達上限（${AI_USAGE_LIMIT_PRO} 次），請明天再試`;
-  }
-  return '今日免費 AI 次數已用完，升級 Pro 可每日使用 30 次';
+  return isPro ? AI_QUOTA_PRO_EXHAUSTED : AI_QUOTA_FREE_EXHAUSTED;
 }
