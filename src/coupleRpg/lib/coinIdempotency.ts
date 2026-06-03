@@ -5,8 +5,17 @@ export function choreCoinKey(dateKey: string, taskId: string): string {
   return `earn:housework:${dateKey}:${taskId}`;
 }
 
-export function taskCoinKey(dateKey: string, taskId: string): string {
-  return `earn:task:${dateKey}:${taskId}`;
+/** 今日戀愛任務槽位（0-based）；與任務 instance id 無關，防換任務刷獎 */
+export function taskCoinKey(dateKey: string, slotIndex: number): string {
+  return `earn:task:${dateKey}:slot-${slotIndex}`;
+}
+
+export function loveTaskAllCompleteKey(dateKey: string): string {
+  return `earn:love-task-all:${dateKey}`;
+}
+
+export function loveFlameMilestoneKey(streak: number): string {
+  return `earn:love-flame-milestone:${streak}`;
 }
 
 export function miniGameCoinKey(dateKey: string, slot: number): string {

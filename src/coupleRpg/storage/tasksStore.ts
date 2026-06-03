@@ -1,15 +1,21 @@
 import { LOVE_TASK_POOL } from '../data/loveTaskPool';
+import { LOVE_TASK_POOL_PRO } from '../data/loveTaskPoolPro';
+import { LOVE_TASKS_PER_DAY } from '../lib/loveTaskRewards';
+import {
+  syncTasksRewardFlagsFromLedger,
+  type LedgerContext,
+} from './dailyRewardLedgerStore';
 import { makeId } from '../lib/id';
-import { pickCountForDay, shuffleWithSeed } from '../lib/seededRandom';
+import { shuffleWithSeed } from '../lib/seededRandom';
 import { todayKey } from '../lib/dates';
 import type { LoveTask, TasksData } from './types';
 import { LQ_KEYS } from './keys';
 import { loadJson, saveJson } from './persist';
 
-export function generateDailyTasks(dateKey: string): LoveTask[] {
-  const count = pickCountForDay(dateKey, 1, 3);
-  const shuffled = shuffleWithSeed(LOVE_TASK_POOL, `${dateKey}-tasks`);
-  return shuffled.slice(0, count).map((t) => ({
+export function generateDailyTasks(dateKey: string, isPro = false): LoveTask[] {
+  const pool = isPro ? [...LOVE_TASK_POOL, ...LOVE_TASK_POOL_PRO] : LOVE_TASK_POOL;
+  const shuffled = shuffleWithSeed(pool, `${dateKey}-tasks`);
+  return shuffled.slice(0, LOVE_TASKS_PER_DAY).map((t) => ({
     id: makeId(),
     templateId: t.id,
     label: t.label,
@@ -23,58 +29,86 @@ export function normalizeTasksShape(raw: Partial<TasksData> & { dailyTasks?: Lov
   const today = todayKey();
   const date = typeof raw.date === 'string' && raw.date ? raw.date : today;
   const dailyTasks = Array.isArray(raw.dailyTasks) ? raw.dailyTasks : [];
-  const rewardedTaskIds = Array.isArray(raw.rewardedTaskIds) ? raw.rewardedTaskIds : [];
+  let rewardedTaskIds = Array.isArray(raw.rewardedTaskIds) ? [...raw.rewardedTaskIds] : [];
 
-  let dailyRewardClaimedDate: string | null = null;
-  if (typeof raw.dailyRewardClaimedDate === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(raw.dailyRewardClaimedDate)) {
-    dailyRewardClaimedDate = raw.dailyRewardClaimedDate;
+  let dailyAllCompleteRewardDate: string | null = null;
+  if (
+    typeof raw.dailyAllCompleteRewardDate === 'string' &&
+    /^\d{4}-\d{2}-\d{2}$/.test(raw.dailyAllCompleteRewardDate)
+  ) {
+    dailyAllCompleteRewardDate = raw.dailyAllCompleteRewardDate;
   }
-  // Legacy: old builds used rewardedTaskIds + task instance ids; if any id was stored for today's
-  // task set, treat LoveCoin as already claimed for today so we never double-grant after upgrade.
-  if (!dailyRewardClaimedDate && date === today && rewardedTaskIds.length > 0) {
-    dailyRewardClaimedDate = today;
+
+  const rerollsByTaskId =
+    raw.rerollsByTaskId && typeof raw.rerollsByTaskId === 'object' && !Array.isArray(raw.rerollsByTaskId)
+      ? { ...raw.rerollsByTaskId }
+      : {};
+
+  // Legacy: 舊版每日一次 LoveCoin → 將今日已完成任務標記為已領獎，避免升級後重複發放
+  const legacyClaimed =
+    typeof raw.dailyRewardClaimedDate === 'string' && raw.dailyRewardClaimedDate === date;
+  if (legacyClaimed && date === today) {
+    for (const t of dailyTasks) {
+      if (t.done && !rewardedTaskIds.includes(t.id)) {
+        rewardedTaskIds.push(t.id);
+      }
+    }
+    if (dailyTasks.filter((t) => t.done).length >= LOVE_TASKS_PER_DAY && !dailyAllCompleteRewardDate) {
+      dailyAllCompleteRewardDate = today;
+    }
   }
 
   return {
     date,
     dailyTasks,
     rewardedTaskIds,
-    dailyRewardClaimedDate,
+    dailyAllCompleteRewardDate,
+    rerollsByTaskId,
   };
 }
 
-export function defaultTasksData(): TasksData {
+export function defaultTasksData(isPro = false): TasksData {
   const today = todayKey();
   return normalizeTasksShape({
     date: today,
-    dailyTasks: generateDailyTasks(today),
+    dailyTasks: generateDailyTasks(today, isPro),
     rewardedTaskIds: [],
-    dailyRewardClaimedDate: null,
+    dailyAllCompleteRewardDate: null,
+    rerollsByTaskId: {},
   });
 }
 
-export function ensureTodayTasks(data: TasksData): TasksData {
+export function ensureTodayTasks(data: TasksData, isPro = false): TasksData {
   const today = todayKey();
   const cur = normalizeTasksShape(data);
 
-  if (cur.date === today && cur.dailyTasks.length > 0) {
+  if (cur.date === today && cur.dailyTasks.length === LOVE_TASKS_PER_DAY) {
     return cur;
+  }
+
+  if (cur.date === today && cur.dailyTasks.length > 0 && cur.dailyTasks.length !== LOVE_TASKS_PER_DAY) {
+    return {
+      ...cur,
+      dailyTasks: generateDailyTasks(today, isPro),
+      rewardedTaskIds: [],
+      dailyAllCompleteRewardDate: null,
+      rerollsByTaskId: {},
+    };
   }
 
   if (cur.date === today && cur.dailyTasks.length === 0) {
     return {
-      date: today,
-      dailyTasks: generateDailyTasks(today),
-      rewardedTaskIds: cur.rewardedTaskIds,
-      dailyRewardClaimedDate: cur.dailyRewardClaimedDate,
+      ...cur,
+      dailyTasks: generateDailyTasks(today, isPro),
     };
   }
 
   return {
     date: today,
-    dailyTasks: generateDailyTasks(today),
+    dailyTasks: generateDailyTasks(today, isPro),
     rewardedTaskIds: [],
-    dailyRewardClaimedDate: null,
+    dailyAllCompleteRewardDate: null,
+    rerollsByTaskId: {},
   };
 }
 
@@ -86,27 +120,25 @@ function migrateLegacyTasks(raw: unknown): TasksData | null {
   return null;
 }
 
-function rawMissingRewardedIds(raw: unknown): boolean {
-  if (!raw || typeof raw !== 'object') return false;
-  return !Array.isArray((raw as { rewardedTaskIds?: unknown }).rewardedTaskIds);
+function rawNeedsMigration(raw: unknown, next: TasksData, parsed: TasksData): boolean {
+  if (!raw || typeof raw !== 'object') return true;
+  const o = raw as Record<string, unknown>;
+  if (!Array.isArray(o.rewardedTaskIds)) return true;
+  if (!('dailyAllCompleteRewardDate' in o)) return true;
+  if (!('rerollsByTaskId' in o)) return true;
+  if (parsed.date !== next.date) return true;
+  if (next.dailyTasks.length !== parsed.dailyTasks?.length) return true;
+  return false;
 }
 
-function rawMissingDailyRewardClaimed(raw: unknown): boolean {
-  if (!raw || typeof raw !== 'object') return false;
-  return !('dailyRewardClaimedDate' in (raw as object));
-}
-
-export function loadTasks(): TasksData {
+export function loadTasks(isPro = false, ledgerCtx?: LedgerContext): TasksData {
   const raw = loadJson<unknown>(LQ_KEYS.tasks, null);
-  const parsed = migrateLegacyTasks(raw) ?? defaultTasksData();
-  const next = ensureTodayTasks(parsed);
-  if (
-    !raw ||
-    (parsed as TasksData).date !== next.date ||
-    next.dailyTasks.length !== (parsed as TasksData).dailyTasks?.length ||
-    rawMissingRewardedIds(raw) ||
-    rawMissingDailyRewardClaimed(raw)
-  ) {
+  const parsed = migrateLegacyTasks(raw) ?? defaultTasksData(isPro);
+  let next = ensureTodayTasks(parsed, isPro);
+  if (ledgerCtx) {
+    next = syncTasksRewardFlagsFromLedger(ledgerCtx, next);
+  }
+  if (rawNeedsMigration(raw, next, parsed)) {
     saveTasks(next);
   }
   return next;
@@ -129,17 +161,19 @@ export function toggleDailyTask(data: TasksData, id: string): { data: TasksData;
 
 /**
  * Replace one daily love task with another template (no reward).
- * Excludes the current template and templates already used by other slots when possible.
- * Does not clear `dailyRewardClaimedDate` (daily LoveCoin claim is date-scoped, not per task id).
+ * Does not reset per-task reward or reroll counts for other slots.
  */
-export function replaceLoveTask(data: TasksData, taskId: string): TasksData {
+export function replaceLoveTask(data: TasksData, taskId: string, isPro = false): TasksData {
   const base = normalizeTasksShape(data);
   const task = base.dailyTasks.find((t) => t.id === taskId);
   if (!task) return base;
+
+  const pool = isPro ? [...LOVE_TASK_POOL, ...LOVE_TASK_POOL_PRO] : LOVE_TASK_POOL;
   const usedByOthers = new Set(base.dailyTasks.filter((t) => t.id !== taskId).map((t) => t.templateId));
-  const candidates = LOVE_TASK_POOL.filter((tpl) => tpl.id !== task.templateId && !usedByOthers.has(tpl.id));
-  const pool = candidates.length > 0 ? candidates : LOVE_TASK_POOL.filter((tpl) => tpl.id !== task.templateId);
-  const picked = pool[Math.floor(Math.random() * Math.max(pool.length, 1))] ?? LOVE_TASK_POOL[0];
+  const candidates = pool.filter((tpl) => tpl.id !== task.templateId && !usedByOthers.has(tpl.id));
+  const pickPool = candidates.length > 0 ? candidates : pool.filter((tpl) => tpl.id !== task.templateId);
+  const picked = pickPool[Math.floor(Math.random() * Math.max(pickPool.length, 1))] ?? pool[0];
+
   const newTask: LoveTask = {
     id: makeId(),
     templateId: picked.id,
@@ -147,9 +181,16 @@ export function replaceLoveTask(data: TasksData, taskId: string): TasksData {
     emoji: picked.emoji,
     done: false,
   };
+
+  const rerollsByTaskId = { ...base.rerollsByTaskId };
+  const prevRerolls = rerollsByTaskId[taskId] ?? 0;
+  delete rerollsByTaskId[taskId];
+  rerollsByTaskId[newTask.id] = prevRerolls + 1;
+
   return {
     ...base,
     dailyTasks: base.dailyTasks.map((t) => (t.id === taskId ? newTask : t)),
+    rerollsByTaskId,
   };
 }
 

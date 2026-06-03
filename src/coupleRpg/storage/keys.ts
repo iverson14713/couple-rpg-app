@@ -8,6 +8,10 @@ export const LQ_KEYS = {
   /** 每日家事 LoveCoin/RPG 領獎紀錄（dateKey::taskId，不受重新分配影響） */
   choreRewardClaims: 'lovequest-chore-reward-claims',
   tasks: 'lovequest-tasks',
+  /** @deprecated 請用 dailyRewardLedger；保留供遷移 */
+  loveFlame: 'lovequest-love-flame',
+  /** Phase 2 每日獎勵帳本（user-scoped key + couple scope 在 JSON 內） */
+  dailyRewardLedger: 'lovequest-daily-reward-ledger',
   flirtGames: 'lovequest-flirt-games',
   completionHistory: 'lovequest-completion-history',
   activity: 'lovequest-activity',

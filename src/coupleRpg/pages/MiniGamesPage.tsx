@@ -3,7 +3,9 @@ import { ChevronLeft } from 'lucide-react';
 import { useCoupleRpgNav } from '../context/CoupleRpgNavContext';
 import { useLoveQuest } from '../context/LoveQuestContext';
 import { useUserPlan } from '../context/UserPlanContext';
+import { DailyRewardsLoginHint } from '../components/DailyRewardsLoginHint';
 import { ProBadgeIfNeeded } from '../components/ProBadge';
+import { DAILY_REWARDS_LOGIN_HINT } from '../lib/dailyRewardsCopy';
 import {
   MiniGamePlayCard,
   type MiniGameCardPhase,
@@ -40,7 +42,9 @@ function buildDisplay(
   prompt: ReturnType<typeof pickGamePrompt>,
   line: string | null,
   poolHint: string,
-  lastGrantOk: boolean | null
+  lastGrantOk: boolean | null,
+  canEarnDailyRewards: boolean,
+  atCap: boolean
 ): MiniGamePlayCardDisplay {
   const def = modeDef!;
 
@@ -65,9 +69,13 @@ function buildDisplay(
   if (phase === 'completed') {
     const rewardLine =
       lastGrantOk === true
-        ? '🪙 +2 ❤️ +3 🤝 +1 ✨ +5'
+        ? '🪙 +5 ✨ +3'
         : lastGrantOk === false
-          ? '今日獎勵已達上限，仍可繼續玩'
+          ? !canEarnDailyRewards
+            ? DAILY_REWARDS_LOGIN_HINT
+            : atCap
+              ? '今日獎勵已達上限，仍可繼續玩'
+              : '本次未發放獎勵，仍可繼續玩'
           : '';
     return {
       displayEmoji: '✨',
@@ -88,7 +96,7 @@ function buildDisplay(
 
 export function MiniGamesPage() {
   const { navigateTo } = useCoupleRpgNav();
-  const { rpgView, claimMiniGameReward } = useLoveQuest();
+  const { rpgView, claimMiniGameReward, canEarnDailyRewards } = useLoveQuest();
   const { isPro, openUpgradeModal } = useUserPlan();
 
   const [mode, setMode] = useState<CoupleGameModeId>('coupleDice');
@@ -114,8 +122,8 @@ export function MiniGamesPage() {
   const poolHint = poolSize > 0 ? '點下方按鈕抽一個小驚喜' : '此模式需 Pro 解鎖';
 
   const display = useMemo(
-    () => buildDisplay(phase, modeDef, prompt, line, poolHint, lastGrantOk),
-    [phase, modeDef, prompt, line, poolHint, lastGrantOk]
+    () => buildDisplay(phase, modeDef, prompt, line, poolHint, lastGrantOk, canEarnDailyRewards, atCap),
+    [phase, modeDef, prompt, line, poolHint, lastGrantOk, canEarnDailyRewards, atCap]
   );
 
   const clearTimers = useCallback(() => {
@@ -225,8 +233,9 @@ export function MiniGamesPage() {
         <p className="mt-0.5 text-[10px] leading-snug text-stone-500">
           {atCap
             ? '今日獎勵已滿，仍可繼續玩'
-            : `完成一次 🪙+2 ❤️+3 🤝+1 ✨+5（${isPro ? 'Pro' : 'Free'} 每日 ${cap} 次）`}
+            : `完成一次 🪙+5 ✨+3（${isPro ? 'Pro' : 'Free'} 每日 ${cap} 次）`}
         </p>
+        <DailyRewardsLoginHint className="mt-2" />
       </div>
 
       <div className="mb-2">

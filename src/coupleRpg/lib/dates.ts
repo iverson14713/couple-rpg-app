@@ -1,3 +1,12 @@
+/** YYYY-MM-DD offset by calendar days from a date key or today. */
+export function offsetDateKey(days: number, base?: string): string {
+  const src = base ?? todayKey();
+  const [y, m, d] = src.split('-').map(Number);
+  const dt = new Date(y, m - 1, d);
+  dt.setDate(dt.getDate() + days);
+  return todayKey(dt);
+}
+
 export function todayKey(d = new Date()): string {
   const y = d.getFullYear();
   const m = String(d.getMonth() + 1).padStart(2, '0');

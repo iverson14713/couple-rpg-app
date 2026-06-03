@@ -160,16 +160,26 @@ export type TasksData = {
   /** Date key when dailyTasks were generated. */
   date: string;
   dailyTasks: LoveTask[];
-  /**
-   * Legacy: per-instance ids from older builds; kept for migration only.
-   * LoveCoin for daily tasks is gated by `dailyRewardClaimedDate`, not this array.
-   */
+  /** 已完成並領取單任務獎勵的任務 instance id（防重複） */
   rewardedTaskIds: string[];
+  /** YYYY-MM-DD when 2/2 全完成加碼獎勵已領，或 null */
+  dailyAllCompleteRewardDate: string | null;
+  /** 各任務今日已使用「換一個」次數（key = task instance id） */
+  rerollsByTaskId: Record<string, number>;
   /**
-   * YYYY-MM-DD when LoveQuest daily love-task LoveCoin was last claimed, or null.
-   * At most one LoveCoin grant per calendar day for this feature (reroll-safe).
+   * @deprecated 舊版每日一次 LoveCoin；遷移後不再使用
    */
-  dailyRewardClaimedDate: string | null;
+  dailyRewardClaimedDate?: string | null;
+};
+
+export type LoveFlameData = {
+  lastInteractionDate: string | null;
+  currentStreak: number;
+  longestStreak: number;
+  /** 今日是否已記錄有效互動（曆日 key） */
+  todayRecordedDate: string | null;
+  /** 已領取的 streak 里程碑：3 | 7 | 14 | 30 */
+  claimedMilestones: number[];
 };
 
 export type FlirtGameId = 'dice' | 'truth' | 'coquettish' | 'stare' | 'massage';

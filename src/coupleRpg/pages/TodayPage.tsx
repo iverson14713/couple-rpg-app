@@ -5,6 +5,7 @@ import { useLoveQuest } from '../context/LoveQuestContext';
 import { useCoupleSpace } from '../context/CoupleSpaceContext';
 import { HomeCoupleOverviewCard } from '../components/HomeCoupleOverviewCard';
 import { HomeImportantDateHeroCard } from '../components/HomeImportantDateHeroCard';
+import { HomeLoveFlameCard } from '../components/HomeLoveFlameCard';
 import { NicknameSetupBanner } from '../components/NicknameSetupBanner';
 import { lq } from '../theme';
 
@@ -38,6 +39,8 @@ export function TodayPage() {
       <HomeImportantDateHeroCard />
 
       <HomeCoupleOverviewCard />
+
+      <HomeLoveFlameCard />
 
       <NicknameSetupBanner compact />
 

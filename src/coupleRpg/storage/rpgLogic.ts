@@ -56,13 +56,18 @@ export const REWARDS = {
   houseworkComplete: { heart: 0, compatibility: 3, xp: 10, houseworkPoints: 10, loveCoins: 3 },
   /** 今日家事分配：完成單一項目（每項僅一次） */
   houseworkChoreComplete: { heart: 0, compatibility: 3, xp: 10, houseworkPoints: 0, loveCoins: 3 },
+  /** @deprecated 使用 dailyLoveTaskComplete */
   loveTaskComplete: { heart: 10, compatibility: 1, xp: 20, houseworkPoints: 0, loveCoins: 5 },
+  /** 今日戀愛任務：完成單一任務 */
+  dailyLoveTaskComplete: { heart: 2, compatibility: 1, xp: 10, houseworkPoints: 0, loveCoins: 15 },
+  /** 今日戀愛任務：2/2 全完成加碼 */
+  dailyLoveTaskAllComplete: { heart: 0, compatibility: 0, xp: 10, houseworkPoints: 0, loveCoins: 20 },
   flirtGameComplete: { heart: 2, compatibility: 2, xp: 12, houseworkPoints: 0, loveCoins: 8 },
   dinnerSaved: { heart: 3, compatibility: 2, xp: 5, houseworkPoints: 0, loveCoins: 0 },
   dateComplete: { heart: 15, compatibility: 5, xp: 30, houseworkPoints: 0, dateAchievements: 1, loveCoins: 10 },
   coupleProfileImportant: { heart: 5, compatibility: 0, xp: 10, houseworkPoints: 0, loveCoins: 0 },
   /** 情侶小遊戲頁「完成」一次（受每日 3 次上限） */
-  miniGameComplete: { heart: 3, compatibility: 1, xp: 5, houseworkPoints: 0, loveCoins: 2 },
+  miniGameComplete: { heart: 0, compatibility: 0, xp: 3, houseworkPoints: 0, loveCoins: 5 },
   anniversaryPlanComplete: {
     heart: 3,
     compatibility: 2,

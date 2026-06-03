@@ -45,11 +45,31 @@ import {
 import type { HouseworkHomeStatus } from '../storage/houseworkStore';
 import {
   dailyTaskProgress,
+  ensureTodayTasks,
   loadTasks,
   replaceLoveTask,
   saveTasks,
   toggleDailyTask,
 } from '../storage/tasksStore';
+import {
+  getMiniGameRewardCount,
+  getScopeRecord,
+  isLedgerWritable,
+  isLoveFlameRecordedToday,
+  isLoveTaskAllCompleteClaimed,
+  isLoveTaskSlotClaimed,
+  LOVE_FLAME_MILESTONE_COINS,
+  loveFlameDisplayFromScope,
+  migrateLegacyRewardsIntoLedger,
+  scopeToLoveFlameData,
+  syncTasksRewardFlagsFromLedger,
+  tryClaimFlameMilestone,
+  tryClaimLoveTaskAllComplete,
+  tryClaimLoveTaskSlot,
+  tryClaimMiniGameReward,
+  tryRecordLoveFlameToday,
+  type LedgerContext,
+} from '../storage/dailyRewardLedgerStore';
 import {
   clearSession,
   isGameDoneToday,
@@ -198,14 +218,19 @@ import type { CoupleExtendedProfile } from '../storage/coupleExtendedTypes';
 import type { WeeklyHouseworkStats } from '../storage/houseworkStore';
 import { makeId } from '../lib/id';
 import { todayKey } from '../lib/dates';
+import { STORAGE_USER_CHANGED_EVENT } from '../storage/storageSession';
 import {
   choreCoinKey,
   dateCompleteCoinKey,
   flirtGameCoinKey,
   fallbackEarnCoinKey,
+  loveFlameMilestoneKey,
+  loveTaskAllCompleteKey,
   miniGameCoinKey,
   redeemCoinKey,
+  taskCoinKey,
 } from '../lib/coinIdempotency';
+import { canRerollLoveTask } from '../lib/loveTaskRewards';
 import {
   canSyncCoinWallet,
   getCachedCoinBalance,
@@ -283,6 +308,17 @@ type LoveQuestContextValue = {
   weeklyStats: WeeklyHouseworkStats;
   tasks: TasksData;
   taskProgress: ReturnType<typeof dailyTaskProgress>;
+  loveFlameView: ReturnType<typeof loveFlameDisplayFromScope> & {
+    currentStreak: number;
+    longestStreak: number;
+    todayRecorded: boolean;
+  };
+  canRerollLoveTaskFor: (taskId: string) => boolean;
+  /** 帳本：今日戀愛任務槽位是否已領獎（localStorage，防刷） */
+  isLoveTaskSlotRewardClaimed: (slotIndex: number) => boolean;
+  isLoveTaskAllCompleteRewardClaimed: () => boolean;
+  /** 已登入且可寫入每日獎勵帳本（未登入時完成互動不發獎） */
+  canEarnDailyRewards: boolean;
   coupleExtended: CoupleExtendedProfile;
   /** 全站一致：我／另一半顯示名 */
   displayNames: { me: string; partner: string };
@@ -464,7 +500,14 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     backfillChoreRewardClaimsFromHousework(loadHousework());
   }, []);
-  const [tasks, setTasks] = useState(loadTasks);
+  const ledgerCtx = useMemo<LedgerContext>(
+    () => ({ userId: currentUserId, coupleId }),
+    [currentUserId, coupleId]
+  );
+  const [ledgerRevision, setLedgerRevision] = useState(0);
+  const bumpLedger = useCallback(() => setLedgerRevision((n) => n + 1), []);
+
+  const [tasks, setTasks] = useState(() => loadTasks(isPro, { userId: currentUserId, coupleId }));
   const [coupleExtended, setCoupleExtendedState] = useState(loadCoupleExtendedProfile);
   const [importantDateReminders, setImportantDateReminders] = useState(loadImportantDateReminders);
 
@@ -860,6 +903,59 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
   const [spinning, setSpinning] = useState(false);
 
   const taskProgress = useMemo(() => dailyTaskProgress(tasks.dailyTasks), [tasks.dailyTasks]);
+
+  useEffect(() => {
+    migrateLegacyRewardsIntoLedger(ledgerCtx);
+    setTasks(loadTasks(isPro, ledgerCtx));
+    bumpLedger();
+  }, [ledgerCtx, isPro, bumpLedger]);
+
+  useEffect(() => {
+    const onStorageUser = () => {
+      migrateLegacyRewardsIntoLedger(ledgerCtx);
+      setTasks(loadTasks(isPro, ledgerCtx));
+      bumpLedger();
+    };
+    window.addEventListener(STORAGE_USER_CHANGED_EVENT, onStorageUser);
+    return () => window.removeEventListener(STORAGE_USER_CHANGED_EVENT, onStorageUser);
+  }, [ledgerCtx, isPro, bumpLedger]);
+
+  useEffect(() => {
+    setTasks((prev) => ensureTodayTasks(prev, isPro));
+  }, [isPro]);
+
+  const ledgerScope = useMemo(
+    () => getScopeRecord(ledgerCtx),
+    [ledgerCtx, ledgerRevision]
+  );
+
+  const loveFlameView = useMemo(() => {
+    const flame = scopeToLoveFlameData(ledgerScope);
+    const display = loveFlameDisplayFromScope(ledgerScope);
+    return {
+      ...display,
+      currentStreak: flame.currentStreak,
+      longestStreak: flame.longestStreak,
+      todayRecorded: display.todayRecorded,
+    };
+  }, [ledgerScope]);
+
+  const isLoveTaskSlotRewardClaimed = useCallback(
+    (slotIndex: number) => isLoveTaskSlotClaimed(ledgerCtx, todayKey(), slotIndex),
+    [ledgerCtx, ledgerRevision]
+  );
+
+  const isLoveTaskAllCompleteRewardClaimed = useCallback(
+    () => isLoveTaskAllCompleteClaimed(ledgerCtx, todayKey()),
+    [ledgerCtx, ledgerRevision]
+  );
+
+  const canRerollLoveTaskFor = useCallback(
+    (taskId: string) => canRerollLoveTask(tasks, taskId, isPro),
+    [tasks, isPro]
+  );
+
+  const canEarnDailyRewards = useMemo(() => isLedgerWritable(ledgerCtx), [ledgerCtx]);
   const weeklyStats = useMemo(() => getWeeklyStats(housework.completions), [housework.completions]);
   const houseworkHomeStatus = useMemo(() => getHouseworkHomeStatus(housework), [housework]);
   const choreCanSyncItems = useMemo(
@@ -992,6 +1088,23 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
     ]
   );
 
+  const recordValidInteractionToday = useCallback(() => {
+    const { recordedToday, newMilestones } = tryRecordLoveFlameToday(ledgerCtx);
+    bumpLedger();
+    if (!recordedToday) return;
+    for (const m of newMilestones) {
+      if (!tryClaimFlameMilestone(ledgerCtx, m)) continue;
+      bumpLedger();
+      const coins = LOVE_FLAME_MILESTONE_COINS[m as keyof typeof LOVE_FLAME_MILESTONE_COINS];
+      grantReward(
+        { heart: 0, compatibility: 0, xp: 0, houseworkPoints: 0, loveCoins: coins },
+        `愛情火苗連續 ${m} 天`,
+        { source: 'task', title: `連續互動 ${m} 天`, emoji: '🔥' },
+        loveFlameMilestoneKey(m)
+      );
+    }
+  }, [grantReward, ledgerCtx, bumpLedger]);
+
   useEffect(() => {
     setRpg((prev) => {
       const { state: next, isNewDay } = processDailyLogin(prev);
@@ -1013,19 +1126,15 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
 
   const claimMiniGameReward = useCallback(
     (detail?: string): boolean => {
-      const cap = getMiniGameDailyRewardCap(isPro);
-      let granted = false;
-      let slotNum = 0;
       const day = todayKey();
+      const claim = tryClaimMiniGameReward(ledgerCtx, day, isPro);
+      bumpLedger();
+      if (!claim.ok) return false;
+
+      const slotNum = claim.slotNum;
       setRpg((prev) => {
         const rolled = rollDailyGuardForToday(normalizeRpgState(prev));
         const g = rolled.dailyGuard ?? defaultDailyGuard();
-        const count = g.miniGamesRewardCount ?? 0;
-        if (count >= cap) {
-          return rolled === prev ? prev : rolled;
-        }
-        granted = true;
-        slotNum = count + 1;
         const out: RpgState = canSyncWallet
           ? {
               ...rolled,
@@ -1045,34 +1154,42 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
         return out;
       });
 
-      if (granted) {
-        grantReward(
-          REWARDS.miniGameComplete,
-          '完成情侶小遊戲',
-          {
-            source: 'game',
-            title: '情侶小遊戲',
-            emoji: '🎲',
-          },
-          miniGameCoinKey(day, slotNum),
-          { skipRpg: true }
-        );
-        addCompletion('game', '情侶小遊戲', '🎲', detail ? { detail } : undefined);
-        logTodayActivity({ actionType: 'complete', targetType: 'mini_game' });
-      }
-
-      return granted;
+      grantReward(
+        REWARDS.miniGameComplete,
+        '完成情侶小遊戲',
+        {
+          source: 'game',
+          title: '情侶小遊戲',
+          emoji: '🎲',
+        },
+        miniGameCoinKey(day, slotNum),
+        { skipRpg: true }
+      );
+      addCompletion('game', '情侶小遊戲', '🎲', detail ? { detail } : undefined);
+      logTodayActivity({ actionType: 'complete', targetType: 'mini_game' });
+      recordValidInteractionToday();
+      return true;
     },
-    [addCompletion, canSyncWallet, isPro, logTodayActivity]
+    [
+      addCompletion,
+      bumpLedger,
+      canSyncWallet,
+      grantReward,
+      isPro,
+      ledgerCtx,
+      logTodayActivity,
+      recordValidInteractionToday,
+    ]
   );
 
-  const rpgView = useMemo(
-    () => ({
+  const rpgView = useMemo(() => {
+    const day = todayKey();
+    return {
       ...rpgSnapshot(rpg),
       miniGamesRewardCap: getMiniGameDailyRewardCap(isPro),
-    }),
-    [rpg, isPro]
-  );
+      miniGamesRewardsToday: getMiniGameRewardCount(ledgerCtx, day),
+    };
+  }, [rpg, isPro, ledgerCtx, ledgerRevision]);
 
   const pullDinnerFromCloud = useCallback(async () => {
     if (coupleSpaceLoading) return;
@@ -1189,8 +1306,9 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
         targetTitle: choice,
         message: hadToday ? `重新決定今晚吃「${choice}」` : undefined,
       });
+      recordValidInteractionToday();
     },
-    [currentUserId, dinner.history, draftPick, logTodayActivity]
+    [currentUserId, dinner.history, draftPick, logTodayActivity, recordValidInteractionToday]
   );
 
   const clearTodayDinnerResultFn = useCallback(() => {
@@ -1361,6 +1479,7 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
             targetType: 'chore',
             targetTitle: doneItem.label,
           });
+          recordValidInteractionToday();
         }
 
         return {
@@ -1372,7 +1491,15 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
         houseworkCompleteLocksRef.current.delete(taskId);
       }
     },
-    [currentUserId, displayNames.me, displayNames.partner, grantReward, isPro, logTodayActivity]
+    [
+      currentUserId,
+      displayNames.me,
+      displayNames.partner,
+      grantReward,
+      isPro,
+      logTodayActivity,
+      recordValidInteractionToday,
+    ]
   );
 
   const clearTodayHouseworkFn = useCallback(() => {
@@ -1580,47 +1707,68 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
     [logTodayActivity, pushCoupleProfileBackground]
   );
 
-  const rerollLoveTaskFn = useCallback((taskId: string) => {
-    setTasks((prev) => {
-      const next = replaceLoveTask(prev, taskId);
-      saveTasks(next);
-      return next;
-    });
-  }, []);
+  const rerollLoveTaskFn = useCallback(
+    (taskId: string) => {
+      if (!canRerollLoveTask(tasks, taskId, isPro)) return;
+      setTasks((prev) => {
+        if (!canRerollLoveTask(prev, taskId, isPro)) return prev;
+        const next = replaceLoveTask(prev, taskId, isPro);
+        saveTasks(next);
+        return next;
+      });
+    },
+    [isPro, tasks]
+  );
 
   const toggleDailyTaskFn = useCallback(
     (id: string) => {
+      const day = todayKey();
       setTasks((prev) => {
-        const day = todayKey();
+        const slotIndex = prev.dailyTasks.findIndex((t) => t.id === id);
         const wasDone = prev.dailyTasks.find((t) => t.id === id)?.done ?? false;
         const { data: nextBase, task } = toggleDailyTask(prev, id);
-        const claimedToday = prev.dailyRewardClaimedDate === day;
         let next = nextBase;
 
-        if (task?.done && !wasDone) {
-          if (!claimedToday) {
+        if (task?.done && !wasDone && slotIndex >= 0) {
+          if (tryClaimLoveTaskSlot(ledgerCtx, day, slotIndex)) {
+            bumpLedger();
             grantReward(
-              REWARDS.loveTaskComplete,
+              REWARDS.dailyLoveTaskComplete,
               `完成戀愛任務「${task.label}」`,
               {
                 source: 'task',
                 title: task.label,
                 emoji: task.emoji,
               },
-              taskCoinKey(day, id)
+              taskCoinKey(day, slotIndex)
             );
             addCompletion('task', task.label, task.emoji);
-            next = { ...nextBase, dailyRewardClaimedDate: day };
           }
+
+          const progress = dailyTaskProgress(next.dailyTasks);
+          const allComplete =
+            progress.total >= 2 && progress.done === progress.total;
+          if (allComplete && tryClaimLoveTaskAllComplete(ledgerCtx, day)) {
+            bumpLedger();
+            grantReward(
+              REWARDS.dailyLoveTaskAllComplete,
+              '完成今日全部戀愛任務',
+              { source: 'task', title: '今日戀愛任務 2/2', emoji: '💌' },
+              loveTaskAllCompleteKey(day)
+            );
+          }
+
+          next = syncTasksRewardFlagsFromLedger(ledgerCtx, next, day);
           logTodayActivity({ actionType: 'complete', targetType: 'love_task', targetTitle: task.label });
           saveTasks(next);
+          queueMicrotask(() => recordValidInteractionToday());
         } else {
           saveTasks(nextBase);
         }
         return next;
       });
     },
-    [grantReward, addCompletion, logTodayActivity]
+    [grantReward, addCompletion, logTodayActivity, recordValidInteractionToday, ledgerCtx, bumpLedger]
   );
 
   const startFlirtGame = useCallback((gameId: FlirtGameId) => {
@@ -1719,8 +1867,11 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
       saveDatePlanner(next);
       return next;
     });
+    if (ok) {
+      recordValidInteractionToday();
+    }
     return ok;
-  }, [isPro]);
+  }, [isPro, recordValidInteractionToday]);
 
   const toggleDateFavoriteFn = useCallback((ideaId: string) => {
     setDatePlanner((prev) => {
@@ -1772,11 +1923,12 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
             targetType: 'date_idea',
             targetTitle: captured.title,
           });
+          recordValidInteractionToday();
         }
       });
       return next;
     });
-  }, [addCompletion, logTodayActivity]);
+  }, [addCompletion, grantReward, logTodayActivity, recordValidInteractionToday]);
 
   const addAnniversaryFn = useCallback(
     (input: {
@@ -2035,6 +2187,7 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
       });
       pushCouponBackground(result.coupon);
       coinWalletSchedulerRef.current?.scheduleSync();
+      recordValidInteractionToday();
       return { ok: true, couponId: result.coupon.id };
     },
     [
@@ -2047,6 +2200,7 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
       formatLoveCoinActivityMessage,
       logTodayActivity,
       pushCouponBackground,
+      recordValidInteractionToday,
     ]
   );
 
@@ -2101,6 +2255,7 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
         message: formatLoveCoinActivityMessage(-normalized.cost, result.coupon.cardTitle),
       });
       pushCouponBackground(result.coupon);
+      recordValidInteractionToday();
       return { ok: true, couponId: result.coupon.id };
     },
     [
@@ -2113,14 +2268,17 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
       formatLoveCoinActivityMessage,
       logTodayActivity,
       pushCouponBackground,
+      recordValidInteractionToday,
     ]
   );
 
   const useCouponFn = useCallback(
     (couponId: string) => {
+      let used = false;
       setRewards((prev) => {
         const r = useRewardCardLocal(prev, couponId, currentUserId);
         if (r.error || !r.coupon) return prev;
+        used = true;
         saveRewards(r.rewards);
         const name = actorDisplayName(currentUserId);
         setActivity(appendActivity(formatUseFeedLine(name, r.coupon.cardTitle)));
@@ -2163,8 +2321,18 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
         }
         return r.rewards;
       });
+      if (used) recordValidInteractionToday();
     },
-    [actorDisplayName, auth.configured, auth.supabase, coupleId, currentUserId, isOnline, logTodayActivity]
+    [
+      actorDisplayName,
+      auth.configured,
+      auth.supabase,
+      coupleId,
+      currentUserId,
+      isOnline,
+      logTodayActivity,
+      recordValidInteractionToday,
+    ]
   );
 
   const cancelRewardCardUseFn = useCallback(
@@ -2465,6 +2633,11 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
       weeklyStats,
       tasks,
       taskProgress,
+      loveFlameView,
+      canRerollLoveTaskFor,
+      isLoveTaskSlotRewardClaimed,
+      isLoveTaskAllCompleteRewardClaimed,
+      canEarnDailyRewards,
       coupleExtended,
       displayNames,
       displayNameForUser,
@@ -2577,6 +2750,12 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
       weeklyStats,
       tasks,
       taskProgress,
+      ledgerRevision,
+      loveFlameView,
+      canRerollLoveTaskFor,
+      isLoveTaskSlotRewardClaimed,
+      isLoveTaskAllCompleteRewardClaimed,
+      canEarnDailyRewards,
       coupleExtended,
       displayNames,
       displayNameForUser,
