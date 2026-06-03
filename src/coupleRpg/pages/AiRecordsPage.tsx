@@ -15,6 +15,8 @@ import {
   buildImportantDateSharePayload,
   type AiShareCardPayload,
 } from '../lib/aiShareCardContent';
+import { displayDateIdeaTitle } from '../lib/dateIdeaDisplay';
+import { tagLabelsForSuggestion } from '../lib/dateItineraryAiPrompt';
 import { dateItineraryRecordId, importantDateRecordId } from '../lib/aiRecordIds';
 import { AI_RECORD_RETENTION_HINT } from '../lib/aiRecordsConfig';
 import {
@@ -203,7 +205,13 @@ export function AiRecordsPage() {
               <AiRecordRowInner
                 recordId={dateItineraryRecordId(item.record)}
                 emoji={item.record.suggestion.emoji}
-                title={item.record.plan.title || item.record.suggestion.title}
+                title={
+                  item.record.plan.title ||
+                  displayDateIdeaTitle(
+                    item.record.suggestion.title,
+                    item.record.suggestion.scenario
+                  )
+                }
                 meta={`約會 · ${formatSavedItineraryDate(item.record)}`}
                 onView={() => setViewDate(item.record)}
                 onShare={() => openShare(buildDateItinerarySharePayload(item.record))}
@@ -235,8 +243,11 @@ export function AiRecordsPage() {
             <AiRecordRowInner
               recordId={dateItineraryRecordId(r)}
               emoji={r.suggestion.emoji}
-              title={r.plan.title || r.suggestion.title}
-              meta={`${formatSavedItineraryDate(r)} · ${r.suggestion.title}`}
+              title={
+                r.plan.title ||
+                displayDateIdeaTitle(r.suggestion.title, r.suggestion.scenario)
+              }
+              meta={`${formatSavedItineraryDate(r)} · ${tagLabelsForSuggestion(r.suggestion.tags).join('・') || displayDateIdeaTitle(r.suggestion.title, r.suggestion.scenario)}`}
               onView={() => setViewDate(r)}
               onShare={() => openShare(buildDateItinerarySharePayload(r))}
               onDelete={() => setPendingDelete({ kind: 'date', record: r })}

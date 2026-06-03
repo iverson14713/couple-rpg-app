@@ -1,4 +1,5 @@
 import { getDateIdeasForPlan } from '../data/dateIdeasPool';
+import { displayDateSuggestionTitle } from '../lib/dateIdeaDisplay';
 import { makeId } from '../lib/id';
 import { todayKey, timeLabel } from '../lib/dates';
 import type { DateFilterKey, DateFilters, DateHistoryEntry, DatePlannerData, DateSuggestion } from './dateTypes';
@@ -15,6 +16,14 @@ export function defaultDatePlannerData(): DatePlannerData {
   };
 }
 
+function normalizeCurrentSuggestion(
+  current: DatePlannerData['current']
+): DatePlannerData['current'] {
+  if (!current) return null;
+  const title = displayDateSuggestionTitle(current);
+  return title === current.title ? current : { ...current, title };
+}
+
 export function loadDatePlanner(): DatePlannerData {
   const raw = loadJson(LQ_KEYS.datePlanner, defaultDatePlannerData());
   return {
@@ -22,6 +31,7 @@ export function loadDatePlanner(): DatePlannerData {
     ...raw,
     filters: { ...DEFAULT_DATE_FILTERS(), ...raw.filters },
     favoriteIds: raw.favoriteIds ?? [],
+    current: normalizeCurrentSuggestion(raw.current ?? null),
     history: raw.history ?? [],
   };
 }

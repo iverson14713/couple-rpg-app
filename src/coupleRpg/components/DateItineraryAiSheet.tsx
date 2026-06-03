@@ -17,6 +17,7 @@ import {
   type DateAiStyleChoice,
   type DateAiTransportChoice,
 } from '../lib/dateItineraryAiPrompt';
+import { displayDateSuggestionTitle } from '../lib/dateIdeaDisplay';
 import { callDateItineraryAssistant } from '../lib/callCoupleAssistant';
 import type { DateItineraryPlan } from '../lib/dateItineraryAiModel';
 import { DateItineraryAiResult } from './DateItineraryAiResult';
@@ -223,7 +224,7 @@ export function DateItineraryAiSheet({ suggestion: suggestionProp, onClose, save
               <ProBadgeIfNeeded show={aiPro.showProBadge} feature="ai_in_app" />
             </p>
             <p className={`mt-0.5 truncate text-[17px] font-extrabold ${lq.text}`}>
-              {suggestion.emoji} {suggestion.title}
+              {suggestion.emoji} {displayDateSuggestionTitle(suggestion)}
             </p>
           </div>
           <button
@@ -458,7 +459,7 @@ function PlanningSettingsForm({
       >
         <p className="mb-2 text-[12px] font-bold text-rose-600">目前約會點子</p>
         <p className={`font-extrabold ${compactSuggestion ? 'text-[14px]' : 'text-[16px]'} ${lq.text}`}>
-          {suggestion.title}
+          {displayDateSuggestionTitle(suggestion)}
         </p>
         {!compactSuggestion && tagLabels.length > 0 ? (
           <p className="mt-1.5 text-[13px] font-semibold text-rose-700">{tagLabels.join(' · ')}</p>

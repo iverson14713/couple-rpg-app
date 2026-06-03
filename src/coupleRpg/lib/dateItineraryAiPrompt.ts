@@ -4,6 +4,7 @@ import {
   DURATION_LABEL,
 } from '../data/dateIdeasPool';
 import { budgetAmountGuidance } from './dateItineraryBudget';
+import { displayDateSuggestionTitle } from './dateIdeaDisplay';
 import type { DateCost, DateDuration, DateFilterKey, DateSuggestion } from '../storage/dateTypes';
 
 export type DateAiBudgetChoice = 'low' | 'mid' | 'high' | 'custom';
@@ -122,11 +123,15 @@ function previewByDuration(duration: DateDuration, title: string): DateItinerary
 }
 
 export function getDateItineraryPreview(suggestion: DateSuggestion): DateItineraryPreview {
-  return PREVIEW_BY_ID[suggestion.id] ?? previewByDuration(suggestion.duration, suggestion.title);
+  return (
+    PREVIEW_BY_ID[suggestion.id] ??
+    previewByDuration(suggestion.duration, displayDateSuggestionTitle(suggestion))
+  );
 }
 
 export function buildDateItineraryAiPrompt(input: DateItineraryAiInput): string {
   const { suggestion, departure, budget, customBudget, transport, style, partnerPrefs } = input;
+  const displayTitle = displayDateSuggestionTitle(suggestion);
   const tags = tagLabelsForSuggestion(suggestion.tags).join('、') || '（無）';
   const depart = departure.trim() || '（未填寫，請依台灣常見都會區假設並註明）';
   const prefs = partnerPrefs.trim() || '（未填寫，請依一般情侶互動給建議）';
@@ -134,7 +139,7 @@ export function buildDateItineraryAiPrompt(input: DateItineraryAiInput): string 
 
   return `你是「會幫朋友安排約會」的企劃人，不是列點機器人。請寫出像真人規劃的完整約會流程：有轉場、有情緒、有「為什麼這樣排」。
 
-【約會主題】${suggestion.emoji} ${suggestion.title}
+【約會主題】${suggestion.emoji} ${displayTitle}
 【主題標籤】${tags}
 【點子預算參考】${COST_LABEL[suggestion.cost]}（使用者選擇：${budgetLine(budget, customBudget)}）
 【建議時長】${DURATION_LABEL[suggestion.duration]}
@@ -202,5 +207,5 @@ ${budgetGuide}
 - estimatedTotal 必須是兩人總計的 NT$ 區間，不可只寫「中等預算」或只有 $ 符號
 - 金額須符合台灣行情與使用者預算檔次，可加（兩人）註記
 
-與「${suggestion.title}」主題一致；風格符合「${styleLine(style)}」；交通依「${transportLine(transport)}」安排轉場。`;
+與「${displayTitle}」主題一致；風格符合「${styleLine(style)}」；交通依「${transportLine(transport)}」安排轉場。`;
 }

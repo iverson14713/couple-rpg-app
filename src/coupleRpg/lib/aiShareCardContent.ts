@@ -1,7 +1,9 @@
 import { dateItineraryRecordId, importantDateRecordId } from './aiRecordIds';
 import { buildLocalShareRef, type AiShareRef } from './aiShareConfig';
 import type { SavedDateItineraryAi } from '../storage/dateItineraryAiCache';
+import { displayDateIdeaTitle } from './dateIdeaDisplay';
 import { formatSavedItineraryDate } from '../storage/dateItineraryAiCache';
+import { tagLabelsForSuggestion } from './dateItineraryAiPrompt';
 import type { SavedImportantDateAi } from '../storage/importantDateAiCache';
 import { formatSavedImportantDateLabel } from '../storage/importantDateAiCache';
 import { isSavedImportantItineraryPlan } from './importantDateItineraryPlan';
@@ -41,12 +43,18 @@ export function buildDateItinerarySharePayload(record: SavedDateItineraryAi): Ai
     lines.push(`💰 ${plan.budgetTier ?? ''} ${plan.budgetNote ?? plan.budget ?? ''}`.trim());
   }
 
+  const suggestionTitle = displayDateIdeaTitle(
+    record.suggestion.title,
+    record.suggestion.scenario
+  );
+  const tagLine = tagLabelsForSuggestion(record.suggestion.tags).join('・');
+
   return {
     kind: 'date_itinerary',
     emoji: record.suggestion.emoji || '💑',
-    title: plan.title || record.suggestion.title,
+    title: plan.title || suggestionTitle,
     dateLabel: formatSavedItineraryDate(record),
-    subtitle: record.suggestion.title,
+    subtitle: tagLine || suggestionTitle,
     summaryLines: trimLines(lines),
     recordId: dateItineraryRecordId(record),
     shareRef: buildLocalShareRef('date_itinerary', record.savedAt),

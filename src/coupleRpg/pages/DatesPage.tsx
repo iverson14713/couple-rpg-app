@@ -5,6 +5,11 @@ import {
   DATE_IDEAS_PRO_PREVIEW_COUNT,
   DURATION_LABEL,
 } from '../data/dateIdeasPool';
+import {
+  displayDateIdeaTemplateTitle,
+  displayDateIdeaTitle,
+  displayDateSuggestionTitle,
+} from '../lib/dateIdeaDisplay';
 import { PRO_MARKETING_UPGRADE_LINE } from '../lib/proPlanContent';
 import { useUserPlan } from '../context/UserPlanContext';
 import { DateItineraryAiSheet } from '../components/DateItineraryAiSheet';
@@ -180,7 +185,7 @@ export function DatesPage({ embedded }: { embedded?: boolean } = {}) {
                 className="flex items-center justify-between gap-2 rounded-xl border border-rose-50 bg-rose-50/30 px-2.5 py-2 text-[12px]"
               >
                 <span className="min-w-0 truncate font-semibold text-stone-800">
-                  {idea.emoji} {idea.title}
+                  {idea.emoji} {displayDateIdeaTemplateTitle(idea)}
                 </span>
                 <button
                   type="button"
@@ -207,7 +212,7 @@ export function DatesPage({ embedded }: { embedded?: boolean } = {}) {
                 className={`flex items-center justify-between gap-2 px-2.5 py-2 text-[12px] ${lq.cardSoft}`}
               >
                 <span className={`min-w-0 font-semibold ${lq.text}`}>
-                  {h.emoji} {h.title}
+                  {h.emoji} {displayDateIdeaTitle(h.title)}
                 </span>
                 <span className={`shrink-0 ${lq.textHint}`}>
                   {h.date} {h.time}
@@ -275,7 +280,7 @@ function SuggestionCard({
         <div className="min-w-0 flex-1 pt-0.5">
           <div className="flex flex-wrap items-start justify-between gap-2">
             <h3 className={`text-[26px] font-extrabold leading-tight tracking-tight ${lq.text}`}>
-              {suggestion.title}
+              {displayDateSuggestionTitle(suggestion)}
             </h3>
             {suggestion.completed ? (
               <span className="shrink-0 rounded-full bg-emerald-100 px-2.5 py-1 text-[12px] font-bold text-emerald-700">

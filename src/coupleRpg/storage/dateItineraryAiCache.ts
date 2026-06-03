@@ -1,3 +1,4 @@
+import { displayDateIdeaTitle, displayDateSuggestionTitle } from '../lib/dateIdeaDisplay';
 import { formatDateShort, todayKey } from '../lib/dates';
 import { hydrateDateItineraryPlan, type DateItineraryPlan } from '../lib/dateItineraryAiModel';
 import type {
@@ -48,7 +49,7 @@ export type SavedDateItineraryAi = {
 export function snapshotDateSuggestion(s: DateSuggestion): SavedDateItinerarySuggestion {
   return {
     id: s.id,
-    title: s.title,
+    title: displayDateSuggestionTitle(s),
     emoji: s.emoji,
     description: s.description,
     scenario: s.scenario,
@@ -61,6 +62,7 @@ export function snapshotDateSuggestion(s: DateSuggestion): SavedDateItinerarySug
 export function savedSuggestionToDateSuggestion(snap: SavedDateItinerarySuggestion): DateSuggestion {
   return {
     ...snap,
+    title: displayDateIdeaTitle(snap.title, snap.scenario),
     instanceId: 'saved-view',
     generatedAt: '',
     completed: false,
