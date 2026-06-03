@@ -88,7 +88,7 @@ function CoupleRpgShell() {
       {!screenshotMode && !isOnline ? (
         <OfflineBanner message="目前離線，部分功能可能無法同步。" />
       ) : null}
-      {!screenshotMode && auth.configured && auth.authReady && auth.user ? (
+      {!screenshotMode && auth.configured && auth.authReady && auth.user && tab !== 'home' ? (
         <LoggedInStrip />
       ) : null}
       <main key={tab} className="page-tab-fade">
@@ -166,11 +166,11 @@ function LoggedInStrip() {
   if (!auth.user) return null;
   return (
     <div
-      className={`mb-4 flex items-center justify-between gap-2 rounded-2xl border px-3 py-2.5 text-[12px] shadow-sm ${lq.strip}`}
+      className={`mb-2 flex items-center justify-between gap-2 rounded-xl border px-2.5 py-1.5 text-[11px] shadow-sm ${lq.strip}`}
     >
-      <span className="min-w-0 text-stone-700">
-        <span className="font-bold text-stone-500">已登入</span>{' '}
-        <span className="font-semibold text-rose-700">{label}</span>
+      <span className="min-w-0 text-stone-600">
+        <span className="font-medium text-stone-400">已登入</span>{' '}
+        <span className="font-semibold text-stone-600">{label}</span>
       </span>
     </div>
   );
