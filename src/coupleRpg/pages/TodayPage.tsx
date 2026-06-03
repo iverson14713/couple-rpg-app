@@ -6,6 +6,7 @@ import { useCoupleSpace } from '../context/CoupleSpaceContext';
 import { HomeCoupleOverviewCard } from '../components/HomeCoupleOverviewCard';
 import { HomeImportantDateHeroCard } from '../components/HomeImportantDateHeroCard';
 import { HomeLoveFlameCard } from '../components/HomeLoveFlameCard';
+import { HomeLevelCard } from '../components/HomeLevelCard';
 import { NicknameSetupBanner } from '../components/NicknameSetupBanner';
 import { lq } from '../theme';
 
@@ -41,6 +42,8 @@ export function TodayPage() {
       <HomeCoupleOverviewCard />
 
       <HomeLoveFlameCard />
+
+      <HomeLevelCard />
 
       <NicknameSetupBanner compact />
 

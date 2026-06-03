@@ -12,6 +12,8 @@ export const LQ_KEYS = {
   loveFlame: 'lovequest-love-flame',
   /** Phase 2 每日獎勵帳本（user-scoped key + couple scope 在 JSON 內） */
   dailyRewardLedger: 'lovequest-daily-reward-ledger',
+  /** Phase 3A 情侶 EXP（user-scoped + couple scope 在 JSON 內） */
+  coupleExp: 'lovequest-couple-exp',
   flirtGames: 'lovequest-flirt-games',
   completionHistory: 'lovequest-completion-history',
   activity: 'lovequest-activity',

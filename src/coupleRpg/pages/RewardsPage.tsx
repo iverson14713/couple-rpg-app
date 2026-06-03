@@ -12,6 +12,7 @@ import { CustomRewardCardPanel } from '../components/CustomRewardCardPanel';
 import { ProBadgeIfNeeded } from '../components/ProBadge';
 import { useProFeature } from '../hooks/useProFeature';
 import { NicknameSetupBanner } from '../components/NicknameSetupBanner';
+import { HomeLevelCard } from '../components/HomeLevelCard';
 import { PageHero } from '../components/ui';
 import { useLoveQuest } from '../context/LoveQuestContext';
 import { useToast } from '../../context/ToastContext';
@@ -254,6 +255,8 @@ export function RewardsPage({ embedded }: { embedded?: boolean } = {}) {
 
       {tab === 'wallet' && (
         <div className="space-y-3">
+          <HomeLevelCard />
+
           <section className={`overflow-hidden p-4 ${lq.card}`}>
             <div className="flex items-center justify-between gap-3">
               <div>

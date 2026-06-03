@@ -17,7 +17,11 @@ export function RpgMiniStats({ compact }: { compact?: boolean }) {
       <div className="mb-2 flex flex-wrap gap-1.5">
         <MiniHud emoji="❤️" value={String(rpgView.heartPoints)} hint={STAT_HINTS.heart} />
         <MiniHud emoji="🤝" value={`${rpgView.compatibility}%`} hint={STAT_HINTS.compat} />
-        <MiniHud emoji="✨" value={`Lv.${rpgView.level}`} hint={STAT_HINTS.level} />
+        <MiniHud
+          emoji="✨"
+          value={`Lv.${rpgView.level}`}
+          hint={`${rpgView.title ?? ''} · ${STAT_HINTS.level}`}
+        />
       </div>
     );
   }
@@ -28,7 +32,12 @@ export function RpgMiniStats({ compact }: { compact?: boolean }) {
         <StatCell emoji="❤️" label="愛心" value={String(rpgView.heartPoints)} hint={STAT_HINTS.heart} sub={`/${rpgView.heartMax}`} />
         <StatCell emoji="🤝" label="默契" value={`${rpgView.compatibility}%`} hint={STAT_HINTS.compat} />
         <StatCell emoji="🏠" label="家事" value={String(rpgView.houseworkPoints)} hint={STAT_HINTS.housework} />
-        <StatCell emoji="✨" label="等級" value={`Lv.${rpgView.level}`} hint={STAT_HINTS.level} />
+        <StatCell
+          emoji="✨"
+          label="等級"
+          value={`Lv.${rpgView.level}`}
+          hint={`${'title' in rpgView && rpgView.title ? `${rpgView.title} · ` : ''}${STAT_HINTS.level}`}
+        />
       </div>
       <div className="mt-2">
         <div className={`mb-0.5 flex justify-between text-[11px] ${lq.textSecondary}`}>

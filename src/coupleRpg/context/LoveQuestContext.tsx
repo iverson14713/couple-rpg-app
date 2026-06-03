@@ -282,6 +282,18 @@ import type { ImportantDateRemindersData } from '../storage/importantDateReminde
 import { rescheduleLoveQuestImportantDateNotifications } from '../../services/notificationService';
 import { importantDatesKnowledgeIncreased } from '../lib/coupleProfileImportantReward';
 import { getNicknameSetupStatus, mergeCoupleProfile, type NicknameSetupStatus } from '../lib/coupleDisplayNames';
+import { levelFromTotalExp } from '../lib/coupleLevel';
+import { LevelUpModal } from '../components/LevelUpModal';
+import {
+  expClaimKey,
+  getCoupleExpView,
+  markLevelUpPopupShown,
+  migrateLegacyRpgXpIntoExp,
+  shouldShowLevelUpPopup,
+  tryGrantCoupleExp,
+  type CoupleExpView,
+  type ExpGrantSource,
+} from '../storage/coupleExpStore';
 
 const DEFAULT_COUPLE: CoupleProfile = {
   nameA: '我',
@@ -295,6 +307,8 @@ type LoveQuestContextValue = {
   nicknameSetup: NicknameSetupStatus;
   rpg: RpgState;
   rpgView: ReturnType<typeof rpgSnapshot> & { miniGamesRewardCap: number };
+  /** Phase 3A：情侶 EXP 等級（與 LoveCoin 分離） */
+  coupleExpView: CoupleExpView;
   dinner: DinnerData;
   dinnerOptions: DinnerOption[];
   todayDinner: ReturnType<typeof getTodayDinner>;
@@ -506,6 +520,9 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
   );
   const [ledgerRevision, setLedgerRevision] = useState(0);
   const bumpLedger = useCallback(() => setLedgerRevision((n) => n + 1), []);
+  const [expRevision, setExpRevision] = useState(0);
+  const bumpExp = useCallback(() => setExpRevision((n) => n + 1), []);
+  const [pendingLevelUp, setPendingLevelUp] = useState<number | null>(null);
 
   const [tasks, setTasks] = useState(() => loadTasks(isPro, { userId: currentUserId, coupleId }));
   const [coupleExtended, setCoupleExtendedState] = useState(loadCoupleExtendedProfile);
@@ -587,10 +604,18 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
     [auth.configured, coupleId, currentUserId, isFullyBound, isOnline]
   );
 
-  const applyGrowthSnapshot = useCallback((snapshot: GrowthSnapshot) => {
+  const applyGrowthSnapshot = useCallback(
+    (snapshot: GrowthSnapshot) => {
     const cloudFields = growthSnapshotToRpgFields(snapshot);
+    const expView = getCoupleExpView(ledgerCtx);
     setRpg((prev) => {
-      const next = normalizeRpgState({ ...prev, ...cloudFields });
+      const mergedXp = Math.max(expView.totalExp, cloudFields.xp ?? 0);
+      const next = normalizeRpgState({
+        ...prev,
+        ...cloudFields,
+        xp: mergedXp,
+        level: levelFromTotalExp(mergedXp),
+      });
       saveRpg(next);
       return next;
     });
@@ -603,7 +628,94 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
       saveRewards(next);
       return next;
     });
+  },
+    [ledgerCtx, expRevision]
+  );
+
+  const syncRpgExpFromStore = useCallback((totalExp: number) => {
+    const level = levelFromTotalExp(totalExp);
+    setRpg((prev) => {
+      const normalized = normalizeRpgState(prev);
+      if (normalized.xp === totalExp && normalized.level === level) return prev;
+      const next = { ...normalized, xp: totalExp, level };
+      saveRpg(next);
+      return next;
+    });
   }, []);
+
+  const applyExpGrant = useCallback(
+    (source: ExpGrantSource) => {
+      const day = todayKey();
+      const result = tryGrantCoupleExp(ledgerCtx, source, day);
+      if (result.granted <= 0) return result;
+      bumpExp();
+      syncRpgExpFromStore(result.totalExp);
+      if (result.newLevel > result.previousLevel) {
+        let highestUnshown: number | null = null;
+        for (let lv = result.previousLevel + 1; lv <= result.newLevel; lv++) {
+          if (shouldShowLevelUpPopup(ledgerCtx, lv)) highestUnshown = lv;
+        }
+        if (highestUnshown != null) {
+          for (let lv = result.previousLevel + 1; lv <= result.newLevel; lv++) {
+            markLevelUpPopupShown(ledgerCtx, lv);
+          }
+          setPendingLevelUp((prev) =>
+            prev == null || highestUnshown > prev ? highestUnshown : prev
+          );
+        }
+      }
+      if (canSyncWallet && coupleId && currentUserId) {
+        const key = `exp:${day}:${expClaimKey(source)}`;
+        void recordGrowthEvent(auth.supabase, true, {
+          coupleId,
+          userId: currentUserId,
+          txType: 'earn',
+          source: 'task',
+          idempotencyKey: key,
+          expDelta: result.granted,
+          loveCoinDelta: 0,
+          heartDelta: 0,
+          bondDelta: 0,
+        }).then((res) => {
+          if (res.ok) applyGrowthSnapshot(res.snapshot);
+        });
+      }
+      return result;
+    },
+    [
+      applyGrowthSnapshot,
+      auth.supabase,
+      bumpExp,
+      canSyncWallet,
+      coupleId,
+      currentUserId,
+      ledgerCtx,
+      syncRpgExpFromStore,
+    ]
+  );
+
+  useEffect(() => {
+    if (!isLedgerWritable(ledgerCtx)) return;
+    migrateLegacyRpgXpIntoExp(ledgerCtx, loadRpg().xp);
+    bumpExp();
+    syncRpgExpFromStore(getCoupleExpView(ledgerCtx).totalExp);
+  }, [ledgerCtx, coupleId, currentUserId, bumpExp, syncRpgExpFromStore]);
+
+  useEffect(() => {
+    const onStorageUser = () => {
+      if (!isLedgerWritable(ledgerCtx)) return;
+      migrateLegacyRpgXpIntoExp(ledgerCtx, loadRpg().xp);
+      bumpExp();
+      syncRpgExpFromStore(getCoupleExpView(ledgerCtx).totalExp);
+    };
+    window.addEventListener(STORAGE_USER_CHANGED_EVENT, onStorageUser);
+    return () => window.removeEventListener(STORAGE_USER_CHANGED_EVENT, onStorageUser);
+  }, [ledgerCtx, bumpExp, syncRpgExpFromStore]);
+
+  const coupleExpView = useMemo(
+    () => getCoupleExpView(ledgerCtx, todayKey()),
+    [ledgerCtx, expRevision]
+  );
 
   useEffect(() => {
     choreSchedulerRef.current?.dispose();
@@ -1001,7 +1113,8 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
       idempotencyKey?: string,
       options?: { skipRpg?: boolean }
     ) => {
-      const deltas = rewardToGrowthDeltas(reward);
+      const rewardForRpg = { ...reward, xp: 0 };
+      const deltas = rewardToGrowthDeltas(rewardForRpg);
       const useCloud = canSyncWallet && coupleId && hasGrowthDeltas(deltas);
       const localFields = localOnlyRewardFields(reward);
       const hasLocalFields =
@@ -1020,7 +1133,7 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
           }
         } else {
           setRpg((prev) => {
-            const next = applyReward(normalizeRpgState(prev), reward);
+            const next = applyReward(normalizeRpgState(prev), rewardForRpg);
             saveRpg(next);
             return next;
           });
@@ -1053,7 +1166,7 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
         } else if (!useCloud) {
           if (options?.skipRpg) {
             setRpg((prev) => {
-              const next = applyReward(normalizeRpgState(prev), reward);
+              const next = applyReward(normalizeRpgState(prev), rewardForRpg);
               saveRpg(next);
               return next;
             });
@@ -1092,6 +1205,7 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
     const { recordedToday, newMilestones } = tryRecordLoveFlameToday(ledgerCtx);
     bumpLedger();
     if (!recordedToday) return;
+    applyExpGrant({ type: 'love_flame' });
     for (const m of newMilestones) {
       if (!tryClaimFlameMilestone(ledgerCtx, m)) continue;
       bumpLedger();
@@ -1103,14 +1217,14 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
         loveFlameMilestoneKey(m)
       );
     }
-  }, [grantReward, ledgerCtx, bumpLedger]);
+  }, [applyExpGrant, grantReward, ledgerCtx, bumpLedger]);
 
   useEffect(() => {
     setRpg((prev) => {
       const { state: next, isNewDay } = processDailyLogin(prev);
       if (!isNewDay) return prev;
       const normalized = normalizeRpgState(next);
-      const withBonus = applyReward(normalized, REWARDS.loginBonus);
+      const withBonus = applyReward(normalized, { ...REWARDS.loginBonus, xp: 0 });
       saveRpg(withBonus);
       return withBonus;
     });
@@ -1165,6 +1279,7 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
         miniGameCoinKey(day, slotNum),
         { skipRpg: true }
       );
+      applyExpGrant({ type: 'mini_game', claimIndex: slotNum - 1 });
       addCompletion('game', '情侶小遊戲', '🎲', detail ? { detail } : undefined);
       logTodayActivity({ actionType: 'complete', targetType: 'mini_game' });
       recordValidInteractionToday();
@@ -1172,6 +1287,7 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
     },
     [
       addCompletion,
+      applyExpGrant,
       bumpLedger,
       canSyncWallet,
       grantReward,
@@ -1184,12 +1300,20 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
 
   const rpgView = useMemo(() => {
     const day = todayKey();
+    const snap = rpgSnapshot(rpg);
+    const exp = coupleExpView;
     return {
-      ...rpgSnapshot(rpg),
+      ...snap,
+      xp: exp.totalExp,
+      level: exp.level,
+      title: exp.title,
+      xpNext: exp.expNeeded > 0 ? exp.expNeeded : 1,
+      levelSegmentXp: exp.expInLevel,
+      xpPct: exp.progressPct,
       miniGamesRewardCap: getMiniGameDailyRewardCap(isPro),
       miniGamesRewardsToday: getMiniGameRewardCount(ledgerCtx, day),
     };
-  }, [rpg, isPro, ledgerCtx, ledgerRevision]);
+  }, [rpg, coupleExpView, isPro, ledgerCtx, ledgerRevision]);
 
   const pullDinnerFromCloud = useCallback(async () => {
     if (coupleSpaceLoading) return;
@@ -1287,7 +1411,7 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
         if (g.dinnerRewardCount >= 2) {
           return rolled;
         }
-        const after = applyReward(rolled, REWARDS.dinnerSaved);
+        const after = applyReward(rolled, { ...REWARDS.dinnerSaved, xp: 0 });
         const out = {
           ...after,
           dailyGuard: {
@@ -1306,9 +1430,18 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
         targetTitle: choice,
         message: hadToday ? `重新決定今晚吃「${choice}」` : undefined,
       });
+      applyExpGrant({ type: 'dinner' });
       recordValidInteractionToday();
     },
-    [currentUserId, dinner.history, draftPick, logTodayActivity, recordValidInteractionToday]
+    [
+      applyExpGrant,
+      currentUserId,
+      dinner.history,
+      dinner.options,
+      draftPick,
+      logTodayActivity,
+      recordValidInteractionToday,
+    ]
   );
 
   const clearTodayDinnerResultFn = useCallback(() => {
@@ -1468,6 +1601,7 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
             },
             choreCoinKey(today, taskId)
           );
+          applyExpGrant({ type: 'chore', taskId });
         }
 
         saveHousework(next);
@@ -1492,6 +1626,7 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
       }
     },
     [
+      applyExpGrant,
       currentUserId,
       displayNames.me,
       displayNames.partner,
@@ -1742,6 +1877,7 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
               },
               taskCoinKey(day, slotIndex)
             );
+            applyExpGrant({ type: 'love_task_slot', slotIndex });
             addCompletion('task', task.label, task.emoji);
           }
 
@@ -1756,6 +1892,7 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
               { source: 'task', title: '今日戀愛任務 2/2', emoji: '💌' },
               loveTaskAllCompleteKey(day)
             );
+            applyExpGrant({ type: 'love_task_all_complete' });
           }
 
           next = syncTasksRewardFlagsFromLedger(ledgerCtx, next, day);
@@ -1768,7 +1905,15 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
         return next;
       });
     },
-    [grantReward, addCompletion, logTodayActivity, recordValidInteractionToday, ledgerCtx, bumpLedger]
+    [
+      applyExpGrant,
+      grantReward,
+      addCompletion,
+      logTodayActivity,
+      recordValidInteractionToday,
+      ledgerCtx,
+      bumpLedger,
+    ]
   );
 
   const startFlirtGame = useCallback((gameId: FlirtGameId) => {
@@ -1868,10 +2013,11 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
       return next;
     });
     if (ok) {
+      applyExpGrant({ type: 'date_idea' });
       recordValidInteractionToday();
     }
     return ok;
-  }, [isPro, recordValidInteractionToday]);
+  }, [applyExpGrant, isPro, recordValidInteractionToday]);
 
   const toggleDateFavoriteFn = useCallback((ideaId: string) => {
     setDatePlanner((prev) => {
@@ -2620,6 +2766,7 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
       nicknameSetup,
       rpg,
       rpgView,
+      coupleExpView,
       dinner,
       dinnerOptions,
       todayDinner: getTodayDinner(dinner.history),
@@ -2739,6 +2886,7 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
       nicknameSetup,
       rpg,
       rpgView,
+      coupleExpView,
       dinner,
       dinnerOptions,
       dinnerHomeStatus,
@@ -2840,7 +2988,17 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
     ]
   );
 
-  return <LoveQuestContext.Provider value={value}>{children}</LoveQuestContext.Provider>;
+  return (
+    <LoveQuestContext.Provider value={value}>
+      {pendingLevelUp != null ? (
+        <LevelUpModal
+          level={pendingLevelUp}
+          onDismiss={() => setPendingLevelUp(null)}
+        />
+      ) : null}
+      {children}
+    </LoveQuestContext.Provider>
+  );
 }
 
 export function useLoveQuest(): LoveQuestContextValue {
