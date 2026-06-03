@@ -30,20 +30,20 @@ import { useProFeature } from '../hooks/useProFeature';
 import { useUserPlan } from '../context/UserPlanContext';
 import { AiUsageQuotaLabel } from './AiUsageQuotaLabel';
 import { ProBadgeIfNeeded } from './ProBadge';
+import { IMPORTANT_DATE_REMINDERS_ANCHOR_ID } from '../lib/settingsNav';
 import { lq } from '../theme';
-
-export const IMPORTANT_DATE_REMINDERS_ANCHOR_ID = 'lq-important-date-reminders';
 
 type Props = {
   showBack?: boolean;
   compactHero?: boolean;
+  onBack?: () => void;
 };
 
 function copyOffsets(offsets: ReminderOffsetDays[]): ReminderOffsetDays[] {
   return [...offsets];
 }
 
-export function ImportantDateRemindersSection({ showBack, compactHero }: Props) {
+export function ImportantDateRemindersSection({ showBack, compactHero, onBack }: Props) {
   const { navigateTo } = useCoupleRpgNav();
   const {
     coupleExtended,
@@ -167,11 +167,11 @@ export function ImportantDateRemindersSection({ showBack, compactHero }: Props) 
       {showBack ? (
         <button
           type="button"
-          onClick={() => navigateTo('home')}
+          onClick={() => (onBack ? onBack() : navigateTo('home'))}
           className="mb-2 flex items-center gap-0.5 text-[11px] font-bold text-stone-600 active:opacity-70"
         >
           <ChevronLeft className="h-4 w-4" aria-hidden />
-          返回
+          {onBack ? '返回設定' : '返回'}
         </button>
       ) : null}
 
