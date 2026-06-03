@@ -11,10 +11,11 @@ import {
 } from '../components/MiniGamePlayCard';
 import { COUPLE_GAME_MODES, type CoupleGameModeId } from '../data/coupleGamePrompts';
 import {
-  countPromptsByMode,
-  formatPromptLine,
+  formatModePoolLabel,
   getCoupleGameLibraryStatus,
   getModeDef,
+  getModePoolCounts,
+  getPromptDisplayText,
   pickGamePrompt,
 } from '../lib/coupleGamePromptsLib';
 import { lq } from '../theme';
@@ -102,8 +103,9 @@ export function MiniGamesPage() {
 
   const modeDef = useMemo(() => getModeDef(mode)!, [mode]);
   const library = useMemo(() => getCoupleGameLibraryStatus(isPro), [isPro]);
-  const poolSize = useMemo(() => countPromptsByMode(mode, isPro), [mode, isPro]);
-  const line = prompt ? formatPromptLine(prompt) : null;
+  const poolLabel = useMemo(() => formatModePoolLabel(mode, isPro), [mode, isPro]);
+  const poolSize = useMemo(() => getModePoolCounts(mode, isPro).total, [mode, isPro]);
+  const line = prompt ? getPromptDisplayText(prompt) : null;
 
   const count = rpgView.miniGamesRewardsToday;
   const cap = rpgView.miniGamesRewardCap;
@@ -133,7 +135,7 @@ export function MiniGamesPage() {
     (next: CoupleGameModeId) => {
       const def = getModeDef(next);
       if (def?.proOnly && !isPro) {
-        openUpgradeModal('解鎖約會破冰、驚喜任務與 500+ 進階互動題庫，讓每天都有新的話題與任務。');
+        openUpgradeModal('解鎖約會破冰、驚喜任務與更多進階互動題庫，讓每天都有新的話題與任務。');
         return;
       }
       clearTimers();
@@ -205,7 +207,7 @@ export function MiniGamesPage() {
             type="button"
             onClick={() =>
               openUpgradeModal(
-                '解鎖約會破冰、驚喜任務與 500+ 進階互動題庫，讓每天都有新的話題與任務。'
+                '解鎖約會破冰、驚喜任務與更多進階互動題庫，讓每天都有新的話題與任務。'
               )
             }
             className="mt-2 text-[11px] font-bold text-rose-600 underline-offset-2 active:opacity-70"
@@ -278,7 +280,7 @@ export function MiniGamesPage() {
             <span className="mr-1">{modeDef.emoji}</span>
             {modeDef.title}
           </h2>
-          <span className="text-[10px] font-semibold text-stone-400">題庫 {poolSize} 題</span>
+          <span className="text-[10px] font-semibold text-stone-400">{poolLabel}</span>
         </div>
 
         <MiniGamePlayCard phase={phase} showSparkles={showSparkles} {...display} />

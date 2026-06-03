@@ -3,7 +3,6 @@
  * App Store 安全：甜蜜、生活化、不露骨
  */
 import {
-  buildPromptRows,
   FREE_COUPLE_CHALLENGE,
   FREE_COUPLE_DICE,
   FREE_SYNC_QUIZ,
@@ -11,27 +10,20 @@ import {
   FREE_TRUTH,
   PRO_COUPLE_CHALLENGE,
   PRO_COUPLE_DICE,
-  PRO_DATE_ICEBREAKER,
   PRO_SURPRISE_TASK,
   PRO_SYNC_QUIZ,
   PRO_SWEET_TALK,
   PRO_TRUTH,
   type RawPromptRow,
 } from './coupleGamePromptsData';
+import { PRO_DATE_ICEBREAKER } from './coupleGamePromptsDateIcebreakerPro';
 import {
   EXTRA_FREE_COUPLE_CHALLENGE,
   EXTRA_FREE_COUPLE_DICE,
   EXTRA_FREE_SWEET_TALK,
   EXTRA_FREE_SYNC_QUIZ,
   EXTRA_FREE_TRUTH,
-  EXTRA_PRO_COUPLE_CHALLENGE,
-  EXTRA_PRO_COUPLE_DICE,
-  EXTRA_PRO_DATE_ICEBREAKER,
-  EXTRA_PRO_SURPRISE_TASK,
-  EXTRA_PRO_SWEET_TALK,
-  EXTRA_PRO_SYNC_QUIZ,
-  EXTRA_PRO_TRUTH,
-} from './coupleGamePromptsExpansion';
+} from './coupleGamePromptsFreeExtra';
 
 export type CoupleGameModeId =
   | 'coupleDice'
@@ -50,6 +42,7 @@ export type CoupleGamePrompt = {
   id: string;
   mode: CoupleGameModeId;
   tier: PromptTier;
+  /** 畫面顯示的題目／任務文字 */
   title: string;
   description?: string;
   category: string;
@@ -80,17 +73,17 @@ function rows(mode: CoupleGameModeId, tier: PromptTier, raw: RawPromptRow[]): Co
 
 export const COUPLE_GAME_PROMPTS: CoupleGamePrompt[] = [
   ...rows('coupleDice', 'free', [...FREE_COUPLE_DICE, ...EXTRA_FREE_COUPLE_DICE]),
-  ...rows('coupleDice', 'pro', [...PRO_COUPLE_DICE, ...EXTRA_PRO_COUPLE_DICE]),
+  ...rows('coupleDice', 'pro', PRO_COUPLE_DICE),
   ...rows('truth', 'free', [...FREE_TRUTH, ...EXTRA_FREE_TRUTH]),
-  ...rows('truth', 'pro', [...PRO_TRUTH, ...EXTRA_PRO_TRUTH]),
+  ...rows('truth', 'pro', PRO_TRUTH),
   ...rows('syncQuiz', 'free', [...FREE_SYNC_QUIZ, ...EXTRA_FREE_SYNC_QUIZ]),
-  ...rows('syncQuiz', 'pro', [...PRO_SYNC_QUIZ, ...EXTRA_PRO_SYNC_QUIZ]),
+  ...rows('syncQuiz', 'pro', PRO_SYNC_QUIZ),
   ...rows('sweetTalk', 'free', [...FREE_SWEET_TALK, ...EXTRA_FREE_SWEET_TALK]),
-  ...rows('sweetTalk', 'pro', [...PRO_SWEET_TALK, ...EXTRA_PRO_SWEET_TALK]),
+  ...rows('sweetTalk', 'pro', PRO_SWEET_TALK),
   ...rows('coupleChallenge', 'free', [...FREE_COUPLE_CHALLENGE, ...EXTRA_FREE_COUPLE_CHALLENGE]),
-  ...rows('coupleChallenge', 'pro', [...PRO_COUPLE_CHALLENGE, ...EXTRA_PRO_COUPLE_CHALLENGE]),
-  ...rows('dateIcebreaker', 'pro', [...PRO_DATE_ICEBREAKER, ...EXTRA_PRO_DATE_ICEBREAKER]),
-  ...rows('surpriseTask', 'pro', [...PRO_SURPRISE_TASK, ...EXTRA_PRO_SURPRISE_TASK]),
+  ...rows('coupleChallenge', 'pro', PRO_COUPLE_CHALLENGE),
+  ...rows('dateIcebreaker', 'pro', PRO_DATE_ICEBREAKER),
+  ...rows('surpriseTask', 'pro', PRO_SURPRISE_TASK),
 ];
 
 export const COUPLE_GAME_MODES: CoupleGameModeDef[] = [
@@ -133,8 +126,8 @@ export const COUPLE_GAME_MODES: CoupleGameModeDef[] = [
     id: 'dateIcebreaker',
     title: '約會破冰',
     emoji: '💑',
-    description: '約會靈感',
-    actionLabel: '抽約會',
+    description: '約會聊天題',
+    actionLabel: '抽一題',
     proOnly: true,
   },
   {
