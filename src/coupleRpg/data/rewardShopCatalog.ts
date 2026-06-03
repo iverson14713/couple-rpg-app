@@ -8,7 +8,7 @@ export const REWARD_CATEGORY_LABEL: Record<RewardShopCategory, { label: string; 
   flirt: { label: '甜蜜互動', emoji: '💕' },
 };
 
-/** 以每日約 105 LoveCoin 為基準的商城說明 */
+/** 完成每日互動可累積 LoveCoin，兌換小獎勵 */
 export const REWARD_SHOP_EARN_HINT =
   '完成每日任務、小遊戲與家事互動可累積 LoveCoin，兌換你們的小獎勵。';
 
@@ -17,7 +17,8 @@ export const REWARD_SHOP_INSUFFICIENT_MSG =
 
 /**
  * 獎勵商城定價（Phase 2.5）
- * 小獎勵 120～180 · 中獎勵 280～450 · 大獎勵 600～900 · 特殊 1000+
+ * 平衡基準：Free 每日約 70 · Pro 每日約 105 LoveCoin
+ * 小獎勵 80～140（Free 約 1～2 天）· 中獎勵 180～350（3～5 天）· 大獎勵 400～750（6～10 天）
  */
 export const REWARD_SHOP_ITEMS: ShopItem[] = [
   // —— 甜蜜互動 ——
@@ -27,7 +28,7 @@ export const REWARD_SHOP_ITEMS: ShopItem[] = [
     title: '抱抱券',
     description: '隨時可兌換一個大大的擁抱',
     emoji: '🤗',
-    cost: 120,
+    cost: 80,
   },
   {
     id: 'flirt-coquettish',
@@ -35,7 +36,7 @@ export const REWARD_SHOP_ITEMS: ShopItem[] = [
     title: '撒嬌券',
     description: '對方要撒嬌 3 分鐘，你負責寵',
     emoji: '🥺',
-    cost: 150,
+    cost: 100,
   },
   {
     id: 'flirt-praise',
@@ -43,7 +44,7 @@ export const REWARD_SHOP_ITEMS: ShopItem[] = [
     title: '稱讚券',
     description: '對方要真心稱讚你 3 句',
     emoji: '👏',
-    cost: 150,
+    cost: 100,
   },
   {
     id: 'flirt-kiss',
@@ -51,7 +52,7 @@ export const REWARD_SHOP_ITEMS: ShopItem[] = [
     title: '親親券',
     description: '甜蜜親親一次，害羞也要兌現',
     emoji: '😘',
-    cost: 180,
+    cost: 120,
   },
   {
     id: 'flirt-goodnight-voice',
@@ -59,7 +60,7 @@ export const REWARD_SHOP_ITEMS: ShopItem[] = [
     title: '晚安語音券',
     description: '睡前傳一段晚安語音',
     emoji: '🌙',
-    cost: 180,
+    cost: 120,
   },
   {
     id: 'flirt-obey',
@@ -75,7 +76,7 @@ export const REWARD_SHOP_ITEMS: ShopItem[] = [
     title: '不滑手機聊天券',
     description: '睡前聊天 10 分鐘，不滑手機',
     emoji: '💬',
-    cost: 400,
+    cost: 320,
   },
   // —— 約會生活 ——
   {
@@ -84,7 +85,7 @@ export const REWARD_SHOP_ITEMS: ShopItem[] = [
     title: '奶茶券',
     description: '請喝一杯喜歡的奶茶或飲料',
     emoji: '🧋',
-    cost: 180,
+    cost: 130,
   },
   {
     id: 'date-late-snack',
@@ -92,7 +93,7 @@ export const REWARD_SHOP_ITEMS: ShopItem[] = [
     title: '宵夜券',
     description: '半夜餓了，一起出動買宵夜',
     emoji: '🌙',
-    cost: 280,
+    cost: 220,
   },
   {
     id: 'date-movie-pick',
@@ -100,7 +101,7 @@ export const REWARD_SHOP_ITEMS: ShopItem[] = [
     title: '電影選擇券',
     description: '今晚看什麼由我決定',
     emoji: '🎬',
-    cost: 350,
+    cost: 280,
   },
   {
     id: 'date-pick',
@@ -108,7 +109,7 @@ export const REWARD_SHOP_ITEMS: ShopItem[] = [
     title: '指定約會券',
     description: '由你決定週末約會內容，對方配合',
     emoji: '💑',
-    cost: 800,
+    cost: 650,
   },
   {
     id: 'date-weekend-priority',
@@ -116,7 +117,7 @@ export const REWARD_SHOP_ITEMS: ShopItem[] = [
     title: '週末約會優先券',
     description: '這週末約會主題由我決定',
     emoji: '🗓️',
-    cost: 900,
+    cost: 750,
   },
   // —— 任性特權 ——
   {
@@ -125,7 +126,7 @@ export const REWARD_SHOP_ITEMS: ShopItem[] = [
     title: '今天晚餐由我決定',
     description: '菜單大權交給你，對方不能抱怨',
     emoji: '🍽️',
-    cost: 350,
+    cost: 260,
   },
   {
     id: 'royal-boss',
@@ -133,7 +134,7 @@ export const REWARD_SHOP_ITEMS: ShopItem[] = [
     title: '今天我最大',
     description: '今日小事聽你的，甜蜜任性一下',
     emoji: '👑',
-    cost: 450,
+    cost: 400,
   },
   {
     id: 'royal-no-chores',
@@ -141,7 +142,7 @@ export const REWARD_SHOP_ITEMS: ShopItem[] = [
     title: '今天不用做家事',
     description: '今日家務免單，享受寵愛',
     emoji: '🏰',
-    cost: 700,
+    cost: 600,
   },
   // —— 放鬆照顧 ——
   {
@@ -150,7 +151,7 @@ export const REWARD_SHOP_ITEMS: ShopItem[] = [
     title: '肩頸按摩 15 分鐘',
     description: '兌換後請溫柔兌現，計時開始～',
     emoji: '💆',
-    cost: 350,
+    cost: 280,
   },
   {
     id: 'massage-full',
@@ -158,7 +159,7 @@ export const REWARD_SHOP_ITEMS: ShopItem[] = [
     title: '全身按摩券',
     description: '放鬆身心，今天由對方服務',
     emoji: '🛋️',
-    cost: 650,
+    cost: 520,
   },
 ];
 
