@@ -19,10 +19,15 @@ export type ShopItemId =
   | 'date-bubble-tea'
   | 'date-late-snack'
   | 'date-pick'
+  | 'date-movie-pick'
+  | 'date-weekend-priority'
   | 'flirt-hug'
   | 'flirt-kiss'
   | 'flirt-coquettish'
-  | 'flirt-obey';
+  | 'flirt-obey'
+  | 'flirt-praise'
+  | 'flirt-goodnight-voice'
+  | 'flirt-no-phone-chat';
 
 export type ShopItem = {
   id: ShopItemId;

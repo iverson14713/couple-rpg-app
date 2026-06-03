@@ -1,7 +1,12 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { ChevronDown, ChevronUp, Cloud, Coins, Gift, RefreshCw, Ticket, Wallet } from 'lucide-react';
 import { COMPLETED_REWARD_CARD_RETENTION_DAYS } from '../constants/rewardCardRetention';
-import { REWARD_CATEGORY_LABEL, REWARD_SHOP_ITEMS } from '../data/rewardShopCatalog';
+import {
+  REWARD_CATEGORY_LABEL,
+  REWARD_SHOP_EARN_HINT,
+  REWARD_SHOP_INSUFFICIENT_MSG,
+  REWARD_SHOP_ITEMS,
+} from '../data/rewardShopCatalog';
 import { EmptyState } from '../components/EmptyState';
 import { CustomRewardCardPanel } from '../components/CustomRewardCardPanel';
 import { ProBadgeIfNeeded } from '../components/ProBadge';
@@ -118,13 +123,14 @@ export function RewardsPage({ embedded }: { embedded?: boolean } = {}) {
   const completedCount = completedCouponsSorted.length;
 
   const shopByCategory = useMemo(() => {
+    const order: RewardShopCategory[] = ['flirt', 'date', 'royal', 'massage'];
     const map = new Map<RewardShopCategory, typeof REWARD_SHOP_ITEMS>();
     for (const item of REWARD_SHOP_ITEMS) {
       const list = map.get(item.category) ?? [];
       list.push(item);
       map.set(item.category, list);
     }
-    return map;
+    return order.filter((cat) => map.has(cat)).map((cat) => [cat, map.get(cat)!] as const);
   }, []);
 
   const handleRedeem = async (itemId: (typeof REWARD_SHOP_ITEMS)[0]['id']) => {
@@ -135,8 +141,9 @@ export function RewardsPage({ embedded }: { embedded?: boolean } = {}) {
       setRedeemMsg(null);
       return;
     }
-    setRedeemMsg('愛心幣不足喔～');
-    setTimeout(() => setRedeemMsg(null), 2500);
+    setRedeemMsg(REWARD_SHOP_INSUFFICIENT_MSG);
+    showToast(REWARD_SHOP_INSUFFICIENT_MSG, 'info', { position: 'top' });
+    setTimeout(() => setRedeemMsg(null), 3200);
   };
 
   const handleCustomRedeem = async (input: Parameters<typeof redeemCustomRewardItem>[0]) => {
@@ -307,11 +314,12 @@ export function RewardsPage({ embedded }: { embedded?: boolean } = {}) {
             兌換情侶卡券
             <ProBadgeIfNeeded show={customCardPro.showProBadge} feature="custom_reward_cards" />
           </p>
+          <p className="px-1 text-[12px] leading-snug text-stone-500">{REWARD_SHOP_EARN_HINT}</p>
           <section className={`flex items-center justify-between gap-2 px-1 ${lq.cardSoft} !p-3`}>
             <p className="text-[13px] font-semibold text-stone-700">我的餘額</p>
             <p className="text-xl font-extrabold text-rose-700">🪙 {rpg.loveCoins}</p>
           </section>
-          {Array.from(shopByCategory.entries()).map(([cat, items]) => {
+          {shopByCategory.map(([cat, items]) => {
             const meta = REWARD_CATEGORY_LABEL[cat];
             return (
               <section key={cat} className={`p-3.5 ${lq.card}`}>
@@ -321,6 +329,7 @@ export function RewardsPage({ embedded }: { embedded?: boolean } = {}) {
                 <div className="grid grid-cols-1 gap-2.5">
                   {items.map((item) => {
                     const canAfford = rpg.loveCoins >= item.cost;
+                    const shortfall = Math.max(0, item.cost - rpg.loveCoins);
                     return (
                       <article
                         key={item.id}
@@ -334,13 +343,14 @@ export function RewardsPage({ embedded }: { embedded?: boolean } = {}) {
                         </div>
                         <button
                           type="button"
-                          disabled={!canAfford}
-                          onClick={() => handleRedeem(item.id)}
-                          className={`min-h-[44px] shrink-0 rounded-xl px-4 py-2.5 text-[13px] font-bold transition active:scale-95 disabled:opacity-40 ${
-                            canAfford ? lq.btnPrimary : 'bg-stone-100 text-stone-400'
+                          onClick={() => void handleRedeem(item.id)}
+                          className={`min-h-[44px] shrink-0 rounded-xl px-4 py-2.5 text-[13px] font-bold transition active:scale-95 ${
+                            canAfford
+                              ? lq.btnPrimary
+                              : 'bg-amber-50 text-amber-900 ring-1 ring-amber-200/90'
                           }`}
                         >
-                          🎁 兌換
+                          {canAfford ? '🎁 兌換' : `差 ${shortfall} 枚`}
                         </button>
                       </article>
                     );
