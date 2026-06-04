@@ -22,10 +22,10 @@ export function BottomNav({ activeTab, onChange }: Props) {
 
   return (
     <nav
-      className={`fixed bottom-0 left-0 right-0 z-40 px-2 pb-[calc(12px+env(safe-area-inset-bottom,0px))] pt-2.5 ${lq.nav}`}
+      className={`fixed bottom-0 left-0 right-0 z-40 px-3 pb-[calc(10px+env(safe-area-inset-bottom,0px))] pt-2 ${lq.nav}`}
       aria-label="主要功能"
     >
-      <div className="mx-auto flex max-w-md gap-0.5">
+      <div className="mx-auto flex max-w-md gap-1 rounded-[22px] bg-white/50 p-1 backdrop-blur-xl">
         {TABS.map((tab) => {
           const isActive = tab.id === highlighted;
           const TabIcon = tab.Icon;
@@ -35,20 +35,22 @@ export function BottomNav({ activeTab, onChange }: Props) {
               type="button"
               onClick={() => onChange(tab.id)}
               aria-current={isActive ? 'page' : undefined}
-              className={`relative flex min-h-[54px] min-w-0 flex-1 flex-col items-center justify-center gap-1 rounded-2xl px-1 py-2 transition duration-200 active:scale-[0.97] ${
-                isActive ? lq.navItemActive : 'bg-transparent active:bg-rose-50/50'
+              className={`relative flex min-h-[56px] min-w-0 flex-1 flex-col items-center justify-center gap-0.5 rounded-[18px] px-1 py-1.5 transition duration-200 active:scale-[0.96] ${
+                isActive
+                  ? 'lq-nav-tab-active bg-gradient-to-b from-rose-50/95 to-white/90 shadow-[0_6px_20px_-6px_rgba(244,114,182,0.45)] ring-1 ring-rose-200/50'
+                  : 'bg-transparent active:bg-rose-50/40'
               }`}
             >
               <TabIcon
-                className={`h-[26px] w-[26px] shrink-0 transition-colors ${
-                  isActive ? lq.navActive : lq.navIdle
+                className={`h-[24px] w-[24px] shrink-0 transition-colors ${
+                  isActive ? 'fill-rose-100 text-rose-600' : 'text-[#9a8a94]'
                 }`}
                 strokeWidth={isActive ? 2.5 : 2}
                 aria-hidden
               />
               <span
-                className={`truncate text-[12px] leading-tight ${
-                  isActive ? `font-bold ${lq.navActive}` : `font-medium ${lq.navIdle}`
+                className={`truncate text-[13px] leading-tight ${
+                  isActive ? 'font-extrabold text-rose-600' : 'font-semibold text-[#9a8a94]'
                 }`}
               >
                 {tab.label}
