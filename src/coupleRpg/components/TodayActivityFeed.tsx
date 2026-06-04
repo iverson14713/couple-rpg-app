@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ChevronDown, ChevronUp, X } from 'lucide-react';
+import { ChevronDown, ChevronRight, ChevronUp, X } from 'lucide-react';
 import { useLoveQuest } from '../context/LoveQuestContext';
 import { useUserPlan } from '../context/UserPlanContext';
 import { todayKey } from '../lib/dates';
@@ -83,7 +83,13 @@ function useBodyScrollLock(active: boolean): void {
   }, [active]);
 }
 
-export function TodayActivityFeed({ standalone = false }: { standalone?: boolean }) {
+export function TodayActivityFeed({
+  standalone = false,
+  homeCompact = false,
+}: {
+  standalone?: boolean;
+  homeCompact?: boolean;
+}) {
   const { pullActivityLogsFromCloud } = useLoveQuest();
   const { isPro } = useUserPlan();
   const [expanded, setExpanded] = useState(false);
@@ -130,9 +136,24 @@ export function TodayActivityFeed({ standalone = false }: { standalone?: boolean
     setQuote(shuffleTodayMessage());
   }, []);
 
-  const wrapperClass = standalone
-    ? `${lq.cardElevated} px-3 py-2`
-    : 'border-t border-stone-200/40 px-4 py-2.5';
+  const compact = standalone && homeCompact;
+
+  const wrapperClass = compact
+    ? 'lq-home-section-in rounded-[18px] border border-rose-100/35 bg-white/80 px-3 py-2 shadow-[0_4px_14px_-10px_rgba(168,120,150,0.08)] ring-1 ring-white/70'
+    : standalone
+      ? 'lq-home-section-in rounded-[20px] border border-rose-100/40 bg-white/75 px-3 py-2 shadow-[0_6px_18px_-12px_rgba(168,120,150,0.1)] ring-1 ring-white/80'
+      : 'border-t border-stone-200/40 px-4 py-2.5';
+
+  const summaryShort =
+    todayLogs.length > 0
+      ? compact
+        ? `${todayLogs.length} 則更新`
+        : `${todayLogs.length} 筆`
+      : compact
+        ? '尚無更新'
+        : '尚無';
+
+  const previewLine = todayLogs[0]?.message ?? null;
 
   return (
     <>
@@ -140,34 +161,60 @@ export function TodayActivityFeed({ standalone = false }: { standalone?: boolean
         <button
           type="button"
           onClick={() => setExpanded((v) => !v)}
-          className={`flex min-h-[40px] w-full items-center justify-between gap-2 text-left transition active:scale-[0.99] ${
-            standalone
-              ? 'rounded-xl px-1 py-1'
-              : 'rounded-2xl bg-gradient-to-r from-rose-50/90 to-white px-3 py-2.5 shadow-sm ring-1 ring-rose-100/80'
+          className={`flex w-full items-center justify-between gap-2 text-left transition active:opacity-90 ${
+            compact
+              ? 'min-h-0 py-0'
+              : standalone
+                ? 'min-h-[40px] rounded-xl py-0.5'
+                : 'min-h-[48px] rounded-2xl bg-gradient-to-r from-rose-50/90 to-white px-3 py-2.5 shadow-sm ring-1 ring-rose-100/80'
           }`}
           aria-expanded={expanded}
         >
-          <span className="text-[13px] font-bold text-stone-800">今日動態</span>
-          <span className="flex items-center gap-1.5 text-[12px] font-semibold text-stone-500">
-            {summary}
-            {expanded ? (
-              <ChevronUp className="h-4 w-4 shrink-0 text-rose-400" aria-hidden />
+          <span
+            className={
+              compact || standalone
+                ? 'text-[16px] font-bold text-[#3d3539]'
+                : 'text-[16px] font-extrabold text-[#3a2e34]'
+            }
+          >
+            今日動態
+          </span>
+          <span
+            className={`flex items-center gap-0.5 tabular-nums ${
+              compact || standalone
+                ? 'text-[11px] font-medium text-[#c9bcc4]'
+                : 'text-[14px] font-semibold text-[#8a7a84]'
+            }`}
+          >
+            {compact || standalone ? summaryShort : summary}
+            {compact ? (
+              <ChevronRight className="h-3.5 w-3.5 shrink-0 text-rose-300/90" aria-hidden />
+            ) : expanded ? (
+              <ChevronUp className="h-3.5 w-3.5 shrink-0 text-rose-400/80" aria-hidden />
             ) : (
-              <ChevronDown className="h-4 w-4 shrink-0 text-rose-400" aria-hidden />
+              <ChevronDown className="h-3.5 w-3.5 shrink-0 text-rose-400/80" aria-hidden />
             )}
           </span>
         </button>
 
+        {compact && previewLine && !expanded ? (
+          <p className="mt-1 line-clamp-1 text-[12px] leading-snug text-[#9a8a94]">{previewLine}</p>
+        ) : null}
+
         {expanded ? (
-          <div className={`mt-1.5 space-y-1.5 ${standalone ? '' : 'px-1 py-1'} ${lq.cardSoft}`}>
+          <div
+            className={`space-y-1 ${compact ? 'mt-1.5 pb-0.5' : standalone ? 'mt-1 px-0.5 pb-1' : 'mt-2 px-1 py-1'} ${standalone && !compact ? '' : compact ? '' : lq.cardSoft}`}
+          >
             {todayLogs.length === 0 ? (
-              <p className="px-2 py-3 text-center text-[12px] text-stone-500">今天還沒有新動態，去完成一項甜蜜任務吧</p>
+              <p className="px-2 py-3 text-center text-[15px] text-[#8a7a84]">
+                今天還沒有新動態，去完成一項甜蜜任務吧
+              </p>
             ) : (
               <ul className="space-y-0.5">
                 {preview.map((item) => (
                   <li
                     key={item.id}
-                    className="rounded-xl px-2.5 py-2 text-[13px] leading-snug text-stone-700"
+                    className="rounded-xl px-2.5 py-2.5 text-[15px] leading-snug text-[#3a2e34]"
                   >
                     {item.message}
                   </li>

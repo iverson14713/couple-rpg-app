@@ -1,10 +1,6 @@
 import { useCoupleRpgNav } from '../context/CoupleRpgNavContext';
 import { useLoveQuest } from '../context/LoveQuestContext';
-import { lq } from '../theme';
-
-const MODE_HINTS = '骰子・真心話・默契・情話・挑戰';
-
-/** 首頁：情侶小遊戲中型重點卡（僅 UI，導向 miniGames 分頁） */
+/** 首頁：情侶小遊戲活動 Banner（僅 UI） */
 export function HomeMiniGamesFeaturedCard() {
   const { navigateTo } = useCoupleRpgNav();
   const { rpgView } = useLoveQuest();
@@ -12,40 +8,31 @@ export function HomeMiniGamesFeaturedCard() {
 
   return (
     <section
-      className={`relative min-h-[6.75rem] overflow-hidden px-3.5 py-3 ${lq.cardElevated}`}
+      className="lq-home-banner lq-home-elev lq-home-section-in relative isolate min-h-[6.5rem] overflow-hidden rounded-[24px] px-4 py-4 ring-1 ring-white/50"
       aria-label="情侶小遊戲"
     >
-      <span
-        className="pointer-events-none absolute -right-1 -top-1 text-4xl opacity-[0.07]"
-        aria-hidden
-      >
-        🎲
-      </span>
+      <div className="lq-home-banner-dice" aria-hidden>
+        <span className="lq-home-banner-dice__lg">🎲</span>
+        <span className="lq-home-banner-dice__sm">🎲</span>
+      </div>
 
-      <div className="relative">
-        <h3 className={`text-[16px] font-extrabold leading-snug ${lq.text}`}>🎲 情侶小遊戲</h3>
-        <p className={`mt-0.5 text-[12px] leading-snug ${lq.textSecondary}`}>
-          骰子、真心話、默契問答，今天一起玩一下
+      <div className="relative z-10 flex max-w-[48%] flex-col">
+        <h3 className="text-[clamp(1.2rem,5vw,1.35rem)] font-extrabold leading-[1.1] text-white">
+          情侶小遊戲
+        </h3>
+        <p className="lq-banner-tagline mt-1 text-[10px] leading-snug">
+          真心話 · 默契挑戰 · 情話骰子
         </p>
-        <p className="mt-1.5 text-[11px] font-semibold tracking-wide text-rose-600/85">
-          {MODE_HINTS}
+        <p className="lq-banner-reward mt-1 text-[9px]">
+          今日獎勵 {miniGamesRewardsToday}/{miniGamesRewardCap}
         </p>
-
-        <div className="mt-2.5 flex items-center justify-between gap-3">
-          <p className="text-[12px] font-bold text-stone-600">
-            今日獎勵{' '}
-            <span className="tabular-nums text-stone-800">
-              {miniGamesRewardsToday}/{miniGamesRewardCap}
-            </span>
-          </p>
-          <button
-            type="button"
-            onClick={() => navigateTo('miniGames')}
-            className={`shrink-0 ${lq.btnPrimary} !min-h-10 !px-4 !text-[13px]`}
-          >
-            🎲 開始玩
-          </button>
-        </div>
+        <button
+          type="button"
+          onClick={() => navigateTo('miniGames')}
+          className="lq-ios-cta mt-3 w-fit min-w-[6.5rem] px-5 py-2.5 text-[13px] font-bold text-violet-600 transition active:scale-[0.97]"
+        >
+          立即開始
+        </button>
       </div>
     </section>
   );

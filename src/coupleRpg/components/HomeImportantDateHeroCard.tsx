@@ -2,13 +2,13 @@ import { useMemo } from 'react';
 import { ChevronRight } from 'lucide-react';
 import { useCoupleRpgNav } from '../context/CoupleRpgNavContext';
 import { useLoveQuest } from '../context/LoveQuestContext';
-import { formatYmdChinese, type ImportantDateEvent } from '../lib/importantDateEvents';
+import type { ImportantDateEvent } from '../lib/importantDateEvents';
 import { getNextHomeImportantDateEvent } from '../lib/importantDateHomeReminder';
 import { hasHomeImportantDatesConfigured } from '../lib/importantDates';
 import type { ImportantDateScheduledReminder } from '../lib/importantDateReminderEngine';
-import { lq } from '../theme';
+import { HomeDecorIllustration } from './ui/HomeDecorIllustration';
 
-/** 首頁：重要日子中型情感卡（無設定或無近期提醒時不佔位） */
+/** 首頁：重要日子（設計稿獨立白卡） */
 export function HomeImportantDateHeroCard() {
   const { navigateTo } = useCoupleRpgNav();
   const { coupleExtended, todayImportantDateReminders } = useLoveQuest();
@@ -34,23 +34,28 @@ export function HomeImportantDateHeroCard() {
     <button
       type="button"
       onClick={goReminders}
-      className={`mb-2 flex min-h-[5.5rem] max-h-[6.25rem] w-full items-stretch gap-2 overflow-hidden rounded-2xl bg-gradient-to-br from-rose-100/90 via-pink-50 to-white px-3.5 py-3 text-left shadow-sm ring-1 ring-rose-200/70 transition active:scale-[0.99] active:opacity-95`}
+      className="lq-home-anniversary lq-home-elev lq-home-section-in relative isolate flex w-full items-center gap-3 overflow-hidden rounded-[22px] px-3.5 py-3.5 text-left transition active:scale-[0.995]"
       aria-label={`查看${event.displayTitle}提醒`}
     >
-      <div className="flex min-w-0 flex-1 flex-col justify-center gap-0.5">
-        <p className={`truncate text-[15px] font-extrabold leading-tight text-rose-950`}>
-          <span aria-hidden>{event.icon}</span> {event.displayTitle}
+      <HomeDecorIllustration id="calendar" role="anniversary" />
+
+      <div className="relative z-10 min-w-0 flex-1 py-0.5">
+        <p className="truncate text-[16px] font-extrabold leading-tight text-rose-950">
+          {event.displayTitle}
         </p>
-        <p className="truncate text-[13px] font-semibold text-rose-800/90">
+        <p className="mt-0.5 truncate text-[11px] font-medium text-rose-600/70">
           {formatDateCountdownLine(event, primaryToday)}
         </p>
-        <p className={`line-clamp-1 text-[11px] font-medium ${lq.textSecondary}`}>
-          {nudgeLine(event, primaryToday)}
-        </p>
+        {!event.isToday ? (
+          <p className="mt-1 truncate text-[10px] font-normal text-rose-400/80">
+            提前準備一點小驚喜吧！
+          </p>
+        ) : null}
       </div>
-      <div className="flex shrink-0 flex-col items-center justify-center border-l border-rose-200/50 pl-3 pr-0.5">
+
+      <div className="relative z-10 flex shrink-0 items-center gap-1 pl-1">
         <CountdownBadge event={event} primaryToday={primaryToday} />
-        <ChevronRight className="mt-0.5 h-4 w-4 text-rose-400/90" aria-hidden />
+        <ChevronRight className="h-4 w-4 text-rose-300" aria-hidden />
       </div>
     </button>
   );
@@ -65,16 +70,17 @@ function CountdownBadge({
 }) {
   if (event.isToday) {
     return (
-      <div className="text-center leading-none">
-        <span className="block text-[20px] font-black text-rose-600">今天</span>
+      <div className="px-1 text-right leading-none">
+        <span className="block text-[22px] font-black text-rose-500">今天</span>
       </div>
     );
   }
   const days = primaryToday?.daysUntilEvent ?? event.daysUntil;
   return (
-    <div className="text-center leading-none tabular-nums">
-      <span className="block text-[26px] font-black text-rose-600">{days}</span>
-      <span className="mt-0.5 block text-[10px] font-bold tracking-wide text-rose-500">天後</span>
+    <div className="px-1 text-right leading-none tabular-nums">
+      <span className="block text-[11px] font-bold text-rose-400">還有</span>
+      <span className="block text-[26px] font-black leading-none text-rose-500">{days}</span>
+      <span className="block text-[11px] font-bold text-rose-400">天</span>
     </div>
   );
 }
@@ -83,19 +89,23 @@ function formatDateCountdownLine(
   event: ImportantDateEvent,
   primaryToday: ImportantDateScheduledReminder | null
 ): string {
-  const datePart = formatYmdChinese(event.dateYmd);
-  if (event.isToday) return `${datePart}・就是今天`;
+  const datePart = formatHomeDateLabel(event.dateYmd);
+  if (event.isToday) return datePart;
   const days = primaryToday ? primaryToday.daysUntilEvent : event.daysUntil;
-  return `${datePart}・還有 ${days} 天`;
+  return `${datePart} · ${days} 天後`;
 }
 
-function nudgeLine(
-  event: ImportantDateEvent,
-  primaryToday: ImportantDateScheduledReminder | null
-): string {
-  if (event.isToday) return '今天留一點時間給彼此吧';
-  const days = primaryToday ? primaryToday.daysUntilEvent : event.daysUntil;
-  if (days <= 3) return '提前準備一點小驚喜吧';
-  if (days <= 14) return '還來得及規劃小小的儀式感';
-  return '先記在心上，慢慢準備';
+function formatHomeDateLabel(ymd: string): string {
+  const [y, m, d] = ymd.split('-').map(Number);
+  if (!y || !m || !d) return ymd;
+  const labels = ['日', '一', '二', '三', '四', '五', '六'] as const;
+  const w = labels[new Date(y, m - 1, d).getDay()] ?? '—';
+  const mm = String(m).padStart(2, '0');
+  const dd = String(d).padStart(2, '0');
+  return `${y}.${mm}.${dd}（週${w}）`;
+}
+
+/** Showcase 相容 */
+export function HomeImportantDateInset() {
+  return <HomeImportantDateHeroCard />;
 }
