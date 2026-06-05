@@ -3,6 +3,7 @@ import { ChevronLeft } from 'lucide-react';
 import { useCoupleRpgNav } from '../context/CoupleRpgNavContext';
 import { useLoveQuest } from '../context/LoveQuestContext';
 import { useUserPlan } from '../context/UserPlanContext';
+import { CustomQuestionBankPage } from '../components/CustomQuestionBankPage';
 import { DailyRewardsLoginHint } from '../components/DailyRewardsLoginHint';
 import { ProBadgeIfNeeded } from '../components/ProBadge';
 import { DAILY_REWARDS_LOGIN_HINT } from '../lib/dailyRewardsCopy';
@@ -105,6 +106,7 @@ export function MiniGamesPage() {
   const [roundRewarded, setRoundRewarded] = useState(false);
   const [lastGrantOk, setLastGrantOk] = useState<boolean | null>(null);
   const [showSparkles, setShowSparkles] = useState(false);
+  const [customBankOpen, setCustomBankOpen] = useState(false);
 
   const drawTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const sparkleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -157,6 +159,14 @@ export function MiniGamesPage() {
     [isPro, openUpgradeModal, clearTimers]
   );
 
+  const openCustomBank = useCallback(() => {
+    if (!isPro) {
+      openUpgradeModal('Pro 可建立專屬題庫，只抽你自己新增的情侶互動題目，不混入官方題庫。');
+      return;
+    }
+    setCustomBankOpen(true);
+  }, [isPro, openUpgradeModal]);
+
   const draw = useCallback(() => {
     if (poolSize === 0 || phase === 'drawing') return;
     clearTimers();
@@ -193,6 +203,10 @@ export function MiniGamesPage() {
 
   const showDualActions = phase === 'revealed' || phase === 'completed';
   const drawDisabled = poolSize === 0 || phase === 'drawing';
+
+  if (customBankOpen) {
+    return <CustomQuestionBankPage onBack={() => setCustomBankOpen(false)} />;
+  }
 
   return (
     <div className="pb-2">
@@ -280,6 +294,28 @@ export function MiniGamesPage() {
               </button>
             );
           })}
+          <button
+            type="button"
+            onClick={openCustomBank}
+            className={`relative flex min-h-0 items-center gap-1.5 rounded-xl border px-2 py-1.5 text-left transition duration-200 active:scale-[0.98] ${
+              !isPro ? 'border-violet-100/80 bg-violet-50/30' : lq.hubChipIdle
+            }`}
+          >
+            <span className="absolute right-1 top-1 rounded bg-violet-100/90 px-1 py-px text-[8px] font-bold leading-none text-violet-700">
+              Pro
+            </span>
+            <span className="shrink-0 text-base leading-none" aria-hidden>
+              📝
+            </span>
+            <span className="min-w-0 flex-1 pr-4">
+              <span className="block truncate text-[16px] font-extrabold leading-tight tracking-tight text-stone-900">
+                我的題庫
+              </span>
+              <span className="mt-px block truncate text-[10px] font-medium text-stone-400/90">
+                只玩自己新增的
+              </span>
+            </span>
+          </button>
         </div>
       </div>
 

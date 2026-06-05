@@ -1,6 +1,10 @@
 import { X } from 'lucide-react';
 import { PlanStatusPill } from './ProBadge';
-import { UpgradeProPanel } from './UpgradeProPanel';
+import {
+  UpgradeProPanelProvider,
+  UpgradeProPanelPurchaseFooter,
+  UpgradeProPanelScrollContent,
+} from './UpgradeProPanel';
 import { useUserPlan } from '../context/UserPlanContext';
 import { PRO_PLAN_TAGLINE, PRO_PLAN_TITLE } from '../lib/proPlanContent';
 import { lq } from '../theme';
@@ -18,10 +22,10 @@ export function UpgradeModal() {
       onClick={closeUpgradeModal}
     >
       <div
-        className="relative z-10 max-h-[90vh] overflow-hidden rounded-t-3xl bg-white shadow-2xl"
+        className="relative z-10 flex max-h-[92dvh] min-h-0 w-full flex-col overflow-hidden rounded-t-3xl bg-white shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="border-b border-stone-100 px-4 py-3.5">
+        <header className="shrink-0 border-b border-stone-100 bg-white px-4 py-3.5">
           <div className="flex items-start justify-between gap-2">
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-2">
@@ -41,15 +45,29 @@ export function UpgradeModal() {
               <X className="h-5 w-5" />
             </button>
           </div>
-        </div>
-        <div className="overflow-y-auto px-4 pb-8 pt-4">
-          {upgradeModalHint ? (
-            <p className="mb-3 rounded-xl bg-violet-50 px-3 py-2.5 text-center text-[13px] font-semibold text-violet-900 ring-1 ring-violet-100">
-              {upgradeModalHint}
-            </p>
+        </header>
+
+        <UpgradeProPanelProvider
+          onLater={closeUpgradeModal}
+          collapsibleBenefits
+        >
+          <div
+            className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-6 pt-4 [-webkit-overflow-scrolling:touch]"
+          >
+            {upgradeModalHint ? (
+              <p className="mb-3 rounded-xl bg-violet-50 px-3 py-2.5 text-center text-[13px] font-semibold text-violet-900 ring-1 ring-violet-100">
+                {upgradeModalHint}
+              </p>
+            ) : null}
+            <UpgradeProPanelScrollContent />
+          </div>
+
+          {!isPro ? (
+            <footer className="shrink-0 border-t border-rose-100/80 bg-gradient-to-b from-white via-rose-50/40 to-[#fff7fb] px-4 pb-[calc(env(safe-area-inset-bottom,0px)+16px)] pt-3 shadow-[0_-8px_24px_-12px_rgba(244,114,182,0.18)]">
+              <UpgradeProPanelPurchaseFooter />
+            </footer>
           ) : null}
-          <UpgradeProPanel onLater={closeUpgradeModal} />
-        </div>
+        </UpgradeProPanelProvider>
       </div>
     </div>
   );

@@ -17,6 +17,8 @@ export const LQ_KEYS = {
   /** Phase 3C 每週情侶挑戰（user-scoped + couple scope 在 JSON 內） */
   weeklyChallenge: 'lovequest-weekly-challenge',
   flirtGames: 'lovequest-flirt-games',
+  /** Pro：自訂情侶小遊戲題庫（local only） */
+  customQuestionBank: 'lovequest-custom-question-bank',
   completionHistory: 'lovequest-completion-history',
   activity: 'lovequest-activity',
   /** 首頁「今日動態」操作紀錄（local；預留 remote 同步） */

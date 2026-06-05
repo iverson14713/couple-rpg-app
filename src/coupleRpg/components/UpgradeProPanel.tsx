@@ -1,5 +1,12 @@
-import { Check } from 'lucide-react';
-import { useCallback, useEffect, useState } from 'react';
+import { Check, ChevronDown } from 'lucide-react';
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useState,
+  type ReactNode,
+} from 'react';
 import type { BillingPeriod } from '../../subscription/types';
 import { SUBSCRIPTION_PRICING } from '../../subscription/constants';
 import { fetchStoreProductPrices, isNativeIapAvailable } from '../../subscription/iapBridge';
@@ -17,12 +24,11 @@ import {
   PRO_LEGAL_MANAGE,
   PRO_PLAN_DESCRIPTION,
   PRO_PLAN_TAGLINE,
-  PRO_PLAN_TITLE,
+  PRO_MARKETING_UPGRADE_LINE,
   PRO_PRICE_MONTHLY,
   PRO_PRICE_YEARLY,
   PRO_PRICE_YEARLY_AVG,
   PRO_TOAST_PURCHASE_FAIL,
-  PRO_MARKETING_UPGRADE_LINE,
   getProCoupleContextMessage,
 } from '../lib/proPlanContent';
 import {
@@ -33,12 +39,39 @@ import { useCoupleSpace } from '../context/CoupleSpaceContext';
 import { useUserPlan } from '../context/UserPlanContext';
 import { lq } from '../theme';
 
-type Props = {
+type PanelProps = {
   onLater?: () => void;
   showLaterButton?: boolean;
+  collapsibleBenefits?: boolean;
 };
 
-export function UpgradeProPanel({ onLater, showLaterButton = true }: Props) {
+type PanelState = {
+  isPro: boolean;
+  isFullyBound: boolean;
+  coupleContext: string;
+  iapAvailable: boolean;
+  busy: boolean;
+  priceMonthly: string;
+  priceYearly: string;
+  productsLoading: boolean;
+  purchaseDisabled: boolean;
+  monthlyLabel: string;
+  yearlyLabel: string;
+  purchaseError: string | null;
+  showLaterButton: boolean;
+  onLater?: () => void;
+  collapsibleBenefits: boolean;
+  handlePurchase: (period: BillingPeriod) => Promise<void>;
+  restorePurchases: () => Promise<void>;
+};
+
+const UpgradeProPanelContext = createContext<PanelState | null>(null);
+
+function useUpgradeProPanelState({
+  onLater,
+  showLaterButton = true,
+  collapsibleBenefits = false,
+}: PanelProps): PanelState {
   const { isPro, purchasePro, restorePurchases, iapBusy, planLoading } = useUserPlan();
   const { isFullyBound } = useCoupleSpace();
   const coupleContext = getProCoupleContextMessage(isFullyBound);
@@ -99,6 +132,71 @@ export function UpgradeProPanel({ onLater, showLaterButton = true }: Props) {
     [iapAvailable, productsLoading, productsLoaded, purchasePro]
   );
 
+  const purchaseDisabled = busy || !iapAvailable || productsLoading;
+  const monthlyLabel = busy
+    ? '處理中…'
+    : productsLoading
+      ? '載入商品中…'
+      : `${PRO_BTN_MONTHLY} · ${priceMonthly}`;
+  const yearlyLabel = busy
+    ? '處理中…'
+    : productsLoading
+      ? '載入商品中…'
+      : `${PRO_BTN_YEARLY} · ${priceYearly}`;
+
+  return {
+    isPro,
+    isFullyBound,
+    coupleContext,
+    iapAvailable,
+    busy,
+    priceMonthly,
+    priceYearly,
+    productsLoading,
+    purchaseDisabled,
+    monthlyLabel,
+    yearlyLabel,
+    purchaseError,
+    showLaterButton,
+    onLater,
+    collapsibleBenefits,
+    handlePurchase,
+    restorePurchases,
+  };
+}
+
+function usePanelContext(): PanelState {
+  const ctx = useContext(UpgradeProPanelContext);
+  if (!ctx) throw new Error('UpgradeProPanel sections must be used within UpgradeProPanelProvider');
+  return ctx;
+}
+
+export function UpgradeProPanelProvider({
+  children,
+  ...props
+}: PanelProps & { children: ReactNode }) {
+  const state = useUpgradeProPanelState(props);
+  return <UpgradeProPanelContext.Provider value={state}>{children}</UpgradeProPanelContext.Provider>;
+}
+
+export function UpgradeProPanelScrollContent() {
+  const {
+    isPro,
+    isFullyBound,
+    coupleContext,
+    iapAvailable,
+    busy,
+    priceMonthly,
+    priceYearly,
+    productsLoading,
+    purchaseDisabled,
+    collapsibleBenefits,
+    handlePurchase,
+    restorePurchases,
+  } = usePanelContext();
+
+  const [benefitsExpanded, setBenefitsExpanded] = useState(!collapsibleBenefits);
+
   if (isPro) {
     return (
       <div className="space-y-3">
@@ -125,18 +223,6 @@ export function UpgradeProPanel({ onLater, showLaterButton = true }: Props) {
     );
   }
 
-  const purchaseDisabled = busy || !iapAvailable || productsLoading;
-  const monthlyLabel = busy
-    ? '處理中…'
-    : productsLoading
-      ? '載入商品中…'
-      : `${PRO_BTN_MONTHLY} · ${priceMonthly}`;
-  const yearlyLabel = busy
-    ? '處理中…'
-    : productsLoading
-      ? '載入商品中…'
-      : `${PRO_BTN_YEARLY} · ${priceYearly}`;
-
   return (
     <div className="space-y-4">
       <div>
@@ -151,15 +237,36 @@ export function UpgradeProPanel({ onLater, showLaterButton = true }: Props) {
       </div>
 
       <section className={`rounded-2xl p-3.5 ${lq.cardSoft}`}>
-        <h3 className={`mb-2.5 ${lq.sectionTitleSm}`}>Pro 權益</h3>
-        <ul className="space-y-2">
-          {PRO_BENEFIT_LINES.map((line) => (
-            <li key={line} className="flex items-start gap-2 text-[13px] font-semibold text-stone-700">
-              <Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-600" strokeWidth={2.5} aria-hidden />
-              <span>{line}</span>
-            </li>
-          ))}
-        </ul>
+        <button
+          type="button"
+          onClick={() => collapsibleBenefits && setBenefitsExpanded((v) => !v)}
+          className={`flex w-full items-center justify-between gap-2 text-left ${
+            collapsibleBenefits ? 'active:opacity-80' : 'cursor-default'
+          }`}
+          aria-expanded={benefitsExpanded}
+        >
+          <h3 className={lq.sectionTitleSm}>Pro 權益</h3>
+          {collapsibleBenefits ? (
+            <ChevronDown
+              className={`h-4 w-4 shrink-0 text-stone-400 transition-transform ${
+                benefitsExpanded ? 'rotate-180' : ''
+              }`}
+              aria-hidden
+            />
+          ) : null}
+        </button>
+        {benefitsExpanded ? (
+          <ul className="mt-2.5 space-y-2">
+            {PRO_BENEFIT_LINES.map((line) => (
+              <li key={line} className="flex items-start gap-2 text-[13px] font-semibold text-stone-700">
+                <Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-600" strokeWidth={2.5} aria-hidden />
+                <span>{line}</span>
+              </li>
+            ))}
+          </ul>
+        ) : collapsibleBenefits ? (
+          <p className="mt-2 text-[12px] font-medium text-stone-500">點擊展開查看完整 Pro 權益</p>
+        ) : null}
       </section>
 
       <section className="grid grid-cols-2 gap-2.5">
@@ -204,6 +311,32 @@ export function UpgradeProPanel({ onLater, showLaterButton = true }: Props) {
         </p>
       ) : null}
 
+      {productsLoading ? (
+        <p className="text-center text-[11px] font-medium text-stone-400">商品載入中…</p>
+      ) : null}
+    </div>
+  );
+}
+
+export function UpgradeProPanelPurchaseFooter() {
+  const {
+    isPro,
+    iapAvailable,
+    busy,
+    purchaseDisabled,
+    monthlyLabel,
+    yearlyLabel,
+    purchaseError,
+    showLaterButton,
+    onLater,
+    handlePurchase,
+    restorePurchases,
+  } = usePanelContext();
+
+  if (isPro) return null;
+
+  return (
+    <div className="space-y-2">
       {purchaseError ? (
         <p
           role="alert"
@@ -213,37 +346,46 @@ export function UpgradeProPanel({ onLater, showLaterButton = true }: Props) {
         </p>
       ) : null}
 
-      <div className="flex flex-col gap-2">
-        <button
-          type="button"
-          disabled={purchaseDisabled}
-          onClick={() => void handlePurchase('monthly')}
-          className={`min-h-[48px] w-full ${lq.btnSecondary}`}
-        >
-          {monthlyLabel}
+      <button
+        type="button"
+        disabled={purchaseDisabled}
+        onClick={() => void handlePurchase('monthly')}
+        className={`min-h-[48px] w-full ${lq.btnSecondary}`}
+      >
+        {monthlyLabel}
+      </button>
+      <button
+        type="button"
+        disabled={purchaseDisabled}
+        onClick={() => void handlePurchase('yearly')}
+        className={`min-h-[48px] w-full ${lq.btnPrimary}`}
+      >
+        {yearlyLabel}
+      </button>
+      <button
+        type="button"
+        disabled={busy || !iapAvailable}
+        onClick={() => void restorePurchases()}
+        className="min-h-[44px] w-full text-[13px] font-bold text-violet-700 underline-offset-2 hover:underline disabled:opacity-50"
+      >
+        {busy ? '處理中…' : PRO_BTN_RESTORE}
+      </button>
+      {showLaterButton ? (
+        <button type="button" onClick={onLater} disabled={busy} className={`min-h-[48px] w-full ${lq.btnSecondary}`}>
+          {PRO_BTN_LATER}
         </button>
-        <button
-          type="button"
-          disabled={purchaseDisabled}
-          onClick={() => void handlePurchase('yearly')}
-          className={`min-h-[48px] w-full ${lq.btnPrimary}`}
-        >
-          {yearlyLabel}
-        </button>
-        <button
-          type="button"
-          disabled={busy || !iapAvailable}
-          onClick={() => void restorePurchases()}
-          className={`min-h-[44px] w-full text-[13px] font-bold text-violet-700 underline-offset-2 hover:underline disabled:opacity-50`}
-        >
-          {busy ? '處理中…' : PRO_BTN_RESTORE}
-        </button>
-        {showLaterButton ? (
-          <button type="button" onClick={onLater} disabled={busy} className={`min-h-[48px] w-full ${lq.btnSecondary}`}>
-            {PRO_BTN_LATER}
-          </button>
-        ) : null}
-      </div>
+      ) : null}
     </div>
+  );
+}
+
+export function UpgradeProPanel({ onLater, showLaterButton = true }: PanelProps) {
+  return (
+    <UpgradeProPanelProvider onLater={onLater} showLaterButton={showLaterButton}>
+      <div className="space-y-4">
+        <UpgradeProPanelScrollContent />
+        <UpgradeProPanelPurchaseFooter />
+      </div>
+    </UpgradeProPanelProvider>
   );
 }
