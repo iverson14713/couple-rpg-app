@@ -360,6 +360,25 @@ function isLoveFlameRecordedOnScope(scope: DailyRewardScopeRecord, dateKey: stri
   return getDay(scope, dateKey).loveFlameRecorded;
 }
 
+/** UI：火苗連續是否仍有效（最後互動為今天或昨天） */
+export function isLoveFlameStreakActive(
+  scope: DailyRewardScopeRecord,
+  today: string = todayKey()
+): boolean {
+  const last = scope.lastInteractionDate;
+  if (!last) return false;
+  return last === today || last === offsetDateKey(-1, today);
+}
+
+/** UI：顯示用連續天數；中斷時為 0（不影響帳本 currentStreak） */
+export function loveFlameDisplayStreak(
+  scope: DailyRewardScopeRecord,
+  today: string = todayKey()
+): number {
+  if (!isLoveFlameStreakActive(scope, today)) return 0;
+  return scope.currentStreak;
+}
+
 export function loveFlameDisplayFromScope(
   scope: DailyRewardScopeRecord,
   today: string = todayKey()
@@ -368,9 +387,12 @@ export function loveFlameDisplayFromScope(
   headline: string;
   subline: string;
   todayRecorded: boolean;
+  displayStreak: number;
+  streakBroken: boolean;
 } {
   const todayRecorded = isLoveFlameRecordedOnScope(scope, today);
-  const streak = scope.currentStreak;
+  const streakBroken = !isLoveFlameStreakActive(scope, today);
+  const streak = loveFlameDisplayStreak(scope, today);
 
   if (todayRecorded) {
     return {
@@ -378,14 +400,29 @@ export function loveFlameDisplayFromScope(
       headline: '🔥 今日火苗已延續',
       subline: `你們已經連續互動 ${streak} 天，明天也一起保持吧！`,
       todayRecorded: true,
+      displayStreak: streak,
+      streakBroken: false,
+    };
+  }
+
+  if (streakBroken) {
+    return {
+      title: '愛情火苗',
+      headline: '🔥 連續互動已中斷',
+      subline: '完成互動任務，就能重新點燃火苗！',
+      todayRecorded: false,
+      displayStreak: 0,
+      streakBroken: true,
     };
   }
 
   return {
     title: '愛情火苗',
     headline: `🔥 連續互動 ${streak} 天`,
-    subline: '今天完成戀愛任務，就能延續你們的默契！',
+    subline: '今天完成互動任務，就能延續你們的默契！',
     todayRecorded: false,
+    displayStreak: streak,
+    streakBroken: false,
   };
 }
 

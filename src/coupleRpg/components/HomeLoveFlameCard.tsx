@@ -3,7 +3,7 @@ import { lq } from '../theme';
 
 export function HomeLoveFlameCard() {
   const { loveFlameView } = useLoveQuest();
-  const { title, headline, subline, todayRecorded, currentStreak } = loveFlameView;
+  const { title, headline, subline, todayRecorded, currentStreak, streakBroken } = loveFlameView;
 
   return (
     <section className={`relative overflow-hidden p-4 ${lq.cardElevated}`}>
@@ -25,7 +25,7 @@ export function HomeLoveFlameCard() {
             {todayRecorded ? '今日：已延續' : '今日：尚未延續'}
           </span>
           <span className={`text-[13px] font-extrabold ${lq.text}`}>
-            連續互動 {currentStreak} 天
+            {streakBroken ? '連續互動已中斷' : `連續互動 ${currentStreak} 天`}
           </span>
         </div>
 

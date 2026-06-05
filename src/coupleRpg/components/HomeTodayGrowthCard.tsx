@@ -10,7 +10,7 @@ export function HomeTodayGrowthCard() {
   const { showToast } = useToast();
   const { loveFlameView, coupleExpView, weeklyChallengeView, coupleWeeklyRecapView } =
     useLoveQuest();
-  const { currentStreak } = loveFlameView;
+  const { currentStreak, streakBroken } = loveFlameView;
   const {
     level,
     title,
@@ -46,7 +46,7 @@ export function HomeTodayGrowthCard() {
     >
       <p className="text-[10px] font-bold uppercase tracking-wide text-stone-400">今日成長</p>
       <p className={`mt-0.5 truncate text-[13px] font-extrabold leading-snug ${lq.text}`}>
-        <span>🔥 火苗 {currentStreak} 天</span>
+        <span>🔥 火苗 {streakBroken ? '已中斷' : `${currentStreak} 天`}</span>
         <span className="mx-1 font-medium text-stone-300" aria-hidden>
           ·
         </span>

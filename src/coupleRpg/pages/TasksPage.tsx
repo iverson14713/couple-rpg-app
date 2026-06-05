@@ -114,7 +114,7 @@ export function TasksPage({
                 🎉 今日任務全部完成{allCompleteBonusClaimed ? '，加碼獎勵已領取' : ''}！
               </p>
             ) : (
-              <p className={`text-[11px] ${lq.textMuted}`}>完成 2/2 可延續愛情火苗並獲得加碼獎勵</p>
+              <p className={`text-[11px] ${lq.textMuted}`}>完成互動任務 2/2 可延續愛情火苗並獲得加碼獎勵</p>
             )}
           </section>
 

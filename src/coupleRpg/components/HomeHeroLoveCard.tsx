@@ -28,7 +28,7 @@ export function HomeHeroLoveCard() {
   } = useLoveQuest();
 
   const coupleHeaderLine = useMemo(() => formatHomeCoupleHeaderLine(coupleExtended), [coupleExtended]);
-  const { currentStreak } = loveFlameView;
+  const { currentStreak, streakBroken } = loveFlameView;
   const {
     level,
     title,
@@ -94,7 +94,7 @@ export function HomeHeroLoveCard() {
           </span>
           <span className="lq-glass-pill inline-flex items-center gap-1 pr-2.5 text-[11px] font-bold">
             <SoftIconBadge variant="flame" size="xs" className="lq-hero-flame-pulse !shadow-none" />
-            火苗 {currentStreak} 天
+            火苗 {streakBroken ? '已中斷' : `${currentStreak} 天`}
           </span>
         </div>
 

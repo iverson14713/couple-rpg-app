@@ -1236,7 +1236,7 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
     const display = loveFlameDisplayFromScope(ledgerScope);
     return {
       ...display,
-      currentStreak: flame.currentStreak,
+      currentStreak: display.displayStreak,
       longestStreak: flame.longestStreak,
       todayRecorded: display.todayRecorded,
     };
