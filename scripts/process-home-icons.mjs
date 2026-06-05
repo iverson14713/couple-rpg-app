@@ -25,7 +25,7 @@ const PAIRS = [
   ['love-task', 'ChatGPT_Image_2026_6_4____08_25_37'],
   ['chores', 'ChatGPT_Image_2026_6_4____08_26_49'],
   ['dice', 'ChatGPT_Image_2026_6_4____08_27_23'],
-  ['love-task-hero', 'ChatGPT_Image_2026_6_4____08_20_13'],
+  ['love-task-hero', 'ChatGPT_Image_2026_6_5____10_23_29'],
 ];
 
 function isBg(r, g, b, a) {
@@ -33,6 +33,7 @@ function isBg(r, g, b, a) {
   const max = Math.max(r, g, b);
   const min = Math.min(r, g, b);
   const sat = max - min;
+  if (max < 28 && sat < 24) return true;
   if (max > 228 && sat < 36) return true;
   if (max > 200 && sat < 22 && Math.abs(r - g) < 10 && Math.abs(g - b) < 10) return true;
   return false;

@@ -212,6 +212,17 @@ body,
     background: linear-gradient(90deg, #ffd36e 0%, #ff9aae 60%, #ff5fa2 100%);
     box-shadow: none;
   }
+  .lq-home-decor-img--hero {
+    right: 0.35rem;
+    top: 50%;
+    width: 40%;
+    max-width: 9rem;
+    height: auto;
+    transform: translateY(-44%);
+    object-fit: contain;
+    object-position: center;
+    filter: drop-shadow(0 8px 18px rgba(157, 23, 77, 0.22));
+  }
   .lq-home-decor-img--card {
     position: absolute;
     left: 50%;

@@ -7,6 +7,7 @@ import { formatHomeCoupleHeaderLine } from '../lib/importantDates';
 import { WEEKLY_RECAP_UNLOCK_HINT } from '../lib/coupleWeeklyRecap';
 import { useToast } from '../../context/ToastContext';
 import { SoftIconBadge } from './ui/SoftIconBadge';
+import { HOME_QUEST_HERO_ILLUSTRATION } from './ui/homeQuestIcons';
 
 /** 首頁 Hero：品牌主視覺（僅 UI） */
 export function HomeHeroLoveCard() {
@@ -68,6 +69,15 @@ export function HomeHeroLoveCard() {
         <span className="lq-home-hero-spark lq-home-hero-spark--2" />
         <span className="lq-home-hero-spark lq-home-hero-spark--3" />
       </div>
+
+      <img
+        src={HOME_QUEST_HERO_ILLUSTRATION}
+        alt=""
+        aria-hidden
+        decoding="async"
+        draggable={false}
+        className="lq-home-decor-img lq-home-decor-img--hero pointer-events-none absolute z-[5] select-none"
+      />
 
       <div className="relative z-10 max-w-[56%]">
         {auth.user ? (
