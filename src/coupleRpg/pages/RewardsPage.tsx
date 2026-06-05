@@ -63,6 +63,7 @@ export function RewardsPage({ embedded }: { embedded?: boolean } = {}) {
   const {
     rpg,
     rpgView,
+    growthWalletReady,
     todayCoinEarned,
     recentCoinEarns,
     weeklyTitles,
@@ -206,7 +207,9 @@ export function RewardsPage({ embedded }: { embedded?: boolean } = {}) {
           const active = tab === id;
           const badge =
             id === 'wallet'
-              ? String(rpg.loveCoins)
+              ? growthWalletReady
+                ? String(rpg.loveCoins)
+                : '…'
               : id === 'coupons' && pendingCount > 0
                 ? String(pendingCount)
                 : undefined;
@@ -261,8 +264,12 @@ export function RewardsPage({ embedded }: { embedded?: boolean } = {}) {
             <div className="flex items-center justify-between gap-3">
               <div>
                 <p className="text-[12px] font-bold uppercase tracking-wide text-rose-500">我的 LoveCoin</p>
-                <p className="mt-0.5 text-4xl font-extrabold tabular-nums text-rose-700">{rpg.loveCoins}</p>
-                <p className="mt-1 text-[13px] font-semibold text-emerald-600">今日獲得 +{todayCoinEarned}</p>
+                <p className="mt-0.5 text-4xl font-extrabold tabular-nums text-rose-700">
+                  {growthWalletReady ? rpg.loveCoins : '…'}
+                </p>
+                <p className="mt-1 text-[13px] font-semibold text-emerald-600">
+                  {growthWalletReady ? `今日獲得 +${todayCoinEarned}` : '同步中…'}
+                </p>
               </div>
               <span className="flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-amber-100 to-rose-100 text-4xl shadow-inner">
                 🪙
@@ -271,7 +278,7 @@ export function RewardsPage({ embedded }: { embedded?: boolean } = {}) {
             <div className="mt-3 flex flex-wrap gap-1.5 text-[11px]">
               <StatPill>💖 {rpgView.heartPoints}</StatPill>
               <StatPill>🤝 {rpgView.compatibility}%</StatPill>
-              <StatPill>✨ Lv.{rpgView.level}</StatPill>
+              <StatPill>✨ Lv.{growthWalletReady ? rpgView.level : '…'}</StatPill>
               <StatPill>🔥 {rpg.loginStreak} 天</StatPill>
             </div>
           </section>
@@ -281,7 +288,9 @@ export function RewardsPage({ embedded }: { embedded?: boolean } = {}) {
               <Coins className="h-4 w-4 text-amber-600" aria-hidden />
               最近獲得
             </h2>
-            {recentCoinEarns.length === 0 ? (
+            {!growthWalletReady ? (
+              <p className="text-center text-[13px] font-semibold text-stone-500">同步中…</p>
+            ) : recentCoinEarns.length === 0 ? (
               <EmptyState
                 compact
                 emoji="🪙"

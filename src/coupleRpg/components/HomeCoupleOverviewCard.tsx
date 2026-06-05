@@ -11,11 +11,14 @@ export function HomeCoupleOverviewCard() {
   const auth = useSupabaseAuth();
   const { navigateTo } = useCoupleRpgNav();
   const { isPro, openUpgradeModal } = useUserPlan();
-  const { rpgView, todayCoinEarned, coupleExtended, displayNames } = useLoveQuest();
+  const { rpgView, todayCoinEarned, coupleExtended, displayNames, growthWalletReady } =
+    useLoveQuest();
 
   const coupleHeaderLine = useMemo(() => formatHomeCoupleHeaderLine(coupleExtended), [coupleExtended]);
 
-  const statsLine = `愛心 ${rpgView.heartPoints}・默契 ${rpgView.compatibility}%・今日 +${todayCoinEarned}`;
+  const statsLine = growthWalletReady
+    ? `愛心 ${rpgView.heartPoints}・默契 ${rpgView.compatibility}%・今日 +${todayCoinEarned}`
+    : '同步中…';
 
   return (
     <section className={`px-3 py-2 ${lq.cardElevated}`}>
@@ -28,7 +31,9 @@ export function HomeCoupleOverviewCard() {
         <div className="min-w-0 flex-1">
           <p className={`truncate text-[14px] font-extrabold leading-tight ${lq.text}`}>
             {coupleHeaderLine}
-            <span className="ml-1.5 font-bold text-violet-700">Lv.{rpgView.level}</span>
+            <span className="ml-1.5 font-bold text-violet-700">
+              {growthWalletReady ? `Lv.${rpgView.level}` : '同步中…'}
+            </span>
           </p>
           <p className={`mt-0.5 truncate text-[12px] font-semibold tabular-nums ${lq.textSecondary}`}>
             {statsLine}

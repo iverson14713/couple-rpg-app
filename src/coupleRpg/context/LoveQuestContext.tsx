@@ -127,6 +127,7 @@ import {
   filterMyCoupons,
   getActiveCoupons,
   getCouponsByStatus,
+  computeTodayEarnedFromHistory,
   getRecentEarns,
   getUsedCoupons,
   getWeeklyTitles,
@@ -222,7 +223,11 @@ import type { WeeklyHouseworkStats } from '../storage/houseworkStore';
 import { makeId } from '../lib/id';
 import { todayKey } from '../lib/dates';
 import { restoreLoveQuestRewardState } from '../lib/restoreLoveQuestRewardState';
-import { STORAGE_USER_CHANGED_EVENT } from '../storage/storageSession';
+import {
+  getActiveStorageUserId,
+  STORAGE_USER_CHANGED_EVENT,
+} from '../storage/storageSession';
+import { importRemoteCoupleExpFloor } from '../storage/coupleExpStore';
 import {
   choreCoinKey,
   dateCompleteCoinKey,
@@ -256,7 +261,15 @@ import {
   createCoinWalletSyncScheduler,
   type CoinWalletSyncScheduler,
 } from '../services/coinWalletSyncScheduler';
-import { loadCoinWalletCache, saveCoinWalletCache } from '../storage/coinWalletCache';
+import {
+  loadCoinWalletCache,
+  mergeGrowthSnapshot,
+  saveCoinWalletCache,
+} from '../storage/coinWalletCache';
+import {
+  beginWalletHydration,
+  resetWalletHydrationGuards,
+} from '../services/walletHydrationGuard';
 import { useOnlineStatus } from '../../hooks/useOnlineStatus';
 import { useSupabaseAuth } from '../../useSupabaseAuth';
 import { ENABLE_DINNER_DECISION_CLOUD_SYNC } from '../constants/dinnerSyncFlags';
@@ -275,6 +288,7 @@ import {
   mergeCoupleExtendedProfile,
   pullCoupleProfileFromRemote,
   pushCoupleProfileToRemote,
+  remoteIsNewerThanLocal,
   syncCoupleProfile,
   type CoupleProfileSyncContext,
   type CoupleProfileSyncStatus,
@@ -486,6 +500,9 @@ type LoveQuestContextValue = {
   completedCouponsSorted: ReturnType<typeof sortCompletedCoupons>;
   partnerName: (id: PartnerId) => string;
   partnerEmoji: (id: PartnerId) => string;
+  /** 登入後 LoveCoin / EXP 雲端 hydrate 完成前為 false（避免顯示 0 / Lv.1） */
+  growthWalletReady: boolean;
+  coinWalletSyncStatus: CoinWalletSyncStatus;
 };
 
 const LoveQuestContext = createContext<LoveQuestContextValue | null>(null);
@@ -533,6 +550,7 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
   const [coinWalletSyncStatus, setCoinWalletSyncStatus] =
     useState<CoinWalletSyncStatus>('local');
   const [coinWalletSyncError, setCoinWalletSyncError] = useState<string | null>(null);
+  const [growthWalletReady, setGrowthWalletReady] = useState(() => !getActiveStorageUserId());
 
   const [coupleBase] = useState(loadCouple);
   const [rpg, setRpg] = useState(loadRpg);
@@ -643,34 +661,6 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
     [auth.configured, coupleId, currentUserId, isFullyBound, isOnline]
   );
 
-  const applyGrowthSnapshot = useCallback(
-    (snapshot: GrowthSnapshot) => {
-    const cloudFields = growthSnapshotToRpgFields(snapshot);
-    const expView = getCoupleExpView(ledgerCtx);
-    setRpg((prev) => {
-      const mergedXp = Math.max(expView.totalExp, cloudFields.xp ?? 0);
-      const next = normalizeRpgState({
-        ...prev,
-        ...cloudFields,
-        xp: mergedXp,
-        level: levelFromTotalExp(mergedXp),
-      });
-      saveRpg(next);
-      return next;
-    });
-    const cache = loadCoinWalletCache();
-    setRewards((prev) => {
-      const next = {
-        ...prev,
-        earnHistory: growthTransactionsToEarnHistory(cache.userCoinTransactions),
-      };
-      saveRewards(next);
-      return next;
-    });
-  },
-    [ledgerCtx, expRevision]
-  );
-
   const syncRpgExpFromStore = useCallback((totalExp: number) => {
     const level = levelFromTotalExp(totalExp);
     setRpg((prev) => {
@@ -681,6 +671,62 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
       return next;
     });
   }, []);
+
+  const applyGrowthSnapshot = useCallback(
+    (snapshot: GrowthSnapshot) => {
+      const activeUserId = getActiveStorageUserId();
+      const ctx: LedgerContext = {
+        userId: activeUserId,
+        coupleId,
+      };
+      const prevCache = loadCoinWalletCache();
+      const mergedSnapshot = mergeGrowthSnapshot(prevCache.snapshot, snapshot);
+      const cloudFields = growthSnapshotToRpgFields(mergedSnapshot);
+      const remoteExp = cloudFields.xp ?? 0;
+      if (importRemoteCoupleExpFloor(ctx, remoteExp)) {
+        bumpExp();
+      }
+      const expView = getCoupleExpView(ctx);
+      const mergedXp = Math.max(expView.totalExp, remoteExp);
+      setRpg((prev) => {
+        const next = normalizeRpgState({
+          ...prev,
+          ...cloudFields,
+          xp: mergedXp,
+          level: levelFromTotalExp(mergedXp),
+        });
+        saveRpg(next);
+        return next;
+      });
+
+      const cache = loadCoinWalletCache();
+      const remoteHistory = growthTransactionsToEarnHistory(cache.userCoinTransactions);
+      const today = todayKey();
+      let loggedTodayEarned = 0;
+      setRewards((prev) => {
+        const earnHistory =
+          remoteHistory.length > 0 ? remoteHistory : prev.earnHistory;
+        const todayEarnedCoins = computeTodayEarnedFromHistory(earnHistory, today);
+        loggedTodayEarned = todayEarnedCoins;
+        const next = {
+          ...prev,
+          earnHistory,
+          todayEarnedDate: today,
+          todayEarnedCoins,
+        };
+        saveRewards(next);
+        return next;
+      });
+      console.log('[growth-hydrate] pull applied', {
+        userId: activeUserId,
+        loveCoins: cloudFields.loveCoins,
+        totalExp: mergedXp,
+        todayEarnedCoins: loggedTodayEarned,
+        txCount: cache.userCoinTransactions.length,
+      });
+    },
+    [bumpExp, coupleId]
+  );
 
   const applyExpGrant = useCallback(
     (source: ExpGrantSource) => {
@@ -734,30 +780,63 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
   );
 
   const hydrateRewardState = useCallback(() => {
-    if (!currentUserId) return;
+    const userId = getActiveStorageUserId();
+    if (!userId) return;
+
+    const ctx: LedgerContext = { userId, coupleId };
+    console.log('[growth-hydrate] local restore start', { userId, coupleId });
+
+    setRpg(normalizeRpgState(loadRpg()));
+    setRewards(loadRewards());
+
     const legacyXp = loadRpg().xp;
-    const { totalExp } = restoreLoveQuestRewardState(ledgerCtx, { legacyRpgXp: legacyXp });
+    const { totalExp } = restoreLoveQuestRewardState(ctx, { legacyRpgXp: legacyXp });
     bumpExp();
     bumpLedger();
     syncRpgExpFromStore(totalExp);
-    setTasks(loadTasksWithLedgerSync(isPro, ledgerCtx, levelFromTotalExp(totalExp)));
+    setTasks(loadTasksWithLedgerSync(isPro, ctx, levelFromTotalExp(totalExp)));
+
     if (canSyncWallet) {
-      const cachedCoins = getCachedCoinBalance();
-      setRpg((prev) => {
-        const normalized = normalizeRpgState(prev);
-        if (normalized.loveCoins === cachedCoins) return prev;
-        const next = { ...normalized, loveCoins: cachedCoins };
-        saveRpg(next);
-        return next;
-      });
+      const cache = loadCoinWalletCache();
+      const hasCachedWallet =
+        cache.migrationDone ||
+        cache.snapshot.loveCoinBalance > 0 ||
+        cache.userCoinTransactions.length > 0;
+      if (hasCachedWallet) {
+        const cachedCoins = getCachedCoinBalance();
+        setRpg((prev) => {
+          const normalized = normalizeRpgState(prev);
+          if (normalized.loveCoins === cachedCoins) return prev;
+          const next = { ...normalized, loveCoins: cachedCoins };
+          saveRpg(next);
+          return next;
+        });
+        const earnHistory = growthTransactionsToEarnHistory(cache.userCoinTransactions);
+        if (earnHistory.length > 0) {
+          const today = todayKey();
+          setRewards((prev) => {
+            const next = {
+              ...prev,
+              earnHistory,
+              todayEarnedDate: today,
+              todayEarnedCoins: computeTodayEarnedFromHistory(earnHistory, today),
+            };
+            saveRewards(next);
+            return next;
+          });
+        }
+      }
+      return;
     }
+
+    setGrowthWalletReady(true);
+    console.log('[growth-hydrate] local restore done', { totalExp });
   }, [
     bumpExp,
     bumpLedger,
     canSyncWallet,
-    currentUserId,
+    coupleId,
     isPro,
-    ledgerCtx,
     syncRpgExpFromStore,
   ]);
 
@@ -768,16 +847,31 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const onStorageUser = () => {
-      if (!currentUserId) {
+      const activeId = getActiveStorageUserId();
+      if (!activeId) {
+        resetWalletHydrationGuards();
+        setGrowthWalletReady(true);
         setRpg(normalizeRpgState(defaultRpgState()));
+        setRewards(loadRewards());
         return;
       }
-      setRpg(normalizeRpgState(loadRpg()));
+      beginWalletHydration();
+      setGrowthWalletReady(false);
       hydrateRewardState();
     };
     window.addEventListener(STORAGE_USER_CHANGED_EVENT, onStorageUser);
     return () => window.removeEventListener(STORAGE_USER_CHANGED_EVENT, onStorageUser);
-  }, [currentUserId, hydrateRewardState]);
+  }, [hydrateRewardState]);
+
+  useEffect(() => {
+    if (!currentUserId) {
+      resetWalletHydrationGuards();
+      setGrowthWalletReady(true);
+      return;
+    }
+    beginWalletHydration();
+    setGrowthWalletReady(false);
+  }, [currentUserId]);
 
   const coupleExpView = useMemo(
     () => getCoupleExpView(ledgerCtx, todayKey()),
@@ -1050,9 +1144,17 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
       onStatusChange: (status, error) => {
         setCoinWalletSyncStatus(status);
         setCoinWalletSyncError(error);
+        if (status === 'syncing') {
+          setGrowthWalletReady(false);
+        } else if (status === 'synced' || status === 'error') {
+          setGrowthWalletReady(true);
+        }
       },
     });
     coinWalletSchedulerRef.current = scheduler;
+    if (canSyncWallet) {
+      void scheduler.pullFromRemoteIfIdle();
+    }
     return () => {
       scheduler.dispose();
       coinWalletSchedulerRef.current = null;
@@ -1064,6 +1166,11 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
     coupleId,
     currentUserId,
   ]);
+
+  useEffect(() => {
+    if (!canSyncWallet || !currentUserId || !coupleId) return;
+    void coinWalletSchedulerRef.current?.pullFromRemoteIfIdle();
+  }, [canSyncWallet, coupleId, currentUserId]);
 
   const pullActivityLogsFromCloud = useCallback(async () => {
     await (activityLogSchedulerRef.current?.pullFromRemoteIfIdle() ?? Promise.resolve());
@@ -1263,7 +1370,7 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
           }).then((result) => {
             if (result.ok) {
               applyGrowthSnapshot(result.snapshot);
-              coinWalletSchedulerRef.current?.scheduleSync();
+              coinWalletSchedulerRef.current?.schedulePull();
             }
           });
         }
@@ -1886,9 +1993,11 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
         );
         if (result.conflict) {
           const row = await pullCoupleProfileFromRemote(sb, coupleId);
-          const merged = mergeCoupleExtendedProfile(profile, row.profile, coupleProfileSyncCtx);
-          saveCoupleExtendedProfile(merged);
-          setCoupleExtendedState(merged);
+          if (remoteIsNewerThanLocal(profile, row.profile)) {
+            const merged = mergeCoupleExtendedProfile(profile, row.profile, coupleProfileSyncCtx);
+            saveCoupleExtendedProfile(merged);
+            setCoupleExtendedState(merged);
+          }
         }
         setCoupleProfileSyncStatus('synced');
       } catch (err) {
@@ -1948,19 +2057,17 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
     if (!sb || !coupleId) return;
 
     let cancelled = false;
+    setCoupleProfileSyncStatus('syncing');
     void (async () => {
       try {
-        const row = await pullCoupleProfileFromRemote(sb, coupleId);
+        const result = await syncCoupleProfile(sb, coupleId, coupleProfileSyncCtx);
         if (cancelled) return;
-        const local = loadCoupleExtendedProfile();
-        const merged = mergeCoupleExtendedProfile(local, row.profile, coupleProfileSyncCtx);
-        saveCoupleExtendedProfile(merged);
-        setCoupleExtendedState(merged);
+        setCoupleExtendedState(result.merged);
         setCoupleProfileSyncStatus('synced');
         setCoupleProfileSyncError(null);
       } catch (err) {
         if (cancelled) return;
-        console.error('[couple-profile-sync] pull on load failed:', err);
+        console.error('[couple-profile-sync] hydrate sync failed:', err);
         setCoupleProfileSyncStatus('error');
         setCoupleProfileSyncError('同步失敗，稍後再試');
       }
@@ -2535,7 +2642,7 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
         message: formatLoveCoinActivityMessage(-item.cost, result.coupon.cardTitle),
       });
       pushCouponBackground(result.coupon);
-      coinWalletSchedulerRef.current?.scheduleSync();
+      coinWalletSchedulerRef.current?.schedulePull();
       recordValidInteractionToday();
       return { ok: true, couponId: result.coupon.id };
     },
@@ -3089,6 +3196,8 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
       cleanupOldCompletedRewardCards: cleanupOldCompletedRewardCardsFn,
       partnerName,
       partnerEmoji,
+      growthWalletReady,
+      coinWalletSyncStatus,
     }),
     [
       couple,
@@ -3200,6 +3309,8 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
       isPro,
       partnerName,
       partnerEmoji,
+      growthWalletReady,
+      coinWalletSyncStatus,
     ]
   );
 

@@ -1,5 +1,6 @@
 import type { Session, SupabaseClient } from '@supabase/supabase-js';
 import { authLog } from './authDebug';
+import { markAuthGraceStart } from './authGrace';
 import { waitForPersistedSession } from './authSession';
 
 type ExchangeResult = { session: Session | null; error: Error | null };
@@ -29,6 +30,7 @@ export function exchangePkceCodeOnce(client: SupabaseClient, code: string): Prom
         error: new Error('Session not available after code exchange'),
       };
     }
+    markAuthGraceStart('exchangePkceCodeOnce', session.user.id);
     authLog('exchangePkceCodeOnce.ok', { userId: session.user.id });
     return { session, error: null };
   })();

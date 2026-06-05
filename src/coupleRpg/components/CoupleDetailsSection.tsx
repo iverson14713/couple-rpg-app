@@ -36,6 +36,7 @@ export function CoupleDetailsSection() {
   const [savedFlash, setSavedFlash] = useState(false);
   const [syncingManual, setSyncingManual] = useState(false);
   const sectionRef = useRef<HTMLElement>(null);
+  const draftDirtyRef = useRef(false);
 
   const coupleSyncHint = isFullyBound
     ? '你們的情侶空間將一起同步這些資料'
@@ -56,6 +57,7 @@ export function CoupleDetailsSection() {
   }, [syncCoupleProfile]);
 
   useEffect(() => {
+    if (draftDirtyRef.current) return;
     setDraft({
       ...defaultCoupleExtendedProfile(),
       ...coupleExtended,
@@ -69,33 +71,42 @@ export function CoupleDetailsSection() {
     sectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }, [pendingScrollElementId, acknowledgePendingScroll]);
 
-  const updateDraft = useCallback((patch: Partial<CoupleExtendedProfile>) => {
-    setDraft((prev) => ({ ...prev, ...patch }));
+  const markDraftDirty = useCallback(() => {
+    draftDirtyRef.current = true;
   }, []);
 
+  const updateDraft = useCallback((patch: Partial<CoupleExtendedProfile>) => {
+    markDraftDirty();
+    setDraft((prev) => ({ ...prev, ...patch }));
+  }, [markDraftDirty]);
+
   const addCustomDate = useCallback(() => {
+    markDraftDirty();
     setDraft((prev) => ({
       ...prev,
       customDates: [...prev.customDates, { id: makeId(), name: '', date: '', note: '' }],
     }));
-  }, []);
+  }, [markDraftDirty]);
 
   const updateCustom = useCallback((id: string, patch: Partial<CustomImportantDate>) => {
+    markDraftDirty();
     setDraft((prev) => ({
       ...prev,
       customDates: prev.customDates.map((c) => (c.id === id ? { ...c, ...patch } : c)),
     }));
-  }, []);
+  }, [markDraftDirty]);
 
   const removeCustom = useCallback((id: string) => {
+    markDraftDirty();
     setDraft((prev) => ({
       ...prev,
       customDates: prev.customDates.filter((c) => c.id !== id),
     }));
-  }, []);
+  }, [markDraftDirty]);
 
   const onSave = useCallback(() => {
     setCoupleExtendedProfile({ ...defaultCoupleExtendedProfile(), ...draft });
+    draftDirtyRef.current = false;
     setSavedFlash(true);
     window.setTimeout(() => setSavedFlash(false), 2800);
   }, [draft, setCoupleExtendedProfile]);

@@ -27,6 +27,7 @@ import { userCoinTxToCoinRecord } from '../storage/coinWalletTypes';
 import type { RpgReward } from '../storage/rpgLogic';
 import type { RpgState } from '../storage/types';
 import { canUseUserStorage } from '../storage/storageGuard';
+import { allowWalletPushAfterUserAction, canPushWalletChanges } from './walletHydrationGuard';
 
 const LOG = '[growth-sync]';
 const TX_LIMIT = 100;
@@ -347,7 +348,11 @@ export async function pushPendingUserCoinTransactions(
   coupleId: string,
   userId: string
 ): Promise<void> {
-  const pending = getPendingUserCoinTransactions();
+  if (!canPushWalletChanges()) {
+    console.log(`${LOG} push pending skipped (hydrate guard)`);
+    return;
+  }
+  const pending = getPendingUserCoinTransactions().filter((tx) => tx.amount !== 0);
   for (const tx of pending) {
     if (tx.userId && tx.userId !== userId) continue;
     try {
@@ -379,6 +384,10 @@ export async function migrateLocalGrowthIfNeeded(
   localRpg: Pick<RpgState, 'loveCoins' | 'heartPoints' | 'compatibility' | 'xp'>
 ): Promise<void> {
   if (!userId) return;
+  if (!canPushWalletChanges()) {
+    console.log(`${LOG} migration skipped (hydrate guard)`);
+    return;
+  }
   if (isCoinWalletMigrationDone(userId, coupleId)) return;
 
   const { balance: remoteCoin, transactions } = await pullUserCoinFromRemote(
@@ -394,18 +403,20 @@ export async function migrateLocalGrowthIfNeeded(
     coupleGrowth.heartValue !== 50 ||
     coupleGrowth.bondValue !== 60;
 
-  if (hasCloudCoin && hasCloudGrowth) {
+  if (hasCloudCoin || hasCloudGrowth) {
     setCoinWalletMigrationDone(userId, coupleId);
     return;
   }
 
   const hasLocalCoin = localRpg.loveCoins > 0;
-  const hasLocalGrowth =
-    localRpg.heartPoints !== 50 ||
-    localRpg.compatibility !== 60 ||
-    localRpg.xp > 0;
+  const hasLocalGrowth = localRpg.xp > 0;
 
   if (!hasLocalCoin && !hasLocalGrowth) {
+    console.log(`${LOG} migration skip (no local data; remote not overwritten)`, {
+      userId,
+      coupleId,
+      remoteCoin,
+    });
     setCoinWalletMigrationDone(userId, coupleId);
     return;
   }
@@ -421,7 +432,7 @@ export async function migrateLocalGrowthIfNeeded(
       });
     }
 
-    if (!hasCloudGrowth && hasLocalGrowth) {
+    if (!hasCloudGrowth && hasLocalGrowth && localRpg.xp > 0) {
       const { error } = await supabase.rpc('lovequest_init_growth_from_local', {
         p_couple_id: coupleId,
         p_user_id: userId,
@@ -472,6 +483,11 @@ export async function recordGrowthEvent(
   const bondDelta = input.bondDelta ?? 0;
   const expDelta = input.expDelta ?? 0;
   const userId = input.userId;
+  const hasAction =
+    loveCoinDelta !== 0 || heartDelta !== 0 || bondDelta !== 0 || expDelta !== 0;
+  if (canSync && supabase && hasAction) {
+    allowWalletPushAfterUserAction();
+  }
 
   const cache = loadCoinWalletCache();
   let snapshot = { ...cache.snapshot };
@@ -627,5 +643,7 @@ export function coinTransactionsToEarnHistory(
 export function growthTransactionsToEarnHistory(
   transactions: UserCoinTransactionRecord[]
 ): import('../storage/rewardTypes').LoveCoinEarnRecord[] {
-  return coinTransactionsToEarnHistory(transactions.map(userCoinTxToCoinRecord));
+  return coinTransactionsToEarnHistory(
+    transactions.filter((t) => t.txType === 'earn').map(userCoinTxToCoinRecord)
+  );
 }

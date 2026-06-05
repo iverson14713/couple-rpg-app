@@ -8,6 +8,7 @@ import {
   type CoinWalletSyncStatus,
   type GrowthSnapshot,
 } from './coinWalletSyncService';
+import { markWalletHydrated } from './walletHydrationGuard';
 import type { RpgState } from '../storage/types';
 
 const LOG = '[growth-sync-scheduler]';
@@ -25,9 +26,13 @@ export type CoinWalletSyncSchedulerOptions = {
 };
 
 export type CoinWalletSyncScheduler = {
-  scheduleSync: (reason?: string) => void;
+  /** Debounced pull-only sync (no migrate / no push). */
+  schedulePull: () => void;
+  /** @deprecated use schedulePull */
+  scheduleSync: () => void;
   pullFromRemoteIfIdle: () => Promise<void>;
-  flushPending: () => Promise<void>;
+  /** Push deferred txs after explicit user wallet action (guarded). */
+  flushPendingAfterUserAction: () => Promise<void>;
   dispose: () => void;
 };
 
@@ -43,7 +48,8 @@ export function createCoinWalletSyncScheduler(
     options.onStatusChange(s, err);
   };
 
-  const runSync = async (): Promise<void> => {
+  /** Pull remote only — never migrate or push during hydrate / background refresh. */
+  const runPullOnly = async (): Promise<void> => {
     const supabase = options.getSupabase();
     const coupleId = options.getCoupleId();
     const userId = options.getUserId();
@@ -56,26 +62,57 @@ export function createCoinWalletSyncScheduler(
     setStatus('syncing', null);
 
     try {
-      const local = options.getLocalRpg();
-      await migrateLocalGrowthIfNeeded(supabase, coupleId, userId, local);
-      await pushPendingGrowthTransactions(supabase, coupleId, userId);
-      const { snapshot } = await pullGrowthFromRemote(supabase, userId, coupleId);
-      options.onGrowthApplied(snapshot);
+      console.log(`${LOG} pull start`, { userId, coupleId });
+      const pulled = await pullGrowthFromRemote(supabase, userId, coupleId);
+      options.onGrowthApplied(pulled.snapshot);
+      markWalletHydrated();
+      console.log(`${LOG} pull done`, {
+        userId,
+        coupleId,
+        loveCoins: pulled.snapshot.loveCoinBalance,
+        exp: pulled.snapshot.exp,
+        txCount: pulled.transactions.length,
+      });
       setStatus('synced', null);
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
-      console.warn(`${LOG} sync failed:`, msg);
+      console.warn(`${LOG} pull failed:`, msg);
       setStatus('error', '成長數值同步失敗，稍後再試');
     } finally {
       syncInProgress = false;
       if (pendingAfter) {
         pendingAfter = false;
-        void runSync();
+        void runPullOnly();
       }
     }
   };
 
-  const scheduleSync = () => {
+  const runPushAndPull = async (): Promise<void> => {
+    const supabase = options.getSupabase();
+    const coupleId = options.getCoupleId();
+    const userId = options.getUserId();
+    if (!options.canSync() || !supabase || !coupleId || !userId) return;
+
+    syncInProgress = true;
+    setStatus('syncing', null);
+    try {
+      const local = options.getLocalRpg();
+      await migrateLocalGrowthIfNeeded(supabase, coupleId, userId, local);
+      await pushPendingGrowthTransactions(supabase, coupleId, userId);
+      const pulled = await pullGrowthFromRemote(supabase, userId, coupleId);
+      options.onGrowthApplied(pulled.snapshot);
+      markWalletHydrated();
+      setStatus('synced', null);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      console.warn(`${LOG} push+pull failed:`, msg);
+      setStatus('error', '成長數值同步失敗，稍後再試');
+    } finally {
+      syncInProgress = false;
+    }
+  };
+
+  const schedulePull = () => {
     if (syncInProgress) {
       pendingAfter = true;
       return;
@@ -83,31 +120,33 @@ export function createCoinWalletSyncScheduler(
     if (debounceTimer) clearTimeout(debounceTimer);
     debounceTimer = setTimeout(() => {
       debounceTimer = null;
-      void runSync();
+      void runPullOnly();
     }, DEBOUNCE_MS);
   };
 
   const pullFromRemoteIfIdle = async () => {
     if (syncInProgress) return;
-    await runSync();
+    await runPullOnly();
   };
 
-  const flushPending = async () => {
-    scheduleSync();
+  const flushPendingAfterUserAction = async () => {
+    if (syncInProgress) return;
+    await runPushAndPull();
   };
 
   pollTimer = setInterval(() => {
-    if (options.canSync()) scheduleSync();
+    if (options.canSync()) schedulePull();
   }, POLL_MS);
 
   if (options.canSync()) {
-    setTimeout(() => scheduleSync(), 100);
+    setTimeout(() => schedulePull(), 100);
   }
 
   return {
-    scheduleSync,
+    schedulePull,
+    scheduleSync: schedulePull,
     pullFromRemoteIfIdle,
-    flushPending,
+    flushPendingAfterUserAction,
     dispose: () => {
       if (debounceTimer) clearTimeout(debounceTimer);
       if (pollTimer) clearInterval(pollTimer);

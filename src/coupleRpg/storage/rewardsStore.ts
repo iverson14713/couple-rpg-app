@@ -129,6 +129,16 @@ export function getRecentEarns(rewards: RewardsData, limit = 8): LoveCoinEarnRec
   return rewards.earnHistory.slice(0, limit);
 }
 
+/** 從雲端交易紀錄還原今日獲得（登入 hydrate 用） */
+export function computeTodayEarnedFromHistory(
+  earnHistory: LoveCoinEarnRecord[],
+  dateKey: string = todayKey()
+): number {
+  return earnHistory
+    .filter((e) => e.date === dateKey && e.coins > 0)
+    .reduce((sum, e) => sum + e.coins, 0);
+}
+
 export function getCouponsByStatus(rewards: RewardsData, status: RewardCardStatus): OwnedCoupon[] {
   return rewards.coupons.filter((c) => c.status === status);
 }

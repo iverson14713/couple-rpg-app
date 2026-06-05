@@ -23,6 +23,7 @@ export function HomeHeroLoveCard() {
     coupleExpView,
     weeklyChallengeView,
     coupleWeeklyRecapView,
+    growthWalletReady,
   } = useLoveQuest();
 
   const coupleHeaderLine = useMemo(() => formatHomeCoupleHeaderLine(coupleExtended), [coupleExtended]);
@@ -79,7 +80,7 @@ export function HomeHeroLoveCard() {
 
         <div className="mt-2.5 flex flex-wrap items-center gap-2">
           <span className="lq-glass-pill text-[12px] font-bold">
-            Lv.{level} {title}
+            {growthWalletReady ? `Lv.${level} ${title}` : '同步中…'}
           </span>
           <span className="lq-glass-pill inline-flex items-center gap-1 pr-2.5 text-[11px] font-bold">
             <SoftIconBadge variant="flame" size="xs" className="lq-hero-flame-pulse !shadow-none" />
@@ -97,7 +98,7 @@ export function HomeHeroLoveCard() {
           <span className="lq-hero-stats-sep">·</span>
           默契 {rpgView.compatibility}%
           <span className="lq-hero-stats-sep">·</span>
-          今日 +{todayCoinEarned}
+          今日 {growthWalletReady ? `+${todayCoinEarned}` : '同步中…'}
         </p>
 
         {gapLine ? (

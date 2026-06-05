@@ -108,6 +108,40 @@ export function saveCoinWalletCache(cache: CoinWalletCache): void {
   saveJson(LQ_KEYS.coinWalletCache, cache);
 }
 
+/** Remote wins when > 0; never let remote 0 wipe a known positive balance. */
+export function mergeGrowthSnapshot(
+  prev: GrowthSnapshot,
+  remote: GrowthSnapshot
+): GrowthSnapshot {
+  const remoteBal = Math.max(0, Math.floor(remote.loveCoinBalance));
+  const prevBal = Math.max(0, Math.floor(prev.loveCoinBalance));
+  const loveCoinBalance =
+    remoteBal > 0 ? remoteBal : prevBal > 0 ? prevBal : 0;
+
+  const remoteExp = Math.max(0, Math.floor(remote.exp));
+  const prevExp = Math.max(0, Math.floor(prev.exp));
+  const exp = remoteExp > 0 ? Math.max(prevExp, remoteExp) : prevExp > 0 ? prevExp : 0;
+
+  const heartValue = Math.min(
+    100,
+    Math.max(0, Math.floor(remote.heartValue ?? prev.heartValue))
+  );
+  const bondValue = Math.min(
+    100,
+    Math.max(0, Math.floor(remote.bondValue ?? prev.bondValue))
+  );
+  const level = Math.max(1, Math.floor(exp / 100) + 1);
+
+  return {
+    loveCoinBalance,
+    heartValue,
+    bondValue,
+    exp,
+    level,
+    updatedAt: remote.updatedAt ?? prev.updatedAt,
+  };
+}
+
 export function applyGrowthSnapshotToCache(
   userId: string,
   coupleId: string,
@@ -115,19 +149,17 @@ export function applyGrowthSnapshotToCache(
   userCoinTransactions: UserCoinTransactionRecord[]
 ): CoinWalletCache {
   const prev = loadCoinWalletCache();
+  const mergedSnapshot = mergeGrowthSnapshot(prev.snapshot, snapshot);
+  const mergedTxs =
+    userCoinTransactions.length > 0
+      ? userCoinTransactions.slice(0, 120)
+      : prev.userCoinTransactions;
   const cache: CoinWalletCache = {
     version: 3,
     userId,
     coupleId,
-    snapshot: {
-      loveCoinBalance: Math.max(0, Math.floor(snapshot.loveCoinBalance)),
-      heartValue: Math.min(100, Math.max(0, Math.floor(snapshot.heartValue))),
-      bondValue: Math.min(100, Math.max(0, Math.floor(snapshot.bondValue))),
-      exp: Math.max(0, Math.floor(snapshot.exp)),
-      level: Math.max(1, Math.floor(snapshot.level)),
-      updatedAt: snapshot.updatedAt,
-    },
-    userCoinTransactions: userCoinTransactions.slice(0, 120),
+    snapshot: mergedSnapshot,
+    userCoinTransactions: mergedTxs,
     migrationDone: prev.migrationDone,
   };
   saveCoinWalletCache(cache);

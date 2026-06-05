@@ -1,7 +1,8 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { authLog, isAuthNativeClient } from './authDebug';
+import { isWithinAuthGracePeriod } from './authGrace';
 import { notifyAuthSessionSync } from './authRoute';
-import { waitForPersistedSession } from './authSession';
+import { recoverAuthSession, waitForPersistedSession } from './authSession';
 
 const RETURN_KEY = 'lq_auth_return';
 
@@ -81,14 +82,33 @@ export function navigateAfterAuthSuccess(target: string): void {
  */
 export async function redirectAfterAuthSuccess(
   client: SupabaseClient,
-  delayMs = 400
+  delayMs = 400,
+  knownSession?: import('@supabase/supabase-js').Session | null
 ): Promise<void> {
-  const session = await waitForPersistedSession(client);
-  if (!session) {
-    authLog('redirectAfterAuthSuccess.no_session', {});
-  } else {
+  let session = await waitForPersistedSession(client, { knownSession: knownSession ?? null });
+
+  if (!session?.access_token && isWithinAuthGracePeriod()) {
+    session = await recoverAuthSession(client, {
+      knownSession: knownSession ?? null,
+      attempts: 3,
+      intervalMs: 500,
+      allowRefresh: false,
+    });
+    authLog('auth.redirect.success_without_wait_timeout', {
+      hasSession: Boolean(session?.access_token),
+      inGrace: true,
+    });
+    notifyAuthSessionSync('redirectAfterAuthSuccess.grace');
+  } else if (session?.access_token) {
     notifyAuthSessionSync('redirectAfterAuthSuccess');
+  } else {
+    authLog('redirectAfterAuthSuccess.no_session', { inGrace: isWithinAuthGracePeriod() });
+    if (isWithinAuthGracePeriod()) {
+      authLog('auth.redirect.success_without_wait_timeout', { hasSession: false, inGrace: true });
+      notifyAuthSessionSync('redirectAfterAuthSuccess.grace_navigate');
+    }
   }
+
   try {
     sessionStorage.setItem('lq_skip_splash_once', '1');
   } catch {

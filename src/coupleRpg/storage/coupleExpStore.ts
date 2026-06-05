@@ -272,6 +272,28 @@ function canClaimSource(day: DailyExpDayRecord, source: ExpGrantSource): boolean
   return true;
 }
 
+/** 雲端 couple_wallets.exp 為準：僅在 remote 高於本機 scope 時抬高 totalExp（不發新獎勵） */
+export function importRemoteCoupleExpFloor(ctx: LedgerContext, remoteTotalExp: number): boolean {
+  if (!isLedgerWritable(ctx)) return false;
+  const remote = Math.max(0, Math.floor(remoteTotalExp));
+  if (remote <= 0) return false;
+
+  let changed = false;
+  writeExpScope(ctx, (scope) => {
+    if (scope.totalExp >= remote) return scope;
+    changed = true;
+    const level = levelFromTotalExp(remote);
+    const shown = new Set(scope.levelUpShownLevels);
+    for (let lv = 2; lv <= level; lv++) shown.add(lv);
+    return {
+      ...scope,
+      totalExp: remote,
+      levelUpShownLevels: [...shown].sort((a, b) => a - b),
+    };
+  });
+  return changed;
+}
+
 /** 從舊版 rpg.xp 遷移 totalExp（僅當新帳本為 0） */
 export function migrateLegacyRpgXpIntoExp(ctx: LedgerContext, legacyXp: number): void {
   if (!isLedgerWritable(ctx) || legacyXp <= 0) return;

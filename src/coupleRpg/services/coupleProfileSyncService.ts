@@ -11,7 +11,6 @@ import { defaultCoupleExtendedProfile } from '../storage/coupleExtendedTypes';
 import {
   loadCoupleExtendedProfile,
   saveCoupleExtendedProfile,
-  stampCoupleExtendedProfile,
 } from '../storage/coupleExtendedStore';
 import { canUseUserStorage } from '../storage/storageGuard';
 
@@ -206,6 +205,11 @@ export function localToRemotePayload(
   };
 }
 
+/** Remote wins only when strictly newer; ties keep local. */
+function localFieldWins(_localValue: string, localUpdatedAt: string, remoteUpdatedAt: string): boolean {
+  return parseTs(remoteUpdatedAt) <= parseTs(localUpdatedAt);
+}
+
 function pickNickname(
   remoteMember: RemoteMemberProfile | undefined,
   localValue: string,
@@ -213,8 +217,8 @@ function pickNickname(
 ): string {
   if (!remoteMember) return localValue;
   if (!localValue.trim()) return remoteMember.nickname;
-  if (parseTs(remoteMember.updatedAt) > parseTs(localUpdatedAt)) return remoteMember.nickname;
-  return localValue;
+  if (localFieldWins(localValue, localUpdatedAt, remoteMember.updatedAt)) return localValue;
+  return remoteMember.nickname;
 }
 
 function pickBirthday(
@@ -224,8 +228,8 @@ function pickBirthday(
 ): string {
   if (!remoteMember) return localValue;
   if (!localValue.trim()) return remoteMember.birthday;
-  if (parseTs(remoteMember.updatedAt) > parseTs(localUpdatedAt)) return remoteMember.birthday;
-  return localValue;
+  if (localFieldWins(localValue, localUpdatedAt, remoteMember.updatedAt)) return localValue;
+  return remoteMember.birthday;
 }
 
 export function remoteToLocalProfile(
@@ -239,12 +243,19 @@ export function remoteToLocalProfile(
   const myMember = uid ? remote.members[uid] : undefined;
   const partnerMember = pid ? remote.members[pid] : undefined;
 
-  const useShared =
-    isLocalProfileEmpty(base) || parseTs(remote.shared.updatedAt) > parseTs(base.updatedAt);
+  const localTs = profileEffectiveTs(base);
+  const remoteTs = remoteEffectiveTs(remote);
+  const useShared = isLocalProfileEmpty(base) || remoteTs > localTs;
+
+  const mergedUpdatedAt = Math.max(localTs, remoteTs);
+  const mergedUpdatedAtIso =
+    mergedUpdatedAt > 0
+      ? new Date(mergedUpdatedAt).toISOString()
+      : base.updatedAt || remote.updatedAt;
 
   return {
     version: 1,
-    updatedAt: remote.updatedAt || base.updatedAt,
+    updatedAt: mergedUpdatedAtIso,
     myNickname: uid ? pickNickname(myMember, base.myNickname, base.updatedAt) : base.myNickname,
     partnerNickname: pid
       ? pickNickname(partnerMember, base.partnerNickname, base.updatedAt)
@@ -275,6 +286,14 @@ function parseTs(iso: string | undefined | null): number {
   return Number.isFinite(t) ? t : 0;
 }
 
+function remoteEffectiveTs(remote: RemoteCoupleProfilePayload): number {
+  return Math.max(parseTs(remote.updatedAt), parseTs(remote.shared.updatedAt));
+}
+
+function profileEffectiveTs(local: CoupleExtendedProfile): number {
+  return parseTs(local.updatedAt);
+}
+
 export function isCoupleProfilePayloadEmpty(p: RemoteCoupleProfilePayload | null): boolean {
   if (!p) return true;
   const hasMember = Object.values(p.members).some(
@@ -303,7 +322,10 @@ export function isLocalProfileEmpty(p: CoupleExtendedProfile): boolean {
   return !hasNick && !hasDate && !hasCustom;
 }
 
-/** Merge remote into local without swapping A/B nicknames */
+/**
+ * Merge remote into local without swapping A/B nicknames.
+ * Only applies remote fields when remote.updatedAt is strictly newer.
+ */
 export function mergeCoupleExtendedProfile(
   local: CoupleExtendedProfile,
   remote: RemoteCoupleProfilePayload | null,
@@ -313,9 +335,6 @@ export function mergeCoupleExtendedProfile(
   const normalized = remote ? normalizeRemotePayload(remote) : null;
   if (!normalized || isCoupleProfilePayloadEmpty(normalized)) {
     return localNorm;
-  }
-  if (isLocalProfileEmpty(localNorm)) {
-    return remoteToLocalProfile(normalized, ctx, localNorm);
   }
   return remoteToLocalProfile(normalized, ctx, localNorm);
 }
@@ -330,13 +349,13 @@ export function mergeRemotePayloadOnPush(
   const members = { ...base.members };
   if (myIncoming) {
     const prev = members[userId];
-    if (!prev || parseTs(myIncoming.updatedAt) >= parseTs(prev.updatedAt)) {
+    if (!prev || parseTs(myIncoming.updatedAt) > parseTs(prev.updatedAt)) {
       members[userId] = myIncoming;
     }
   }
 
   const shared =
-    parseTs(incoming.shared.updatedAt) >= parseTs(base.shared.updatedAt)
+    parseTs(incoming.shared.updatedAt) > parseTs(base.shared.updatedAt)
       ? incoming.shared
       : base.shared;
 
@@ -352,21 +371,26 @@ export function mergeRemotePayloadOnPush(
   };
 }
 
-export function shouldPushAfterMerge(
-  localBefore: CoupleExtendedProfile,
-  remote: RemoteCoupleProfilePayload | null,
-  userId: string | null
+/** Pull only when remote updatedAt is strictly newer than local. */
+export function remoteIsNewerThanLocal(
+  local: CoupleExtendedProfile,
+  remote: RemoteCoupleProfilePayload | null
 ): boolean {
   const normalized = remote ? normalizeRemotePayload(remote) : null;
-  if (!normalized || isCoupleProfilePayloadEmpty(normalized)) {
-    return !isLocalProfileEmpty(localBefore);
-  }
-  if (!userId) return false;
-  const lt = parseTs(localBefore.updatedAt);
-  const myRemote = normalized.members[userId];
-  const rt = myRemote ? parseTs(myRemote.updatedAt) : 0;
-  const st = parseTs(normalized.shared.updatedAt);
-  return lt >= rt && lt >= st;
+  if (!normalized || isCoupleProfilePayloadEmpty(normalized)) return false;
+  if (isLocalProfileEmpty(local)) return true;
+  return remoteEffectiveTs(normalized) > profileEffectiveTs(local);
+}
+
+/** Push only when local updatedAt is strictly newer than remote. */
+export function localIsNewerThanRemote(
+  local: CoupleExtendedProfile,
+  remote: RemoteCoupleProfilePayload | null
+): boolean {
+  if (isLocalProfileEmpty(local) || profileEffectiveTs(local) === 0) return false;
+  const normalized = remote ? normalizeRemotePayload(remote) : null;
+  if (!normalized || isCoupleProfilePayloadEmpty(normalized)) return true;
+  return profileEffectiveTs(local) > remoteEffectiveTs(normalized);
 }
 
 function extractRemoteFromState(state: unknown): RemoteCoupleProfilePayload | null {
@@ -480,35 +504,36 @@ export async function syncCoupleProfile(
 ): Promise<SyncCoupleProfileResult> {
   const local = loadCoupleExtendedProfile();
   const { profile: remote, serverUpdatedAt } = await pullCoupleProfileFromRemote(supabase, coupleId);
-  const merged = mergeCoupleExtendedProfile(local, remote, ctx);
-  saveCoupleExtendedProfile(merged);
 
-  const normalized = remote ? normalizeRemotePayload(remote) : null;
-  const pulledNewer =
-    Boolean(normalized) &&
-    !isCoupleProfilePayloadEmpty(normalized) &&
-    parseTs(normalized!.updatedAt) > parseTs(local.updatedAt);
+  const pulledNewer = remoteIsNewerThanLocal(local, remote);
+  const pushNewer = localIsNewerThanRemote(local, remote);
+
+  let merged = local;
+  if (pulledNewer) {
+    merged = mergeCoupleExtendedProfile(local, remote, ctx);
+    saveCoupleExtendedProfile(merged);
+  }
 
   let pushed = false;
   const uid = ctx.currentUserId;
-  if (uid && shouldPushAfterMerge(local, remote, uid)) {
-    const stamped = stampCoupleExtendedProfile(merged);
-    saveCoupleExtendedProfile(stamped);
+  if (uid && pushNewer) {
     const pushResult = await pushCoupleProfileToRemote(
       supabase,
       coupleId,
-      stamped,
+      merged,
       uid,
       serverUpdatedAt
     );
     pushed = pushResult.ok;
     if (pushResult.conflict) {
       const again = await pullCoupleProfileFromRemote(supabase, coupleId);
-      const remerged = mergeCoupleExtendedProfile(stamped, again.profile, ctx);
-      saveCoupleExtendedProfile(remerged);
-      return { merged: remerged, pushed: false, pulledNewer: true };
+      if (remoteIsNewerThanLocal(merged, again.profile)) {
+        const remerged = mergeCoupleExtendedProfile(merged, again.profile, ctx);
+        saveCoupleExtendedProfile(remerged);
+        return { merged: remerged, pushed: false, pulledNewer: true };
+      }
     }
-    return { merged: stamped, pushed, pulledNewer };
+    return { merged, pushed, pulledNewer };
   }
 
   return { merged, pushed, pulledNewer };

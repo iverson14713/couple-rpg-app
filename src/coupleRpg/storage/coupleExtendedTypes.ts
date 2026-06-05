@@ -1,4 +1,4 @@
-/** Extended couple profile (localStorage only; no Supabase yet). */
+/** Extended couple profile — localStorage + couple_app_state cloud sync (updatedAt merge). */
 export type CustomImportantDate = {
   id: string;
   /** 顯示名稱，例如：第一次旅行 */

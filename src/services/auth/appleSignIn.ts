@@ -2,6 +2,8 @@ import { Capacitor } from '@capacitor/core';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import LoveQuestAppleSignIn from '../../native/loveQuestAppleSignIn';
 import { authLog, isAuthNativeClient } from './authDebug';
+import { markAuthGraceStart } from './authGrace';
+import { notifyAuthSessionSync } from './authRoute';
 import { getOAuthRedirectUrl, redirectAfterAuthSuccess, saveAuthReturnPath } from './authRedirect';
 import { markOAuthProvider } from './oauthSessionHint';
 import { openOAuthInExternalBrowser } from './oauthNative';
@@ -90,7 +92,9 @@ export async function signInWithAppleNative(
       return { error: new Error(userError) };
     }
 
-    await redirectAfterAuthSuccess(supabase);
+    markAuthGraceStart('apple.native.signInWithIdToken', data.session.user.id);
+    notifyAuthSessionSync('apple.native.signInWithIdToken');
+    await redirectAfterAuthSuccess(supabase, 400, data.session);
     authLog('apple.native.success', { userId: data.session.user.id });
     return { error: null, signedIn: true };
   } catch (e) {
