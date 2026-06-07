@@ -581,6 +581,63 @@ html.lq-app-store-screenshot-page body {
   overflow: hidden;
 }
 
+/* iPad 13" App Store 原生截圖頁 — 2064×2752 */
+html.lq-app-store-screenshot-page-ipad,
+html.lq-app-store-screenshot-page-ipad body {
+  margin: 0;
+  padding: 0;
+  width: 2064px;
+  height: 2752px;
+  overflow: hidden;
+  background-color: #fff9fc;
+}
+
+.lq-native-screenshot-root-ipad {
+  width: 2064px;
+  height: 2752px;
+  overflow: hidden;
+}
+
+.lq-ipad-showcase-canvas .lq-showcase-orb--tl {
+  width: 520px;
+  height: 520px;
+  top: -80px;
+  left: -60px;
+}
+
+.lq-ipad-showcase-canvas .lq-showcase-orb--tr {
+  width: 480px;
+  height: 480px;
+  top: 40px;
+  right: -40px;
+}
+
+.lq-ipad-showcase-canvas .lq-showcase-orb--bl {
+  width: 420px;
+  height: 420px;
+  bottom: 280px;
+  left: 120px;
+}
+
+.lq-ipad-showcase-canvas .lq-showcase-orb--br {
+  width: 560px;
+  height: 560px;
+  bottom: 200px;
+  right: -80px;
+}
+
+.lq-ipad-headline {
+  max-width: 820px;
+}
+
+.lq-ipad-feature-row article {
+  min-height: 240px;
+}
+
+.lq-ipad-couple-art {
+  filter: drop-shadow(0 20px 40px rgba(190, 24, 93, 0.12));
+}
+
 .lq-native-screenshot-canvas,
 .lq-native-screenshot-canvas * {
   backdrop-filter: none !important;

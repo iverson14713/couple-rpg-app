@@ -1,4 +1,5 @@
 import { APP_STORE_SCREEN_H, APP_STORE_SCREEN_W } from '../../components/appStore/constants';
+import { getIpadPhoneMockupMetrics, IPAD_13_SCREEN } from './ipadConstants';
 
 /** App Store Connect — iPhone 6.5" Display (1284 × 2778) */
 export const APP_STORE_SCREEN = {
@@ -7,10 +8,11 @@ export const APP_STORE_SCREEN = {
   label: '6.5"',
 } as const;
 
-export type ShowcaseDeviceId = '6.5';
+export type ShowcaseDeviceId = '6.5' | 'ipad-13';
 
-export const SHOWCASE_DEVICES: Record<ShowcaseDeviceId, typeof APP_STORE_SCREEN> = {
+export const SHOWCASE_DEVICES: Record<ShowcaseDeviceId, { w: number; h: number; label: string }> = {
   '6.5': APP_STORE_SCREEN,
+  'ipad-13': IPAD_13_SCREEN,
 };
 
 /** Layout tuned on 1290×2796, scaled to export canvas */
@@ -62,6 +64,9 @@ function estimateHeroBlockHeight(): number {
  * 依畫布高度計算 mockup 縮放，保證整支手機不被裁切。
  */
 export function getPhoneMockupScale(device: ShowcaseDeviceId = '6.5'): number {
+  if (device === 'ipad-13') {
+    return getIpadPhoneMockupMetrics().scale;
+  }
   const { h } = SHOWCASE_DEVICES[device];
   const heroBlock = estimateHeroBlockHeight();
   const available = h - heroBlock - SHOWCASE_PHONE_GAP_TOP - SHOWCASE_CANVAS_BOTTOM_PAD;
@@ -71,6 +76,9 @@ export function getPhoneMockupScale(device: ShowcaseDeviceId = '6.5'): number {
 }
 
 export function getPhoneMockupMetrics(device: ShowcaseDeviceId = '6.5') {
+  if (device === 'ipad-13') {
+    return getIpadPhoneMockupMetrics();
+  }
   const scale = getPhoneMockupScale(device);
   const screenW = Math.round(BASE_PHONE_SCREEN_W * scale);
   const screenH = Math.round(BASE_PHONE_SCREEN_H * scale);

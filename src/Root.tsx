@@ -22,6 +22,12 @@ const LoveQuestShowcaseSingle = lazy(() =>
     default: m.LoveQuestShowcaseSingle,
   }))
 );
+const LoveQuestIpadAppStoreScreenshotPage = lazy(() =>
+  import('./showcase/lovequest/LoveQuestIpadAppStoreScreenshotPage.tsx').then((m) => ({
+    default: m.LoveQuestIpadAppStoreScreenshotPage,
+  }))
+);
+
 const LoveQuestAppStoreScreenshotPage = lazy(() =>
   import('./showcase/lovequest/LoveQuestAppStoreScreenshotPage.tsx').then((m) => ({
     default: m.LoveQuestAppStoreScreenshotPage,
@@ -52,6 +58,7 @@ function normalizePath(pathname: string): string {
   if (p === '/terms' || p.startsWith('/terms/')) return '/terms';
   if (p === '/app-store-screenshots') return '/app-store-screenshots';
   if (p === '/app-store-screenshot/lovequest') return '/app-store-screenshot/lovequest';
+  if (p === '/app-store-screenshot/lovequest-ipad') return '/app-store-screenshot/lovequest-ipad';
   return p;
 }
 
@@ -92,6 +99,18 @@ export function Root() {
         <AppStoreScreenshotMode />
       </LazyRoute>
     );
+  }
+
+  const appStoreIpadMatch = path.match(/^\/app-store-screenshot\/lovequest-ipad\/(\d+)$/);
+  if (appStoreIpadMatch) {
+    const slideIndex = parseInt(appStoreIpadMatch[1]!, 10);
+    if (slideIndex >= 1 && slideIndex <= 5) {
+      return (
+        <LazyRoute>
+          <LoveQuestIpadAppStoreScreenshotPage slideIndex={slideIndex} />
+        </LazyRoute>
+      );
+    }
   }
 
   const appStoreShotMatch = path.match(/^\/app-store-screenshot\/lovequest\/(\d+)$/);

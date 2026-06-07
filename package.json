@@ -21,6 +21,7 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "screenshot:lovequest": "node scripts/screenshot-lovequest.mjs",
+    "screenshot:lovequest-ipad": "node scripts/screenshot-lovequest-ipad.mjs",
     "typecheck": "tsc --noEmit -p tsconfig.app.json"
   },
   "dependencies": {
