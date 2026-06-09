@@ -12,6 +12,7 @@ const FREE_COMPANIONSHIP_PRESET_TYPES = new Set([
   'heart',
   'goodnight',
   'missing',
+  'kiss',
   'cheer',
 ]);
 

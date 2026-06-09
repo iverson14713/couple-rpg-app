@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 import { useCompanionship } from '../context/CompanionshipContext';
 import { useLoveQuest } from '../context/LoveQuestContext';
 import { formatCompanionshipTimeAgo } from '../lib/companionshipTime';
-import { companionshipTypeIcon } from '../data/companionshipPresets';
+import { companionshipReceivedHeadline, companionshipTypeIcon } from '../data/companionshipPresets';
 import { lq } from '../theme';
 
 /** 首頁：收到對方陪伴卡 */
@@ -28,7 +28,9 @@ export function HomeCompanionshipReceivedCard() {
     >
       <div className="lq-companionship-received-glow pointer-events-none absolute inset-0" aria-hidden />
       <div className="relative z-10">
-        <p className="text-[13px] font-bold text-rose-500">💗 對方陪伴了你一下</p>
+        <p className="text-[13px] font-bold text-rose-500">
+          {companionshipReceivedHeadline(latestUnseen.type)}
+        </p>
         <div className="mt-2 flex items-start gap-3">
           <span className="lq-companionship-received-icon flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-white/80 text-[22px] shadow-sm">
             {presetIcon}

@@ -2,7 +2,11 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useToast } from '../../context/ToastContext';
 import { useSupabaseAuth } from '../../useSupabaseAuth';
-import { COMPANIONSHIP_PRESETS, type CompanionshipPreset } from '../data/companionshipPresets';
+import {
+  COMPANIONSHIP_PRESETS,
+  companionshipSendSuccessMessage,
+  type CompanionshipPreset,
+} from '../data/companionshipPresets';
 import { useCompanionship } from '../context/CompanionshipContext';
 import { useUserPlan } from '../context/UserPlanContext';
 import { useProFeature } from '../hooks/useProFeature';
@@ -24,7 +28,6 @@ import { ProBadgeIfNeeded } from './ProBadge';
 const SEND_UI_DELAY_MS = 280;
 const SUCCESS_DISPLAY_MS = 1500;
 const SEND_COOLDOWN_MS = 1000;
-const SUCCESS_TOAST_MSG = '已陪伴對方 💗';
 const SEND_FAIL_MSG = '送出失敗，請稍後再試';
 const SWIPE_DISMISS_PX = 72;
 
@@ -112,8 +115,9 @@ export function CompanionshipSheet({ open, onClose }: Props) {
       clearSendTimers();
       setSuccessBurst(true);
       setSentPresetKey(presetKey);
+      const successMsg = companionshipSendSuccessMessage(presetKey);
       console.log(`${LOG} remaining count`, remaining);
-      showToast(SUCCESS_TOAST_MSG, 'success', { position: 'top', durationMs: SUCCESS_DISPLAY_MS });
+      showToast(successMsg, 'success', { position: 'top', durationMs: SUCCESS_DISPLAY_MS });
       setSendCooldown(true);
       cooldownTimerRef.current = window.setTimeout(() => {
         setSendCooldown(false);
@@ -501,7 +505,7 @@ export function CompanionshipSheet({ open, onClose }: Props) {
               </span>
             </div>
             <p className="lq-companionship-success-text mt-2.5 text-[16px] font-extrabold">
-              {SUCCESS_TOAST_MSG}
+              {companionshipSendSuccessMessage(sentPresetKey ?? '')}
             </p>
           </div>
         ) : null}
