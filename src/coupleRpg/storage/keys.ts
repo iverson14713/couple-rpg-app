@@ -56,6 +56,10 @@ export const LQ_KEYS = {
   promoGrantedUntil: 'lovequest-promo-granted-until',
   /** LoveCoin 雲端錢包快取（非 source of truth） */
   coinWalletCache: 'lovequest-coin-wallet-cache',
+  /** 陪伴一下事件快取（雲端 companionship_events） */
+  companionshipEvents: 'lovequest-companionship-events',
+  /** Free 每日陪伴送出次數帳本（user + couple scope） */
+  companionshipSendQuota: 'lovequest-companionship-send-quota',
 } as const;
 
 /** Keys persisted per Supabase user: `lovequest-*-{userId}` */

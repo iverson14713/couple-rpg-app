@@ -14,6 +14,13 @@ export function todayKey(d = new Date()): string {
   return `${y}-${m}-${day}`;
 }
 
+/** ISO 時間戳轉本地 YYYY-MM-DD（陪伴次數、統計用） */
+export function dateKeyFromIso(iso: string): string {
+  const t = Date.parse(iso);
+  if (!Number.isFinite(t)) return iso.slice(0, 10);
+  return todayKey(new Date(t));
+}
+
 /** ISO week key: YYYY-Www (Monday-based). */
 export function weekKey(d = new Date()): string {
   const date = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));

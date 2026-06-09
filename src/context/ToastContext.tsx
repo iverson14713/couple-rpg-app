@@ -94,7 +94,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
       {children}
       {topToasts.length > 0 ? (
         <div
-          className="pointer-events-none fixed left-0 right-0 top-[max(0.75rem,env(safe-area-inset-top))] z-[100] flex flex-col items-center gap-2 px-4"
+          className="pointer-events-none fixed left-0 right-0 top-[max(0.75rem,env(safe-area-inset-top))] z-[150] flex flex-col items-center gap-2 px-4"
           aria-live="polite"
         >
           {topToasts.map((t) => (
@@ -110,7 +110,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
       ) : null}
       {bottomToasts.length > 0 ? (
         <div
-          className="pointer-events-none fixed bottom-[max(5.5rem,env(safe-area-inset-bottom))] left-3 right-3 z-[100] flex flex-col items-stretch gap-2 sm:left-auto sm:right-4 sm:max-w-sm"
+          className="pointer-events-none fixed bottom-[max(5.5rem,env(safe-area-inset-bottom))] left-3 right-3 z-[150] flex flex-col items-stretch gap-2 sm:left-auto sm:right-4 sm:max-w-sm"
           aria-live="polite"
         >
           {bottomToasts.map((t) => (

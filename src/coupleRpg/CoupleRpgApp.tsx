@@ -13,6 +13,7 @@ import { TabPageHeader } from './components/TabPageHeader';
 import { OnboardingProvider } from './context/OnboardingContext';
 import { CoupleRpgNavProvider, useCoupleRpgNav, type CoupleNavTabId } from './context/CoupleRpgNavContext';
 import { CoupleSpaceProvider } from './context/CoupleSpaceContext';
+import { CompanionshipProvider } from './context/CompanionshipContext';
 import { LoveQuestProvider, useLoveQuest } from './context/LoveQuestContext';
 import { AiToastProvider } from './context/AiToastContext';
 import { AiUsageProvider } from './hooks/useAiUsage';
@@ -58,9 +59,11 @@ function CoupleRpgAuthBoot() {
         <AiUsageProvider key={bootKey}>
           <AiToastProvider>
             <LoveQuestProvider key={bootKey}>
-              <CoupleRpgNavProvider>
-                <CoupleRpgShell />
-              </CoupleRpgNavProvider>
+              <CompanionshipProvider>
+                <CoupleRpgNavProvider>
+                  <CoupleRpgShell />
+                </CoupleRpgNavProvider>
+              </CompanionshipProvider>
             </LoveQuestProvider>
           </AiToastProvider>
         </AiUsageProvider>

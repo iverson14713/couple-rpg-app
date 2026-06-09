@@ -12,6 +12,8 @@ import {
 import { TodayActivityFeed } from '../components/TodayActivityFeed';
 import { NicknameSetupBanner } from '../components/NicknameSetupBanner';
 import { HomeMiniGamesFeaturedCard } from '../components/HomeMiniGamesFeaturedCard';
+import { HomeCompanionshipReceivedCard } from '../components/HomeCompanionshipReceivedCard';
+import { HomeCompanionshipEntryCard } from '../components/HomeCompanionshipEntryCard';
 import { lq } from '../theme';
 
 export function TodayPage() {
@@ -30,6 +32,8 @@ export function TodayPage() {
   return (
     <div className="space-y-3.5 pb-1">
       <HomeHeroLoveCard />
+
+      <HomeCompanionshipReceivedCard />
 
       <HomeImportantDateHeroCard />
 
@@ -58,6 +62,8 @@ export function TodayPage() {
       ) : null}
 
       <HomeRecommendationsCarousel items={recommendations} />
+
+      <HomeCompanionshipEntryCard />
 
       <HomeMiniGamesFeaturedCard />
 

@@ -11,7 +11,8 @@ export type ProFeatureId =
   | 'full_sync'
   | 'history_unlimited'
   | 'housework_advanced'
-  | 'flirt_games_premium';
+  | 'flirt_games_premium'
+  | 'companionship_premium';
 
 export const PRO_FEATURE_LABELS: Record<ProFeatureId, string> = {
   ai_in_app: 'AI App 內生成',
@@ -21,6 +22,7 @@ export const PRO_FEATURE_LABELS: Record<ProFeatureId, string> = {
   history_unlimited: '歷史紀錄無上限',
   housework_advanced: '進階家事統計',
   flirt_games_premium: '進階小遊戲題庫',
+  companionship_premium: '進階陪伴功能',
 };
 
 export type ProFeatureCheck = {
