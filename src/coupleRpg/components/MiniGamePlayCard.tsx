@@ -9,10 +9,19 @@ export type MiniGamePlayCardDisplay = {
   displayContent: string | null;
 };
 
+export type MiniGameCarouselPreview = {
+  emoji: string;
+  text: string;
+};
+
 type Props = MiniGamePlayCardDisplay & {
   phase: MiniGameCardPhase;
-  /** revealed 進場時短暫 sparkle */
   showSparkles?: boolean;
+  carouselPreview?: MiniGameCarouselPreview | null;
+  rarityLabel?: string | null;
+  rarityClass?: string;
+  isDiceMode?: boolean;
+  revealKey?: number;
 };
 
 export function MiniGamePlayCard({
@@ -22,7 +31,18 @@ export function MiniGamePlayCard({
   displaySubtitle,
   displayContent,
   showSparkles = false,
+  carouselPreview = null,
+  rarityLabel = null,
+  rarityClass = '',
+  isDiceMode = false,
+  revealKey = 0,
 }: Props) {
+  const isCarousel = phase === 'drawing' && Boolean(carouselPreview);
+  const emoji = isCarousel ? carouselPreview!.emoji : displayEmoji;
+  const content = isCarousel ? carouselPreview!.text : displayContent;
+  const title = isCarousel ? '' : displayTitle;
+  const subtitle = isCarousel ? '' : displaySubtitle;
+
   const phaseClass =
     phase === 'idle'
       ? 'game-card--idle'
@@ -36,7 +56,9 @@ export function MiniGamePlayCard({
     phase === 'idle'
       ? 'game-card-emoji--float'
       : phase === 'drawing'
-        ? 'game-card-emoji--bounce'
+        ? isDiceMode
+          ? 'game-card-emoji--spin'
+          : 'game-card-emoji--shuffle'
         : phase === 'revealed'
           ? 'game-card-emoji--pop'
           : '';
@@ -45,7 +67,7 @@ export function MiniGamePlayCard({
 
   const bodyAnim = phase === 'revealed' || phase === 'completed' ? 'game-card-body--rise' : '';
 
-  const contentAnim = phase === 'revealed' ? 'game-card-content--pop' : '';
+  const contentAnim = phase === 'drawing' && isCarousel ? 'game-card-content--carousel' : '';
 
   return (
     <div className={`game-card-scene ${phaseClass}`} aria-live="polite" aria-busy={phase === 'drawing'}>
@@ -62,21 +84,23 @@ export function MiniGamePlayCard({
         </div>
       ) : null}
 
-      <div className="game-card-inner">
+      <div key={revealKey} className="game-card-inner">
+        {rarityLabel && phase === 'revealed' ? (
+          <p className={`game-card-rarity ${rarityClass}`}>{rarityLabel}</p>
+        ) : null}
+
         <span className={`game-card-emoji ${emojiAnim}`} aria-hidden>
-          {displayEmoji}
+          {emoji}
         </span>
 
-        {displayTitle ? (
-          <p className={`game-card-title ${titleAnim} ${lq.text}`}>{displayTitle}</p>
+        {title ? <p className={`game-card-title ${titleAnim} ${lq.text}`}>{title}</p> : null}
+
+        {subtitle ? (
+          <p className={`game-card-subtitle ${bodyAnim} ${lq.textSecondary}`}>{subtitle}</p>
         ) : null}
 
-        {displaySubtitle ? (
-          <p className={`game-card-subtitle ${bodyAnim} ${lq.textSecondary}`}>{displaySubtitle}</p>
-        ) : null}
-
-        {displayContent ? (
-          <p className={`game-card-content ${bodyAnim} ${contentAnim} ${lq.text}`}>{displayContent}</p>
+        {content ? (
+          <p className={`game-card-content ${bodyAnim} ${contentAnim} ${lq.text}`}>{content}</p>
         ) : null}
       </div>
     </div>

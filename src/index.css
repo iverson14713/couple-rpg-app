@@ -1250,22 +1250,17 @@ select {
   animation: splash-content-enter 0.7s cubic-bezier(0.22, 1, 0.36, 1) 0.05s both;
 }
 
-/* Dinner fate card — 3D flip + shuffle (no extra JS libs) */
+/* Dinner fate card — 3D flip + reveal */
 .dinner-fate-scene {
-  min-height: 200px;
+  min-height: 220px;
   perspective: 1100px;
-}
-
-.dinner-fate-scene--glow {
-  animation: dinner-fate-glow 1.5s ease-in-out;
 }
 
 .dinner-fate-flip-inner {
   position: relative;
   width: 100%;
-  min-height: 200px;
+  min-height: 220px;
   transform-style: preserve-3d;
-  transition: transform 0.65s cubic-bezier(0.4, 0.15, 0.2, 1);
   transform-origin: center center;
 }
 
@@ -1273,16 +1268,15 @@ select {
   transform: rotateY(0deg);
 }
 
-.dinner-fate-flip-inner--back {
-  transform: rotateY(180deg);
-  animation: dinner-fate-sway 1.5s ease-in-out;
+.dinner-fate-flip-inner--animating {
+  animation: dinner-fate-flip-reveal 500ms ease-in-out forwards;
 }
 
 .dinner-fate-face {
   position: absolute;
   inset: 0;
   display: flex;
-  min-height: 200px;
+  min-height: 220px;
   width: 100%;
   flex-direction: column;
   align-items: center;
@@ -1301,7 +1295,7 @@ select {
 
 .dinner-fate-face--back {
   transform: rotateY(180deg);
-  background: linear-gradient(165deg, #fff0f5 0%, #ffe4ec 45%, #ffd6e4 100%);
+  background: linear-gradient(165deg, #fff5f8 0%, #ffe8f0 50%, #ffdce8 100%);
 }
 
 .dinner-fate-face--front {
@@ -1326,62 +1320,58 @@ select {
   pointer-events: none;
 }
 
-.dinner-fate-dot {
-  display: block;
-  height: 6px;
-  width: 6px;
-  border-radius: 9999px;
-  background: rgba(244, 114, 182, 0.55);
-  animation: dinner-fate-dot 0.9s ease-in-out infinite;
-}
-
-.dinner-fate-dot--delay-1 {
-  animation-delay: 0.15s;
-}
-
-.dinner-fate-dot--delay-2 {
-  animation-delay: 0.3s;
-}
-
-@keyframes dinner-fate-glow {
-  0%,
-  100% {
-    filter: drop-shadow(0 0 0 rgba(251, 113, 133, 0));
+@keyframes dinner-fate-flip-reveal {
+  from {
+    transform: rotateY(0deg);
   }
-  50% {
-    filter: drop-shadow(0 0 14px rgba(251, 113, 133, 0.35));
+  to {
+    transform: rotateY(180deg);
   }
 }
 
-@keyframes dinner-fate-sway {
-  0%,
-  100% {
-    transform: translateX(0) rotate(0deg);
-  }
-  20% {
-    transform: translateX(-5px) rotate(-1.2deg);
-  }
-  40% {
-    transform: translateX(4px) rotate(0.8deg);
+.dinner-fate-emoji--pop {
+  animation: dinner-fate-emoji-pop 300ms ease-out;
+}
+
+@keyframes dinner-fate-emoji-pop {
+  0% {
+    transform: scale(0.8);
   }
   60% {
-    transform: translateX(-3px) rotate(-0.6deg);
+    transform: scale(1.15);
   }
-  80% {
-    transform: translateX(2px) rotate(0.4deg);
+  100% {
+    transform: scale(1);
   }
 }
 
-@keyframes dinner-fate-dot {
-  0%,
-  100% {
-    opacity: 0.35;
-    transform: scale(0.85);
-  }
-  50% {
-    opacity: 1;
+.dinner-draw-btn--press {
+  animation: dinner-draw-btn-press 200ms ease-out;
+}
+
+@keyframes dinner-draw-btn-press {
+  0% {
     transform: scale(1);
   }
+  50% {
+    transform: scale(0.95);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+.dinner-option-chip {
+  transition: transform 150ms ease, box-shadow 150ms ease;
+}
+
+.dinner-option-chip:hover {
+  box-shadow: 0 2px 8px -2px rgba(244, 114, 182, 0.25);
+}
+
+.dinner-option-chip:active,
+.dinner-option-chip:has(.dinner-option-chip__remove:active) {
+  transform: scale(0.96);
 }
 
 .splash-screen__status {
@@ -1499,6 +1489,35 @@ select {
   background: rgba(255, 241, 245, 0.75);
 }
 
+.game-card-rarity {
+  margin: 0 0 0.5rem;
+  border-radius: 9999px;
+  padding: 0.2rem 0.65rem;
+  font-size: 0.6875rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+}
+
+.game-card-rarity--common {
+  background: rgba(134, 239, 172, 0.35);
+  color: rgb(21, 128, 61);
+}
+
+.game-card-rarity--rare {
+  background: rgba(147, 197, 253, 0.4);
+  color: rgb(29, 78, 216);
+}
+
+.game-card-rarity--super-rare {
+  background: rgba(216, 180, 254, 0.45);
+  color: rgb(107, 33, 168);
+}
+
+.game-card-rarity--legendary {
+  background: rgba(253, 224, 71, 0.45);
+  color: rgb(161, 98, 7);
+}
+
 .game-card-sparkles {
   position: absolute;
   inset: 0;
@@ -1554,12 +1573,12 @@ select {
 /* drawing */
 .game-card--drawing .game-card-shimmer-border {
   opacity: 1;
-  animation: game-card-shimmer 1.15s linear infinite;
+  animation: game-card-shimmer 0.85s linear infinite;
 }
 
 .game-card--drawing .game-card-border-glow {
   opacity: 1;
-  animation: game-card-draw-glow 1.15s ease-in-out infinite;
+  animation: game-card-draw-glow 0.85s ease-in-out infinite;
 }
 
 .game-card--drawing .game-card-inner {
@@ -1569,9 +1588,17 @@ select {
     inset 0 1px 0 rgba(255, 255, 255, 0.92);
 }
 
+.game-card--drawing .game-card-emoji {
+  font-size: 2.75rem;
+}
+
 /* revealed */
 .game-card--revealed .game-card-inner {
-  animation: game-card-reveal-pulse 0.45s ease-out;
+  animation: game-card-result-enter 320ms ease-out;
+}
+
+.game-card--revealed .game-card-emoji {
+  font-size: 3rem;
 }
 
 /* completed */
@@ -1596,8 +1623,16 @@ select {
   animation: game-card-emoji-bounce 0.55s ease-in-out infinite;
 }
 
+.game-card-emoji--shuffle {
+  animation: game-card-emoji-shuffle 0.28s ease-in-out infinite;
+}
+
+.game-card-emoji--spin {
+  animation: game-card-emoji-spin 900ms ease-out;
+}
+
 .game-card-emoji--pop {
-  animation: game-card-emoji-pop 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+  animation: game-card-emoji-pop 300ms ease-out;
 }
 
 .game-card-title--pop {
@@ -1616,8 +1651,60 @@ select {
   animation: game-card-title-pop 0.42s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
+.game-card-content--result-pop {
+  animation: game-card-result-enter 320ms ease-out;
+}
+
+.game-card-content--carousel {
+  animation: game-card-carousel-tick 0.14s ease-out;
+}
+
 .game-card-cta-pulse {
   animation: game-card-cta-pulse 2.6s ease-in-out infinite;
+}
+
+/* Mini game mode switch + reward float */
+.mini-game-play-panel {
+  will-change: opacity, transform;
+}
+
+.mini-game-play-panel--exit {
+  animation: mini-game-panel-exit 180ms ease-in forwards;
+}
+
+.mini-game-play-panel--enter {
+  animation: mini-game-panel-enter 180ms ease-out forwards;
+}
+
+.mini-game-reward-float {
+  position: absolute;
+  left: 50%;
+  bottom: 38%;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.2rem;
+  pointer-events: none;
+  transform: translateX(-50%);
+}
+
+.mini-game-reward-float__line {
+  font-size: 0.875rem;
+  font-weight: 800;
+  white-space: nowrap;
+  text-shadow: 0 1px 8px rgba(255, 255, 255, 0.85);
+}
+
+.mini-game-reward-float__line--coin {
+  color: rgb(190, 24, 93);
+  animation: mini-game-reward-rise 1s ease-out forwards;
+}
+
+.mini-game-reward-float__line--xp {
+  color: rgb(124, 58, 237);
+  animation: mini-game-reward-rise 1s ease-out 0.08s forwards;
+  opacity: 0;
 }
 
 @keyframes game-card-idle-glow {
@@ -1741,12 +1828,102 @@ select {
 
 @keyframes game-card-emoji-pop {
   0% {
-    transform: scale(0.85);
-    opacity: 0.6;
+    transform: scale(0.8);
+  }
+  60% {
+    transform: scale(1.15);
   }
   100% {
     transform: scale(1);
+  }
+}
+
+@keyframes game-card-result-enter {
+  0% {
+    opacity: 0;
+    transform: scale(0.8);
+  }
+  68% {
     opacity: 1;
+    transform: scale(1.08);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes game-card-carousel-tick {
+  0% {
+    opacity: 0.55;
+    transform: translateY(4px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes game-card-emoji-spin {
+  0% {
+    transform: rotate(0deg) scale(1);
+  }
+  45% {
+    transform: rotate(360deg) scale(1.15);
+  }
+  100% {
+    transform: rotate(720deg) scale(1);
+  }
+}
+
+@keyframes game-card-emoji-shuffle {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.08);
+  }
+}
+
+@keyframes mini-game-panel-exit {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+}
+
+@keyframes mini-game-panel-enter {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes mini-game-reward-rise {
+  0% {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  18% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  72% {
+    opacity: 1;
+    transform: translateY(-26px);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-44px);
   }
 }
 

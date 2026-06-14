@@ -10,17 +10,27 @@ import { DAILY_REWARDS_LOGIN_HINT } from '../lib/dailyRewardsCopy';
 import {
   MiniGamePlayCard,
   type MiniGameCardPhase,
+  type MiniGameCarouselPreview,
   type MiniGamePlayCardDisplay,
 } from '../components/MiniGamePlayCard';
+import { MiniGameRewardFloat } from '../components/MiniGameRewardFloat';
 import { COUPLE_GAME_MODES, type CoupleGameModeId } from '../data/coupleGamePrompts';
 import {
   formatModePoolLabel,
+  getAvailablePromptPool,
   getCoupleGameLibraryStatus,
   getModeDef,
   getModePoolCounts,
   getPromptDisplayText,
   pickGamePrompt,
 } from '../lib/coupleGamePromptsLib';
+import {
+  formatRarityTaskLabel,
+  rarityBadgeClass,
+  rollMiniGameRarity,
+  type MiniGameRarity,
+} from '../lib/miniGameRarity';
+import { REWARDS } from '../storage/rpgLogic';
 import { lq } from '../theme';
 
 const DRAWING_BTN: Record<CoupleGameModeId, string> = {
@@ -33,8 +43,14 @@ const DRAWING_BTN: Record<CoupleGameModeId, string> = {
   surpriseTask: '抽驚喜中...',
 };
 
-function shuffleMs(): number {
+const MODE_SWITCH_MS = 180;
+
+function drawDurationMs(): number {
   return 1200 + Math.floor(Math.random() * 300);
+}
+
+function carouselIntervalMs(): number {
+  return 100 + Math.floor(Math.random() * 51);
 }
 
 function buildDisplay(
@@ -61,7 +77,7 @@ function buildDisplay(
   if (phase === 'drawing') {
     return {
       displayEmoji: def.emoji,
-      displayTitle: '正在抽一個小驚喜...',
+      displayTitle: '',
       displaySubtitle: '',
       displayContent: null,
     };
@@ -70,7 +86,7 @@ function buildDisplay(
   if (phase === 'completed') {
     const rewardLine =
       lastGrantOk === true
-        ? '🪙 +5 ✨ +3'
+        ? `🪙 +${REWARDS.miniGameComplete.loveCoins} ✨ +${REWARDS.miniGameComplete.xp}`
         : lastGrantOk === false
           ? !canEarnDailyRewards
             ? DAILY_REWARDS_LOGIN_HINT
@@ -86,7 +102,6 @@ function buildDisplay(
     };
   }
 
-  // revealed
   return {
     displayEmoji: prompt?.emoji ?? def.emoji,
     displayTitle: '',
@@ -107,9 +122,16 @@ export function MiniGamesPage() {
   const [lastGrantOk, setLastGrantOk] = useState<boolean | null>(null);
   const [showSparkles, setShowSparkles] = useState(false);
   const [customBankOpen, setCustomBankOpen] = useState(false);
+  const [carouselPreview, setCarouselPreview] = useState<MiniGameCarouselPreview | null>(null);
+  const [rarity, setRarity] = useState<MiniGameRarity | null>(null);
+  const [revealKey, setRevealKey] = useState(0);
+  const [rewardFloatVisible, setRewardFloatVisible] = useState(false);
+  const [playPanelClass, setPlayPanelClass] = useState('');
 
   const drawTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const sparkleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const carouselIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const modeSwitchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const modeDef = useMemo(() => getModeDef(mode)!, [mode]);
   const library = useMemo(() => getCoupleGameLibraryStatus(isPro), [isPro]);
@@ -137,9 +159,27 @@ export function MiniGamesPage() {
       clearTimeout(sparkleTimerRef.current);
       sparkleTimerRef.current = null;
     }
+    if (carouselIntervalRef.current) {
+      clearInterval(carouselIntervalRef.current);
+      carouselIntervalRef.current = null;
+    }
+    if (modeSwitchTimerRef.current) {
+      clearTimeout(modeSwitchTimerRef.current);
+      modeSwitchTimerRef.current = null;
+    }
   }, []);
 
   useEffect(() => () => clearTimers(), [clearTimers]);
+
+  const resetRound = useCallback(() => {
+    setPrompt(null);
+    setPhase('idle');
+    setRoundRewarded(false);
+    setLastGrantOk(null);
+    setCarouselPreview(null);
+    setRarity(null);
+    setShowSparkles(false);
+  }, []);
 
   const selectMode = useCallback(
     (next: CoupleGameModeId) => {
@@ -148,15 +188,22 @@ export function MiniGamesPage() {
         openUpgradeModal('解鎖約會破冰、驚喜任務與更多進階互動題庫，讓每天都有新的話題與任務。');
         return;
       }
+      if (next === mode) return;
+
       clearTimers();
-      setShowSparkles(false);
-      setMode(next);
-      setPrompt(null);
-      setPhase('idle');
-      setRoundRewarded(false);
-      setLastGrantOk(null);
+      setPlayPanelClass('mini-game-play-panel--exit');
+
+      modeSwitchTimerRef.current = window.setTimeout(() => {
+        setMode(next);
+        resetRound();
+        setPlayPanelClass('mini-game-play-panel--enter');
+        modeSwitchTimerRef.current = window.setTimeout(() => {
+          setPlayPanelClass('');
+          modeSwitchTimerRef.current = null;
+        }, MODE_SWITCH_MS);
+      }, MODE_SWITCH_MS);
     },
-    [isPro, openUpgradeModal, clearTimers]
+    [isPro, openUpgradeModal, clearTimers, mode, resetRound]
   );
 
   const openCustomBank = useCallback(() => {
@@ -167,23 +214,51 @@ export function MiniGamesPage() {
     setCustomBankOpen(true);
   }, [isPro, openUpgradeModal]);
 
+  const sampleCarousel = useCallback(
+    (pool: ReturnType<typeof getAvailablePromptPool>) => {
+      if (pool.length === 0) return;
+      const sample = pool[Math.floor(Math.random() * pool.length)]!;
+      setCarouselPreview({
+        emoji: sample.emoji,
+        text: getPromptDisplayText(sample),
+      });
+    },
+    []
+  );
+
   const draw = useCallback(() => {
     if (poolSize === 0 || phase === 'drawing') return;
+
+    const pool = getAvailablePromptPool(mode, isPro);
+    const final = pickGamePrompt(mode, isPro, prompt?.id);
+    if (!final) return;
+
     clearTimers();
     setShowSparkles(false);
+    setCarouselPreview(null);
+    setRarity(null);
     setPhase('drawing');
     setRoundRewarded(false);
     setLastGrantOk(null);
 
-    drawTimerRef.current = setTimeout(() => {
-      const next = pickGamePrompt(mode, isPro, prompt?.id);
-      setPrompt(next);
+    sampleCarousel(pool);
+    carouselIntervalRef.current = window.setInterval(() => sampleCarousel(pool), carouselIntervalMs());
+
+    drawTimerRef.current = window.setTimeout(() => {
+      if (carouselIntervalRef.current) {
+        clearInterval(carouselIntervalRef.current);
+        carouselIntervalRef.current = null;
+      }
+      setCarouselPreview(null);
+      setPrompt(final);
+      setRarity(rollMiniGameRarity());
+      setRevealKey((k) => k + 1);
       setPhase('revealed');
       setShowSparkles(true);
-      sparkleTimerRef.current = setTimeout(() => setShowSparkles(false), 900);
+      sparkleTimerRef.current = window.setTimeout(() => setShowSparkles(false), 900);
       drawTimerRef.current = null;
-    }, shuffleMs());
-  }, [poolSize, phase, mode, isPro, prompt?.id, clearTimers]);
+    }, drawDurationMs());
+  }, [poolSize, phase, mode, isPro, prompt?.id, clearTimers, sampleCarousel]);
 
   const onComplete = useCallback(() => {
     if (!line || roundRewarded || phase !== 'revealed') return;
@@ -192,6 +267,7 @@ export function MiniGamesPage() {
     setLastGrantOk(granted);
     setPhase('completed');
     setShowSparkles(false);
+    if (granted) setRewardFloatVisible(true);
   }, [line, roundRewarded, phase, claimMiniGameReward]);
 
   const primaryLabel =
@@ -247,7 +323,7 @@ export function MiniGamesPage() {
         <p className="mt-0.5 text-[10px] leading-snug text-stone-500">
           {atCap
             ? '今日小遊戲獎勵已領完，明天再來玩吧'
-            : `完成一次 🪙+5 ✨+3（${isPro ? 'Pro' : 'Free'} 每日 ${cap} 次）`}
+            : `完成一次 🪙+${REWARDS.miniGameComplete.loveCoins} ✨+${REWARDS.miniGameComplete.xp}（${isPro ? 'Pro' : 'Free'} 每日 ${cap} 次）`}
         </p>
         <DailyRewardsLoginHint className="mt-2" />
       </div>
@@ -319,52 +395,70 @@ export function MiniGamesPage() {
         </div>
       </div>
 
-      <section className={`p-4 ${lq.cardElevated}`}>
-        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-          <h2 className={lq.sectionTitle}>
-            <span className="mr-1">{modeDef.emoji}</span>
-            {modeDef.title}
-          </h2>
-          <span className="text-[10px] font-semibold text-stone-400">{poolLabel}</span>
-        </div>
+      <section className={`relative p-4 ${lq.cardElevated}`}>
+        <div className={`mini-game-play-panel ${playPanelClass}`}>
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+            <h2 className={lq.sectionTitle}>
+              <span className="mr-1">{modeDef.emoji}</span>
+              {modeDef.title}
+            </h2>
+            <span className="text-[10px] font-semibold text-stone-400">{poolLabel}</span>
+          </div>
 
-        <MiniGamePlayCard phase={phase} showSparkles={showSparkles} {...display} />
+          <MiniGamePlayCard
+            phase={phase}
+            showSparkles={showSparkles}
+            carouselPreview={carouselPreview}
+            rarityLabel={rarity ? formatRarityTaskLabel(rarity) : null}
+            rarityClass={rarity ? rarityBadgeClass(rarity) : ''}
+            isDiceMode={mode === 'coupleDice'}
+            revealKey={revealKey}
+            {...display}
+          />
 
-        {showDualActions ? (
-          <div className="flex flex-wrap gap-2">
-            <button
-              type="button"
-              onClick={onComplete}
-              disabled={phase === 'completed' || roundRewarded}
-              className={`flex-1 rounded-xl py-2.5 text-sm font-bold ${
-                phase === 'completed' || roundRewarded
-                  ? 'bg-stone-100 text-stone-400'
-                  : 'bg-emerald-600 text-white shadow-sm active:scale-[0.99]'
-              }`}
-            >
-              {phase === 'completed' ? '已記錄' : '完成'}
-            </button>
+          {showDualActions ? (
+            <div className="mt-3 flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={onComplete}
+                disabled={phase === 'completed' || roundRewarded}
+                className={`flex-1 rounded-xl py-2.5 text-sm font-bold ${
+                  phase === 'completed' || roundRewarded
+                    ? 'bg-stone-100 text-stone-400'
+                    : 'bg-emerald-600 text-white shadow-sm active:scale-[0.99]'
+                }`}
+              >
+                {phase === 'completed' ? '已記錄' : '💕 完成任務'}
+              </button>
+              <button
+                type="button"
+                onClick={draw}
+                disabled={drawDisabled}
+                className={`flex-1 py-2.5 text-sm font-bold active:scale-[0.99] disabled:opacity-40 ${lq.btnSecondary}`}
+              >
+                {primaryLabel}
+              </button>
+            </div>
+          ) : (
             <button
               type="button"
               onClick={draw}
               disabled={drawDisabled}
-              className={`flex-1 py-2.5 text-sm font-bold active:scale-[0.99] disabled:opacity-40 ${lq.btnSecondary}`}
+              className={`mt-3 w-full rounded-xl px-5 py-2.5 text-sm font-bold disabled:opacity-40 ${
+                phase === 'idle' ? `game-card-cta-pulse ${lq.btnPrimary}` : lq.btnPrimary
+              }`}
             >
-              {primaryLabel}
+              {phase === 'idle' ? `${modeDef.emoji} ${primaryLabel}` : primaryLabel}
             </button>
-          </div>
-        ) : (
-          <button
-            type="button"
-            onClick={draw}
-            disabled={drawDisabled}
-            className={`w-full rounded-xl px-5 py-2.5 text-sm font-bold disabled:opacity-40 ${
-              phase === 'idle' ? `game-card-cta-pulse ${lq.btnPrimary}` : lq.btnPrimary
-            }`}
-          >
-            {phase === 'idle' ? `${modeDef.emoji} ${primaryLabel}` : primaryLabel}
-          </button>
-        )}
+          )}
+        </div>
+
+        <MiniGameRewardFloat
+          visible={rewardFloatVisible}
+          loveCoins={REWARDS.miniGameComplete.loveCoins}
+          xp={REWARDS.miniGameComplete.xp}
+          onDone={() => setRewardFloatVisible(false)}
+        />
       </section>
     </div>
   );

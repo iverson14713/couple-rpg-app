@@ -1,28 +1,41 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useLoveQuest } from '../context/LoveQuestContext';
 import { DinnerSyncStatusLine } from '../components/DinnerSyncStatusLine';
-import { formatDateShort } from '../lib/dates';
 import { foodEmojiForLabel } from '../lib/dinnerFoodEmoji';
+import { fateIndexForLabel, pickDinnerFateIndex, pickDinnerFateQuip, quipForLabel } from '../lib/dinnerFateExtras';
+import { formatDinnerRelativeDay } from '../lib/dinnerHistoryLabels';
 import { pickRandomOption } from '../storage/dinnerStore';
-import { DinnerFateCard, type DinnerFatePhase } from '../components/DinnerFateCard';
+import { DinnerFateCard, type DinnerFatePhase, type DinnerFateReveal } from '../components/DinnerFateCard';
 import { EmptyState } from '../components/EmptyState';
 import { RpgMiniStats } from '../components/RpgMiniStats';
 import { ChipRow, InlineInput, OptionChip, PageHero, PrimaryButton } from '../components/ui';
 import { lq } from '../theme';
 
-const SHUFFLE_MS_MIN = 1200;
-const SHUFFLE_MS_MAX = 1800;
+const FLIP_MS = 500;
+const FLIP_MID_MS = 250;
+const EMOJI_POP_MS = 300;
+const BTN_PRESS_MS = 200;
 
-function shuffleDurationMs(): number {
-  return SHUFFLE_MS_MIN + Math.floor(Math.random() * (SHUFFLE_MS_MAX - SHUFFLE_MS_MIN + 1));
+function buildReveal(label: string, quip?: string): DinnerFateReveal {
+  return {
+    label,
+    emoji: foodEmojiForLabel(label),
+    fateIndex: pickDinnerFateIndex(),
+    quip: quip ?? pickDinnerFateQuip(),
+  };
 }
 
 export function DinnerPage({ embedded }: { embedded?: boolean } = {}) {
   const lqState = useLoveQuest();
   const [newLabel, setNewLabel] = useState('');
 
-  const [isDrawing, setIsDrawing] = useState(false);
+  const [isFlipping, setIsFlipping] = useState(false);
+  const [showResultOnBack, setShowResultOnBack] = useState(false);
+  const [emojiPop, setEmojiPop] = useState(false);
+  const [revealMeta, setRevealMeta] = useState<DinnerFateReveal | null>(null);
   const [emptyHint, setEmptyHint] = useState(false);
+  const [drawBtnPress, setDrawBtnPress] = useState(false);
+  const [flipKey, setFlipKey] = useState(0);
 
   const timeoutRefs = useRef<ReturnType<typeof setTimeout>[]>([]);
   const drawRunIdRef = useRef(0);
@@ -49,44 +62,53 @@ export function DinnerPage({ embedded }: { embedded?: boolean } = {}) {
   const savedTodayResult =
     lqState.todayDinner?.label && !lqState.draftPick ? lqState.todayDinner.label : null;
 
+  useEffect(() => {
+    if (!selectedFood || revealMeta?.label === selectedFood) return;
+    setRevealMeta({
+      label: selectedFood,
+      emoji: foodEmojiForLabel(selectedFood),
+      fateIndex: fateIndexForLabel(selectedFood),
+      quip: quipForLabel(selectedFood),
+    });
+  }, [selectedFood, revealMeta?.label]);
+
   const fatePhase = useMemo((): DinnerFatePhase => {
-    if (isDrawing) return 'shuffling';
+    if (isFlipping) return 'flipping';
     if (selectedFood) return 'revealed';
     if (savedTodayResult) return 'saved';
     return 'idle';
-  }, [isDrawing, selectedFood, savedTodayResult]);
+  }, [isFlipping, selectedFood, savedTodayResult]);
 
-  const { displayTitle, displaySubtitle, displayEmoji } = useMemo(() => {
-    switch (fatePhase) {
-      case 'shuffling':
-        return {
-          displayTitle: '今晚命運卡',
-          displaySubtitle: '正在替你們挑選今晚的答案...',
-          displayEmoji: null,
-        };
-      case 'revealed':
-        return {
-          displayTitle: selectedFood!,
-          displaySubtitle: '今晚就決定吃這個！',
-          displayEmoji: foodEmojiForLabel(selectedFood!),
-        };
-      case 'saved':
-        return {
-          displayTitle: savedTodayResult!,
-          displaySubtitle: '已儲存今日結果',
-          displayEmoji: foodEmojiForLabel(savedTodayResult!),
-        };
-      default:
-        return {
-          displayTitle: '今晚命運卡',
-          displaySubtitle: '讓命運幫你們決定今晚吃什麼',
-          displayEmoji: null,
-        };
+  const displayReveal = useMemo((): DinnerFateReveal | null => {
+    if (fatePhase === 'idle') return null;
+    if (savedTodayResult && !selectedFood) {
+      return {
+        label: savedTodayResult,
+        emoji: foodEmojiForLabel(savedTodayResult),
+        fateIndex: fateIndexForLabel(savedTodayResult),
+        quip: '',
+      };
     }
-  }, [fatePhase, selectedFood, savedTodayResult]);
+    if (revealMeta) return revealMeta;
+    if (selectedFood) {
+      return {
+        label: selectedFood,
+        emoji: foodEmojiForLabel(selectedFood),
+        fateIndex: fateIndexForLabel(selectedFood),
+        quip: quipForLabel(selectedFood),
+      };
+    }
+    return null;
+  }, [fatePhase, revealMeta, savedTodayResult, selectedFood]);
 
   const drawButtonLabel =
-    fatePhase === 'shuffling' ? '抽籤中...' : fatePhase === 'idle' ? '隨機抽籤' : '再抽一次';
+    fatePhase === 'flipping' ? '抽籤中...' : fatePhase === 'idle' ? '隨機抽籤' : '再抽一次';
+
+  const triggerBtnPress = useCallback(() => {
+    setDrawBtnPress(true);
+    const tid = window.setTimeout(() => setDrawBtnPress(false), BTN_PRESS_MS);
+    timeoutRefs.current.push(tid);
+  }, []);
 
   const startDinnerDraw = useCallback(() => {
     const opts = activeOptions;
@@ -104,17 +126,32 @@ export function DinnerPage({ embedded }: { embedded?: boolean } = {}) {
     drawRunIdRef.current += 1;
     const runId = drawRunIdRef.current;
     const finalLabel = picked.label;
+    const nextReveal = buildReveal(finalLabel);
 
     setEmptyHint(false);
-    setIsDrawing(true);
+    setEmojiPop(false);
+    setShowResultOnBack(false);
+    setRevealMeta(nextReveal);
+    setFlipKey((k) => k + 1);
+    setIsFlipping(true);
+    triggerBtnPress();
+
+    const tMid = window.setTimeout(() => {
+      if (drawRunIdRef.current !== runId) return;
+      setShowResultOnBack(true);
+    }, FLIP_MID_MS);
+    timeoutRefs.current.push(tMid);
 
     const tDone = window.setTimeout(() => {
       if (drawRunIdRef.current !== runId) return;
       lqState.setDinnerDraftPick(finalLabel);
-      setIsDrawing(false);
-    }, shuffleDurationMs());
+      setIsFlipping(false);
+      setEmojiPop(true);
+      const tPop = window.setTimeout(() => setEmojiPop(false), EMOJI_POP_MS);
+      timeoutRefs.current.push(tPop);
+    }, FLIP_MS);
     timeoutRefs.current.push(tDone);
-  }, [activeOptions, lqState.setDinnerDraftPick, clearDrawTimers]);
+  }, [activeOptions, lqState.setDinnerDraftPick, clearDrawTimers, triggerBtnPress]);
 
   const showEmptyCard = emptyHint || optionCount === 0;
 
@@ -139,33 +176,36 @@ export function DinnerPage({ embedded }: { embedded?: boolean } = {}) {
           <span aria-hidden>🍽️</span> 今晚吃什麼？
         </h2>
 
-        <div className="mb-3 flex min-h-[200px] items-center justify-center py-1">
+        <div className="mb-3 flex min-h-[220px] items-center justify-center py-1">
           {showEmptyCard ? (
             <EmptyState
               emoji="🍽️"
               title={emptyHint ? '請先新增晚餐選項' : '還沒有晚餐選項'}
               hint="先新增幾個常吃的餐點吧"
-              className="min-h-[188px] w-full"
+              className="min-h-[208px] w-full"
             />
           ) : (
             <DinnerFateCard
+              key={flipKey}
               phase={fatePhase}
-              displayTitle={displayTitle}
-              displaySubtitle={displaySubtitle}
-              displayEmoji={displayEmoji}
+              isFlipping={isFlipping}
+              showResultOnBack={showResultOnBack}
+              emojiPop={emojiPop}
+              reveal={displayReveal}
             />
           )}
         </div>
 
         <PrimaryButton
           onClick={startDinnerDraw}
-          disabled={fatePhase === 'shuffling' || optionCount === 0}
+          disabled={fatePhase === 'flipping' || optionCount === 0}
+          className={drawBtnPress ? 'dinner-draw-btn--press' : ''}
         >
           {drawButtonLabel}
         </PrimaryButton>
         <PrimaryButton
           variant="secondary"
-          disabled={fatePhase === 'shuffling' || !lqState.draftPick}
+          disabled={fatePhase === 'flipping' || !lqState.draftPick}
           onClick={() => lqState.saveDinnerResult()}
           className="mt-2"
         >
@@ -221,13 +261,13 @@ export function DinnerPage({ embedded }: { embedded?: boolean } = {}) {
             {lqState.dinnerHistory.map((h) => (
               <li
                 key={h.id}
-                className="flex items-center justify-between gap-2 rounded-xl bg-stone-50 px-3 py-2 text-[13px]"
+                className="rounded-xl bg-stone-50 px-3 py-2.5 text-[13px] font-semibold text-stone-700"
               >
-                <span className={`flex min-w-0 items-center gap-1.5 font-semibold ${lq.text}`}>
+                <span className={`inline-flex min-w-0 items-center gap-1.5 ${lq.text}`}>
                   <span aria-hidden>{foodEmojiForLabel(h.label)}</span>
+                  <span className="text-stone-500">{formatDinnerRelativeDay(h.date)}</span>
                   <span className="truncate">{h.label}</span>
                 </span>
-                <span className={lq.textMuted}>{formatDateShort(h.date)}</span>
               </li>
             ))}
           </ul>

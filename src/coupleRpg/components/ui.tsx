@@ -53,7 +53,7 @@ export function OptionChip({
   onRemove?: () => void;
 }) {
   return (
-    <span className={`inline-flex max-w-full items-center gap-1 px-2.5 py-1 text-[12px] font-semibold ${lq.tag}`}>
+    <span className={`dinner-option-chip inline-flex max-w-full items-center gap-1 px-2.5 py-1 text-[12px] font-semibold ${lq.tag}`}>
       {emoji ? (
         <span className="shrink-0 text-base leading-none" aria-hidden>
           {emoji}
@@ -64,7 +64,7 @@ export function OptionChip({
         <button
           type="button"
           onClick={onRemove}
-          className="ml-0.5 rounded-full px-1 text-rose-400 hover:bg-rose-100 hover:text-rose-700"
+          className="dinner-option-chip__remove ml-0.5 rounded-full px-1 text-rose-400 hover:bg-rose-100 hover:text-rose-700"
           aria-label={`刪除 ${label}`}
         >
           ×
