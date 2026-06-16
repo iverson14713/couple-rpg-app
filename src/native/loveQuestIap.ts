@@ -18,7 +18,11 @@ export type LoveQuestIapEntitlement = {
 };
 
 export interface LoveQuestIapPlugin {
-  getProducts(): Promise<{ products: LoveQuestIapProduct[] }>;
+  getProducts(): Promise<{
+    products: LoveQuestIapProduct[];
+    diagnostic?: string;
+    missingProductIds?: string[];
+  }>;
   purchase(options: { productId: string }): Promise<LoveQuestIapEntitlement>;
   restorePurchases(): Promise<LoveQuestIapEntitlement>;
   getEntitlements(): Promise<LoveQuestIapEntitlement>;

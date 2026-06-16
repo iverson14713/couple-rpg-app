@@ -9,7 +9,7 @@ import {
 } from 'react';
 import type { BillingPeriod } from '../../subscription/types';
 import { SUBSCRIPTION_PRICING } from '../../subscription/constants';
-import { fetchStoreProductPrices, isNativeIapAvailable } from '../../subscription/iapBridge';
+import { fetchIapProductsDiagnostic, isNativeIapAvailable } from '../../subscription/iapBridge';
 import {
   PRO_ACTIVE_CONTEXT_BOUND,
   PRO_ACTIVE_DESCRIPTION,
@@ -91,11 +91,20 @@ function useUpgradeProPanelState({
     }
     let cancelled = false;
     setProductsLoading(true);
-    void fetchStoreProductPrices()
-      .then((prices) => {
+    void fetchIapProductsDiagnostic()
+      .then((diag) => {
         if (cancelled) return;
-        if (prices.monthly) setPriceMonthly(prices.monthly);
-        if (prices.yearly) setPriceYearly(prices.yearly);
+        for (const p of diag.products) {
+          if (p.period === 'monthly') setPriceMonthly(p.displayPrice);
+          if (p.period === 'yearly') setPriceYearly(p.displayPrice);
+        }
+        if (diag.products.length === 0) {
+          setPurchaseError(
+            diag.error
+              ? `無法載入訂閱商品：${diag.error}`
+              : '無法載入訂閱商品，請確認 App Store Connect 設定'
+          );
+        }
         setProductsLoaded(true);
       })
       .catch(() => {

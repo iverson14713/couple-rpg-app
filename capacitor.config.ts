@@ -12,6 +12,8 @@ const config: CapacitorConfig = {
   appId: 'com.wayne.lovequest',
   appName: 'LoveQuest',
   webDir: 'dist',
+  // Local plugins: LoveQuestOAuthPlugin / LoveQuestAppleSignInPlugin / LoveQuestIAPPlugin
+  // are registered via scripts/ensure-ios-oauth-plugin.mjs after `cap sync ios`.
   server: {
     hostname: 'lovequest.app',
     iosScheme: 'https',

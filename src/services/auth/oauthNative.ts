@@ -4,6 +4,7 @@ import LoveQuestOAuth from '../../native/loveQuestOAuth';
 import { handleOAuthCallbackUrl } from '../../native/capacitorAuthBridge';
 import { NATIVE_OAUTH_URL_SCHEME } from './authRedirect';
 import { authLog, isAuthNativeClient } from './authDebug';
+import { logAuthFailure } from './authFailureLog';
 
 /**
  * Open OAuth authorize URL outside the app WebView.
@@ -50,6 +51,11 @@ export async function openOAuthInExternalBrowser(url: string): Promise<void> {
         code,
         error: oauthError,
         error_description: oauthDesc,
+      });
+      logAuthFailure('google', 'LoveQuestOAuth.authenticate', e, {
+        code,
+        oauthError,
+        oauthDesc,
       });
       authLog('LoveQuestOAuth.authenticate.error', {
         message: msg,

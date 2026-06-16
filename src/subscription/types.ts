@@ -11,6 +11,7 @@ export type PurchaseResult =
 
 export type PurchaseErrorCode =
   | 'IAP_NOT_CONFIGURED'
+  | 'PRODUCTS_EMPTY'
   | 'USER_CANCELLED'
   | 'NO_PURCHASES'
   | 'RESTORE_FAILED'

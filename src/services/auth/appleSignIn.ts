@@ -2,6 +2,7 @@ import { Capacitor } from '@capacitor/core';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import LoveQuestAppleSignIn from '../../native/loveQuestAppleSignIn';
 import { authLog, isAuthNativeClient } from './authDebug';
+import { logAuthFailure } from './authFailureLog';
 import { markAuthGraceStart } from './authGrace';
 import { notifyAuthSessionSync } from './authRoute';
 import { getOAuthRedirectUrl, redirectAfterAuthSuccess, saveAuthReturnPath } from './authRedirect';
@@ -21,9 +22,14 @@ export function getAppleSignInUserErrorMessage(lang: 'zh' | 'en' = 'zh'): string
 }
 
 /**
- * iOS/Android 正式包：啟用 Apple 登入（.env.capacitor 或 VITE_APPLE_OAUTH_ENABLED=true）。
+ * Apple 登入開關：
+ * - iOS 原生殼一律啟用（不依賴 build-time env，避免 provider_flag 誤擋）
+ * - 其他平台：VITE_APPLE_OAUTH_ENABLED 或 capacitor build mode
  */
 export function isAppleOAuthEnabled(): boolean {
+  if (isAuthNativeClient() && Capacitor.getPlatform() === 'ios') {
+    return true;
+  }
   if (import.meta.env.VITE_APPLE_OAUTH_ENABLED === 'true') return true;
   return import.meta.env.MODE === 'capacitor' && isAuthNativeClient();
 }
@@ -84,10 +90,17 @@ export async function signInWithAppleNative(
     });
 
     if (error) {
-      authLog('apple.native.supabase_error', { message: error.message });
+      logAuthFailure('apple', 'native.signInWithIdToken', error, {
+        supabaseMessage: error.message,
+        status: error.status,
+      });
+      authLog('apple.native.supabase_error', { message: error.message, status: error.status });
       return { error: new Error(userError) };
     }
     if (!data?.session) {
+      logAuthFailure('apple', 'native.no_session', new Error('no_session_after_id_token'), {
+        hasUser: Boolean(data?.user),
+      });
       authLog('apple.native.no_session', {});
       return { error: new Error(userError) };
     }
@@ -108,6 +121,7 @@ export async function signInWithAppleNative(
       return { error: new Error('oauth_cancelled') };
     }
 
+    logAuthFailure('apple', 'native.plugin', e, { code, message: msg });
     return { error: new Error(userError) };
   }
 }
@@ -159,10 +173,12 @@ export async function signInWithAppleOAuth(
   });
 
   if (error) {
-    authLog('apple.oauth_error', { message: error.message });
+    logAuthFailure('apple', 'oauth.signInWithOAuth', error, { redirectTo });
+    authLog('apple.oauth_error', { message: error.message, status: error.status });
     return { error: new Error(userError) };
   }
   if (!data?.url) {
+    logAuthFailure('apple', 'oauth.no_url', new Error('missing_oauth_url'), { redirectTo });
     authLog('apple.no_url', {});
     return { error: new Error(userError) };
   }
@@ -176,6 +192,7 @@ export async function signInWithAppleOAuth(
       return { error: new Error('oauth_cancelled') };
     }
     authLog('apple.oauth_session_error', { message: msg });
+    logAuthFailure('apple', 'oauth.external_browser', e, { message: msg });
     return { error: new Error(userError) };
   }
 
@@ -216,6 +233,7 @@ export async function handleAppleSignIn(
     if (error.message === 'oauth_cancelled') {
       return { ok: true, signedIn: false, message: 'cancelled' };
     }
+    logAuthFailure('apple', 'handleAppleSignIn', error, { userFacing: userError });
     return { ok: false, signedIn: false, message: userError, code: 'failed' };
   }
 

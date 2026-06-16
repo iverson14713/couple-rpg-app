@@ -92,11 +92,48 @@ public class LoveQuestIAPPlugin: CAPPlugin, CAPBridgedPlugin {
         return entitlementPayload(from: transaction)
     }
 
+    private func productsDiagnosticMessage(
+        requested: Set<String>,
+        found: [Product]
+    ) -> String {
+        let foundIds = Set(found.map { $0.id })
+        let missing = requested.subtracting(foundIds)
+        let bundleId = Bundle.main.bundleIdentifier ?? "(unknown)"
+        return [
+            "bundleId=\(bundleId)",
+            "requested=\(Array(requested).sorted().joined(separator: ", "))",
+            "found=\(Array(foundIds).sorted().joined(separator: ", "))",
+            "missing=\(missing.isEmpty ? "(none)" : missing.sorted().joined(separator: ", "))",
+            "hint=Verify App Store Connect subscriptions, Paid Apps agreement, and Sandbox Apple ID",
+        ].joined(separator: " | ")
+    }
+
     @objc func getProducts(_ call: CAPPluginCall) {
-        NSLog("[LQ_IAP] getProducts.start")
+        NSLog("[LQ_IAP] getProducts.start ids=%@", Self.productIds.sorted().joined(separator: ", "))
         Task {
             do {
                 let products = try await self.loadProducts()
+                let diagnostic = self.productsDiagnosticMessage(requested: Self.productIds, found: products)
+                NSLog("[LQ_IAP] getProducts.diagnostic %@", diagnostic)
+
+                if products.isEmpty {
+                    let message = "No products returned from App Store. \(diagnostic)"
+                    NSLog("[LQ_IAP] getProducts.empty %@", message)
+                    call.reject(message, "PRODUCTS_EMPTY", nil, [
+                        "requestedProductIds": Array(Self.productIds),
+                        "foundProductIds": [] as [String],
+                        "missingProductIds": Array(Self.productIds),
+                        "bundleId": Bundle.main.bundleIdentifier ?? "",
+                        "diagnostic": diagnostic,
+                    ])
+                    return
+                }
+
+                let missing = Self.productIds.subtracting(Set(products.map { $0.id }))
+                if !missing.isEmpty {
+                    NSLog("[LQ_IAP] getProducts.partial missing=%@", missing.sorted().joined(separator: ", "))
+                }
+
                 let list: [[String: Any]] = products.map { product in
                     [
                         "productId": product.id,
@@ -105,10 +142,24 @@ public class LoveQuestIAPPlugin: CAPPlugin, CAPBridgedPlugin {
                     ]
                 }
                 NSLog("[LQ_IAP] getProducts.success count=%ld", list.count)
-                call.resolve(["products": list])
+                call.resolve([
+                    "products": list,
+                    "diagnostic": diagnostic,
+                    "missingProductIds": Array(missing),
+                ])
             } catch {
-                NSLog("[LQ_IAP] getProducts.error %@", error.localizedDescription)
-                call.reject(error.localizedDescription, "PRODUCTS_FAILED", error)
+                let ns = error as NSError
+                NSLog(
+                    "[LQ_IAP] getProducts.error domain=%@ code=%ld desc=%@ userInfo=%@",
+                    ns.domain,
+                    ns.code,
+                    error.localizedDescription,
+                    String(describing: ns.userInfo)
+                )
+                call.reject(error.localizedDescription, "PRODUCTS_FAILED", error, [
+                    "requestedProductIds": Array(Self.productIds),
+                    "bundleId": Bundle.main.bundleIdentifier ?? "",
+                ])
             }
         }
     }
@@ -147,8 +198,19 @@ public class LoveQuestIAPPlugin: CAPPlugin, CAPBridgedPlugin {
                     call.reject("Unknown purchase result", "UNKNOWN")
                 }
             } catch {
-                NSLog("[LQ_IAP] purchase.error %@", error.localizedDescription)
-                call.reject(error.localizedDescription, "PURCHASE_FAILED", error)
+                let ns = error as NSError
+                NSLog(
+                    "[LQ_IAP] purchase.error productId=%@ domain=%@ code=%ld desc=%@ userInfo=%@",
+                    productId,
+                    ns.domain,
+                    ns.code,
+                    error.localizedDescription,
+                    String(describing: ns.userInfo)
+                )
+                call.reject(error.localizedDescription, "PURCHASE_FAILED", error, [
+                    "productId": productId,
+                    "bundleId": Bundle.main.bundleIdentifier ?? "",
+                ])
             }
         }
     }
@@ -168,7 +230,14 @@ public class LoveQuestIAPPlugin: CAPPlugin, CAPBridgedPlugin {
                     call.reject("No active subscription found", "NO_PURCHASES")
                 }
             } catch {
-                NSLog("[LQ_IAP] restore.error %@", error.localizedDescription)
+                let ns = error as NSError
+                NSLog(
+                    "[LQ_IAP] restore.error domain=%@ code=%ld desc=%@ userInfo=%@",
+                    ns.domain,
+                    ns.code,
+                    error.localizedDescription,
+                    String(describing: ns.userInfo)
+                )
                 call.reject(error.localizedDescription, "RESTORE_FAILED", error)
             }
         }

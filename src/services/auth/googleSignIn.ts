@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { authLog, isAuthNativeClient, logAuthEnvironment } from './authDebug';
+import { logAuthFailure } from './authFailureLog';
 import { getOAuthRedirectUrl, saveAuthReturnPath } from './authRedirect';
 import { markOAuthProvider } from './oauthSessionHint';
 import { openOAuthInExternalBrowser } from './oauthNative';
@@ -45,15 +46,21 @@ export async function signInWithGoogleOAuth(
       oauthUrl: data?.url ?? null,
     });
 
-    if (error) return { error: new Error(error.message) };
+    if (error) {
+      logAuthFailure('google', 'signInWithOAuth', error, { redirectTo });
+      return { error: new Error(error.message) };
+    }
     if (!data?.url) {
-      return { error: new Error('Google 登入網址取得失敗，請稍後再試。') };
+      const err = new Error('Google 登入網址取得失敗，請稍後再試。');
+      logAuthFailure('google', 'signInWithOAuth.no_url', err, { redirectTo, hasData: Boolean(data) });
+      return { error: err };
     }
 
     try {
       await openOAuthInExternalBrowser(data.url);
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
+      logAuthFailure('google', 'external_browser', e, { oauthUrl: data.url, redirectTo });
       return { error: new Error(`無法開啟外部瀏覽器：${msg}`) };
     }
     return { error: null };
@@ -71,7 +78,10 @@ export async function signInWithGoogleOAuth(
       queryParams: { ...GOOGLE_QUERY },
     },
   });
-  if (error) return { error: new Error(error.message) };
+  if (error) {
+    logAuthFailure('google', 'signInWithOAuth.web', error, { redirectTo });
+    return { error: new Error(error.message) };
+  }
   return { error: null };
 }
 

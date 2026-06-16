@@ -8,6 +8,7 @@ import {
 } from '../../subscription/iapBridge';
 import { IAP_PRODUCT_IDS } from '../../subscription/constants';
 import type { LoveQuestIapEntitlement } from '../../native/loveQuestIap';
+import { iapError, iapLog } from '../../services/iap/iapDebug';
 import { setUserPlan } from '../storage/planStore';
 import {
   activateCoupleProFromApple,
@@ -61,6 +62,7 @@ export async function syncLoveQuestIapOnLaunch(
 
   const ent = await getActiveIapEntitlement();
   if (ent?.isActive && ent.productId) {
+    iapLog('syncLoveQuestIapOnLaunch.active', { productId: ent.productId });
     return applyEntitlementToCouple(input, ent);
   }
 
@@ -97,6 +99,11 @@ export async function purchaseLoveQuestPro(
 
   const result = await purchaseViaStoreKit(period);
   if (!result.ok) {
+    iapError('purchaseLoveQuestPro.failed', {
+      period,
+      errorCode: result.errorCode,
+      message: result.message ?? null,
+    });
     if (result.errorCode === 'USER_CANCELLED') {
       return { ok: false, cancelled: true };
     }
@@ -124,6 +131,10 @@ export async function restoreLoveQuestPurchases(
 
   const result = await restoreViaStoreKit();
   if (!result.ok) {
+    iapError('restoreLoveQuestPurchases.failed', {
+      errorCode: result.errorCode,
+      message: result.message ?? null,
+    });
     if (result.errorCode === 'NO_PURCHASES') {
       return { ok: false, message: '尚未找到有效訂閱' };
     }
