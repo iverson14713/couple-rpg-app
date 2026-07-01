@@ -7,7 +7,9 @@ import { formatHomeCoupleHeaderLine } from '../lib/importantDates';
 import { WEEKLY_RECAP_UNLOCK_HINT } from '../lib/coupleWeeklyRecap';
 import { useToast } from '../../context/ToastContext';
 import { SoftIconBadge } from './ui/SoftIconBadge';
-import { HOME_QUEST_HERO_ILLUSTRATION } from './ui/homeQuestIcons';
+import { XiaoiHeroStage } from './XiaoiHeroStage';
+import { useDevModeRevision } from '../hooks/useDevModeRevision';
+import { resolveHeroXiaoiDisplay } from '../lib/xiaoiDevPreview';
 
 /** 首頁 Hero：品牌主視覺（僅 UI） */
 export function HomeHeroLoveCard() {
@@ -21,6 +23,7 @@ export function HomeHeroLoveCard() {
     coupleExtended,
     displayNames,
     loveFlameView,
+    xiaoiView,
     coupleExpView,
     weeklyChallengeView,
     coupleWeeklyRecapView,
@@ -59,6 +62,20 @@ export function HomeHeroLoveCard() {
 
   const onProBadge = () => (isPro ? navigateTo('upgrade') : openUpgradeModal());
 
+  const devModeRevision = useDevModeRevision();
+  const heroXiaoiDisplay = useMemo(
+    () =>
+      resolveHeroXiaoiDisplay(
+        {
+          state: xiaoiView.state,
+          imageName: xiaoiView.imageName,
+          title: xiaoiView.title,
+        },
+        devModeRevision
+      ),
+    [xiaoiView.state, xiaoiView.imageName, xiaoiView.title, devModeRevision]
+  );
+
   return (
     <section
       className="lq-home-hero lq-home-elev lq-home-section-in relative isolate overflow-hidden rounded-[28px] px-4 py-4 ring-1 ring-white/80"
@@ -70,31 +87,30 @@ export function HomeHeroLoveCard() {
         <span className="lq-home-hero-spark lq-home-hero-spark--3" />
       </div>
 
-      <img
-        src={HOME_QUEST_HERO_ILLUSTRATION}
-        alt=""
-        aria-hidden
-        decoding="async"
-        draggable={false}
-        className="lq-home-decor-img lq-home-decor-img--hero pointer-events-none absolute z-[5] select-none"
-      />
-
       <div className="relative z-10 max-w-[56%]">
         {auth.user ? (
-          <p className="truncate text-[11px] font-medium text-white/85">{displayNames.me}</p>
-        ) : null}
+          <p className="min-h-[1rem] truncate text-[11px] font-medium text-white/85">{displayNames.me}</p>
+        ) : (
+          <p className="min-h-[1rem]" aria-hidden>
+            {'\u00a0'}
+          </p>
+        )}
 
         <h2 className="lq-hero-title mt-1 truncate text-[clamp(1.55rem,7vw,2rem)] font-extrabold leading-[1.05] tracking-tight text-white">
           {coupleHeaderLine}
         </h2>
 
-        <div className="mt-2.5 flex flex-wrap items-center gap-2">
-          <span className="lq-glass-pill text-[12px] font-bold">
-            {growthWalletReady ? `Lv.${level} ${title}` : '同步中…'}
+        <div className="lq-hero-badge-stack mt-2.5">
+          <span className="lq-glass-pill lq-hero-badge-pill text-[12px] font-bold">
+            {growthWalletReady ? `Lv.${level} ${title}` : 'Lv.— 同步中…'}
           </span>
-          <span className="lq-glass-pill inline-flex items-center gap-1 pr-2.5 text-[11px] font-bold">
+          <span className="lq-glass-pill lq-hero-badge-pill inline-flex items-center gap-1 pr-2.5 text-[11px] font-bold">
             <SoftIconBadge variant="flame" size="xs" className="lq-hero-flame-pulse !shadow-none" />
-            火苗 {streakBroken ? '已中斷' : `${currentStreak} 天`}
+            {!growthWalletReady
+              ? '火苗 — 天'
+              : streakBroken
+                ? '火苗 已中斷'
+                : `火苗 ${currentStreak} 天`}
           </span>
         </div>
 
@@ -111,22 +127,30 @@ export function HomeHeroLoveCard() {
           今日 {growthWalletReady ? `+${todayCoinEarned}` : '同步中…'}
         </p>
 
-        {gapLine ? (
-          <p className="lq-hero-hint mt-1.5 truncate">{gapLine}</p>
-        ) : null}
-        {weeklyHint ? (
-          <p className="lq-hero-hint truncate">{weeklyHint}</p>
-        ) : null}
-        {recapHint ? (
-          <button
-            type="button"
-            onClick={onRecapEntry}
-            className="lq-hero-hint block max-w-full truncate text-left active:opacity-80"
-          >
-            {recapHint}
-          </button>
-        ) : null}
+        <div className="lq-hero-hints mt-1.5">
+          <p className="lq-hero-hint lq-hero-hint-slot truncate">{gapLine ?? '\u00a0'}</p>
+          <p className="lq-hero-hint lq-hero-hint-slot truncate">{weeklyHint ?? '\u00a0'}</p>
+          {recapHint ? (
+            <button
+              type="button"
+              onClick={onRecapEntry}
+              className="lq-hero-hint lq-hero-hint-slot block max-w-full truncate text-left active:opacity-80"
+            >
+              {recapHint}
+            </button>
+          ) : (
+            <p className="lq-hero-hint lq-hero-hint-slot truncate opacity-0 pointer-events-none" aria-hidden>
+              {'\u00a0'}
+            </p>
+          )}
+        </div>
       </div>
+
+      <XiaoiHeroStage
+        state={heroXiaoiDisplay.state}
+        imageName={heroXiaoiDisplay.imageName}
+        title={heroXiaoiDisplay.title}
+      />
 
       <button
         type="button"

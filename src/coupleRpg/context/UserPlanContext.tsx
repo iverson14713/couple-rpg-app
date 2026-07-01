@@ -9,6 +9,8 @@ import {
 } from 'react';
 import type { BillingPeriod } from '../../subscription/types';
 import { isLoveQuestDevMode } from '../lib/loveQuestDevMode';
+import { applyProDevOverride } from '../lib/devModeOverride';
+import { useDevModeRevision } from '../hooks/useDevModeRevision';
 import {
   PRO_TOAST_COUPLE,
   PRO_TOAST_COUPLE_FREE,
@@ -84,6 +86,7 @@ export function UserPlanProvider({ children }: { children: ReactNode }) {
   const [planToast, setPlanToast] = useState<string | null>(null);
   const [upgradeModalOpen, setUpgradeModalOpen] = useState(false);
   const [upgradeModalHint, setUpgradeModalHint] = useState<string | null>(null);
+  const devModeRevision = useDevModeRevision();
 
   const coupleId = space?.coupleId ?? null;
   const userId = auth.user?.id ?? null;
@@ -270,10 +273,19 @@ export function UserPlanProvider({ children }: { children: ReactNode }) {
     return () => window.clearTimeout(t);
   }, [planToast]);
 
+  const effectiveIsPro = useMemo(
+    () => applyProDevOverride(planSnapshot.isPro),
+    [planSnapshot.isPro, devModeRevision]
+  );
+
   const value = useMemo<UserPlanContextValue>(
     () => ({
-      plan: planSnapshot.plan,
-      isPro: planSnapshot.isPro,
+      plan: effectiveIsPro
+        ? 'pro'
+        : planSnapshot.plan === 'pro'
+          ? 'free'
+          : planSnapshot.plan,
+      isPro: effectiveIsPro,
       planLoading,
       iapBusy,
       planSnapshot,
@@ -292,6 +304,7 @@ export function UserPlanProvider({ children }: { children: ReactNode }) {
     }),
     [
       planSnapshot,
+      effectiveIsPro,
       planLoading,
       iapBusy,
       refreshPlan,

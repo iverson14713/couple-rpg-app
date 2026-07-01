@@ -11,19 +11,26 @@ export const FREE_COMPANIONSHIP_DAILY_SEND_LIMIT = 3;
 const FREE_COMPANIONSHIP_PRESET_TYPES = new Set([
   'heart',
   'goodnight',
+  'hug',
   'missing',
-  'kiss',
+  'call',
+  'meal',
+  'walk',
+  'sleep_thinking',
+  'goodmorning',
   'cheer',
+  'featured',
+  'kiss',
 ]);
 
 export const COMPANIONSHIP_RANDOM_PRO_HINT =
-  '隨機一句與 AI 陪伴句子為 Pro 功能，升級後可無限送出陪伴。';
+  'AI 幫我挑一句為 Pro 功能，升級後可無限送出陪伴。';
 
 export const COMPANIONSHIP_CUSTOM_PRO_HINT =
   '自訂陪伴句子為 Pro 功能，升級後可寫專屬短句給對方。';
 
 export const COMPANIONSHIP_DAILY_LIMIT_PRO_HINT =
-  '免費版每天最多陪伴 3 次，升級 Pro 可無限送出陪伴、解鎖自訂句子與隨機一句。';
+  '免費版每天最多陪伴 3 次，升級 Pro 可無限送出陪伴、解鎖自訂句子與 AI 幫我挑一句。';
 
 export function countTodaySentByUser(
   events: CompanionshipEvent[],

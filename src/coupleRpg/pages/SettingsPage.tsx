@@ -13,6 +13,7 @@ import { LegalSettingsSection } from '../components/LegalSettingsSection';
 import { SettingsSectionErrorBoundary } from '../components/SettingsSectionErrorBoundary';
 import { SettingsEntryCard } from '../components/settings/SettingsEntryCard';
 import { SettingsSubPageHeader } from '../components/settings/SettingsSubPageHeader';
+import { SettingsWidgetScreen } from '../components/settings/SettingsWidgetScreen';
 import { useOnboarding } from '../context/OnboardingContext';
 import { useCoupleRpgNav } from '../context/CoupleRpgNavContext';
 import { PRO_BENEFIT_LINES } from '../lib/proPlanContent';
@@ -55,6 +56,9 @@ export function SettingsPage({ embedded }: { embedded?: boolean } = {}) {
         ) : null}
         {screen === 'reminders' ? (
           <SettingsRemindersScreen onBack={goHub} />
+        ) : null}
+        {screen === 'widgets' ? (
+          <SettingsWidgetScreen onBack={goHub} />
         ) : null}
         {screen === 'about' ? (
           <SettingsAboutScreen onBack={goHub} />
@@ -105,6 +109,12 @@ export function SettingsPage({ embedded }: { embedded?: boolean } = {}) {
           title="提醒與通知"
           description="推播通知、提醒時間、今日提醒"
           onClick={() => setScreen('reminders')}
+        />
+        <SettingsEntryCard
+          emoji="📱"
+          title="桌面 Widget"
+          description="經典資訊 Widget 與小愛寵物 Widget"
+          onClick={() => setScreen('widgets')}
         />
         <SettingsEntryCard
           emoji="🧭"

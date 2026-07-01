@@ -360,6 +360,20 @@ function isLoveFlameRecordedOnScope(scope: DailyRewardScopeRecord, dateKey: stri
   return getDay(scope, dateKey).loveFlameRecorded;
 }
 
+/** 今日是否已有任一情侶互動（任務、小遊戲、火苗延續等） */
+export function hasInteractedTodayOnScope(
+  scope: DailyRewardScopeRecord,
+  dateKey: string = todayKey()
+): boolean {
+  const day = getDay(scope, dateKey);
+  if (day.loveFlameRecorded) return true;
+  if (day.loveTaskSlotsClaimed.some(Boolean)) return true;
+  if (day.loveTaskAllComplete) return true;
+  if (day.miniGameRewardCount > 0) return true;
+  if (day.level3ComboClaimed) return true;
+  return scope.lastInteractionDate === dateKey;
+}
+
 /** UI：火苗連續是否仍有效（最後互動為今天或昨天） */
 export function isLoveFlameStreakActive(
   scope: DailyRewardScopeRecord,

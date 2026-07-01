@@ -18,6 +18,7 @@ import {
 import { mapCoupleSpaceError } from '../services/coupleSpaceErrors';
 import { LQ_KEYS } from '../storage/keys';
 import { loadJson, saveJson } from '../storage/persist';
+import { flushWidgetSnapshot } from '../../utils/widgetSnapshotRegistry';
 
 type CoupleSpaceContextValue = {
   space: CoupleSpaceInfo | null;
@@ -129,6 +130,11 @@ export function CoupleSpaceProvider({ children }: { children: ReactNode }) {
   const isFullyBound = space?.isFullyBound ?? false;
   const hasMembership = space !== null;
   const showBindReminder = !auth.user || (!loading && !isFullyBound);
+
+  useEffect(() => {
+    if (loading) return;
+    void flushWidgetSnapshot({ forceReload: true });
+  }, [auth.user?.id, space?.coupleId, isFullyBound, loading]);
 
   const value = useMemo(
     () => ({

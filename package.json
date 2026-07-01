@@ -13,16 +13,19 @@
     "generate:icons": "node scripts/generate-icons.mjs",
     "build": "vite build",
     "build:capacitor": "vite build --mode capacitor",
+    "build:capacitor:release": "node scripts/guard-ios-release-build.mjs && VITE_ENABLE_DEV_MODE=false vite build --mode capacitor",
     "build:ios": "npm run build:capacitor && npx cap sync ios && node scripts/ensure-ios-oauth-plugin.mjs",
+    "build:ios:release": "npm run build:capacitor:release && npx cap sync ios && node scripts/ensure-ios-oauth-plugin.mjs",
     "cap:sync": "npm run build:capacitor && npx cap sync && node scripts/ensure-ios-oauth-plugin.mjs",
     "cap:sync:ios": "npm run build:capacitor && npx cap sync ios && node scripts/ensure-ios-oauth-plugin.mjs",
     "cap:open:ios": "npx cap open ios",
-    "cap:copy:ios": "npx cap copy ios",
+    "cap:copy:ios": "npx cap copy ios && node scripts/ensure-ios-oauth-plugin.mjs",
     "lint": "eslint .",
     "preview": "vite preview",
     "screenshot:lovequest": "node scripts/screenshot-lovequest.mjs",
     "screenshot:lovequest-ipad": "node scripts/screenshot-lovequest-ipad.mjs",
-    "typecheck": "tsc --noEmit -p tsconfig.app.json"
+    "typecheck": "tsc --noEmit -p tsconfig.app.json",
+    "verify:dev-mode": "node scripts/verify-dev-mode.mjs"
   },
   "dependencies": {
     "@capacitor-community/media": "^9.1.0",

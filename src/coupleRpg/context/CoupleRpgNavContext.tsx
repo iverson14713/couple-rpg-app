@@ -4,7 +4,7 @@ import { createContext, useCallback, useContext, useMemo, useState, type ReactNo
 export type CoupleNavTabId = 'home' | 'dinner' | 'housework' | 'rewards' | 'profile';
 
 /** Home cards can open these without a bottom tab */
-export type CoupleDeepTabId = 'tasks' | 'dates' | 'miniGames' | 'importantDates' | 'upgrade';
+export type CoupleDeepTabId = 'tasks' | 'dates' | 'miniGames' | 'games' | 'heartCircle' | 'importantDates' | 'upgrade';
 
 export type CoupleTabId = CoupleNavTabId | CoupleDeepTabId;
 
@@ -77,6 +77,8 @@ export function bottomNavHighlight(tab: CoupleTabId): CoupleNavTabId {
     tab === 'tasks' ||
     tab === 'dates' ||
     tab === 'miniGames' ||
+    tab === 'games' ||
+    tab === 'heartCircle' ||
     tab === 'importantDates' ||
     tab === 'upgrade'
   ) {

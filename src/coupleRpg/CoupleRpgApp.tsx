@@ -18,6 +18,8 @@ import { LoveQuestProvider, useLoveQuest } from './context/LoveQuestContext';
 import { AiToastProvider } from './context/AiToastContext';
 import { AiUsageProvider } from './hooks/useAiUsage';
 import { UserPlanProvider } from './context/UserPlanContext';
+import { DevModeProvider } from './context/DevModeContext';
+import { DevModeHost } from './components/DevModeHost';
 import { DinnerPage } from './pages/DinnerPage';
 import { HouseworkPage } from './pages/HouseworkPage';
 import { ProfileHubPage } from './pages/ProfileHubPage';
@@ -25,6 +27,8 @@ import { RewardsPage } from './pages/RewardsPage';
 import { TasksPage } from './pages/TasksPage';
 import { DatesPage } from './pages/DatesPage';
 import { MiniGamesPage } from './pages/MiniGamesPage';
+import { GamesPage } from './pages/GamesPage';
+import { HeartCircleGamePage } from './pages/HeartCircleGamePage';
 import { ImportantDatesRemindersPage } from './pages/ImportantDatesRemindersPage';
 import { UpgradeProPage } from './pages/UpgradeProPage';
 import { UpgradeModal } from './components/UpgradeModal';
@@ -59,11 +63,14 @@ function CoupleRpgAuthBoot() {
         <AiUsageProvider key={bootKey}>
           <AiToastProvider>
             <LoveQuestProvider key={bootKey}>
-              <CompanionshipProvider>
-                <CoupleRpgNavProvider>
-                  <CoupleRpgShell />
-                </CoupleRpgNavProvider>
-              </CompanionshipProvider>
+              <DevModeProvider>
+                <CompanionshipProvider>
+                  <CoupleRpgNavProvider>
+                    <CoupleRpgShell />
+                  </CoupleRpgNavProvider>
+                </CompanionshipProvider>
+                <DevModeHost />
+              </DevModeProvider>
             </LoveQuestProvider>
           </AiToastProvider>
         </AiUsageProvider>
@@ -131,6 +138,18 @@ function CoupleRpgShell() {
           <>
             <TabPageHeader emoji="🎲" title="情侶小遊戲" subtitle="骰子、真心話、默契問答，讓今天更有趣" />
             <MiniGamesPage />
+          </>
+        )}
+        {tab === 'games' && (
+          <>
+            <TabPageHeader emoji="🎮" title="情侶小遊戲" subtitle="一起玩，感情升溫" />
+            <GamesPage />
+          </>
+        )}
+        {tab === 'heartCircle' && (
+          <>
+            <TabPageHeader emoji="💕" title="愛心圈圈戰" subtitle="輪流擲骰，圈起相連的愛心" />
+            <HeartCircleGamePage />
           </>
         )}
         {tab === 'importantDates' && (

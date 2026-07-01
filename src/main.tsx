@@ -5,12 +5,16 @@ import { ToastProvider } from './context/ToastContext.tsx';
 import { initAuthDebug } from './services/auth/authDebug.ts';
 import { initCapacitorAuthBridge } from './native/capacitorAuthBridge.ts';
 import { initLoveQuestNotificationBridge } from './services/notificationService.ts';
+import { clearStaleDevXiaoiStateOverride } from './coupleRpg/lib/devModeOverride.ts';
+import { initWidgetBackgroundSync } from './utils/widgetBackgroundSync.ts';
 import { repairCorruptedLocalStorage } from './safeStorage.ts';
 import { Root } from './Root.tsx';
 import { SupabaseAuthProvider } from './useSupabaseAuth.ts';
 import './index.css';
 
 repairCorruptedLocalStorage();
+clearStaleDevXiaoiStateOverride();
+initWidgetBackgroundSync();
 initCapacitorAuthBridge();
 initLoveQuestNotificationBridge();
 initAuthDebug();

@@ -12,8 +12,9 @@ const config: CapacitorConfig = {
   appId: 'com.wayne.lovequest',
   appName: 'LoveQuest',
   webDir: 'dist',
-  // Local plugins: LoveQuestOAuthPlugin / LoveQuestAppleSignInPlugin / LoveQuestIAPPlugin
-  // are registered via scripts/ensure-ios-oauth-plugin.mjs after `cap sync ios`.
+  // Local plugins (OAuth / Apple Sign-In / IAP) live in ios/App/App.
+  // npm run build:ios loads .env.capacitor (VITE_ENABLE_DEV_MODE=true for device testing).
+  // App Store Archive: npm run build:ios:release (dev mode forced off).
   server: {
     hostname: 'lovequest.app',
     iosScheme: 'https',

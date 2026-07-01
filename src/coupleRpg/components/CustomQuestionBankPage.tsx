@@ -2,9 +2,15 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ChevronLeft, Pencil, Plus, Trash2 } from 'lucide-react';
 import { createPortal } from 'react-dom';
 import {
-  MiniGamePlayCard,
-  type MiniGameCardPhase,
-} from './MiniGamePlayCard';
+  CustomQuestionDrawCard,
+  type CustomDrawPhase,
+} from './CustomQuestionDrawCard';
+import {
+  CUSTOM_DRAW_CAROUSEL_PREVIEWS,
+  CUSTOM_DRAW_TIMING,
+  pickCustomDrawMoodLine,
+  triggerCustomDrawHaptic,
+} from '../lib/customQuestionDrawUx';
 import {
   addCustomQuestion,
   countEnabledQuestions,
@@ -38,8 +44,9 @@ const CATEGORY_CHIP: Record<string, string> = {
   真心話: 'bg-fuchsia-100/80 text-fuchsia-700 ring-fuchsia-200/60',
 };
 
-function shuffleMs(): number {
-  return 900 + Math.floor(Math.random() * 300);
+
+function pickCarouselPreview(index: number) {
+  return CUSTOM_DRAW_CAROUSEL_PREVIEWS[index % CUSTOM_DRAW_CAROUSEL_PREVIEWS.length]!;
 }
 
 function categoryChipClass(category: string): string {
@@ -48,27 +55,36 @@ function categoryChipClass(category: string): string {
 
 export function CustomQuestionBankPage({ onBack }: Props) {
   const [bank, setBank] = useState<CustomQuestionBankData>(() => loadCustomQuestionBank());
-  const [phase, setPhase] = useState<MiniGameCardPhase>('idle');
+  const [phase, setPhase] = useState<CustomDrawPhase>('idle');
   const [drawn, setDrawn] = useState<CustomQuestion | null>(null);
-  const [showSparkles, setShowSparkles] = useState(false);
+  const [moodLine, setMoodLine] = useState<string | null>(null);
+  const [carouselPreview, setCarouselPreview] = useState<{ emoji: string; label: string } | null>(
+    null
+  );
+  const [showCelebration, setShowCelebration] = useState(false);
   const [form, setForm] = useState<FormState>({ open: false, editing: null, text: '', category: '互動' });
   const [deleteTarget, setDeleteTarget] = useState<CustomQuestion | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
 
-  const drawTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const sparkleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const drawTimerRef = useRef<ReturnType<typeof setTimeout>[]>([]);
+  const carouselIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const drawRunIdRef = useRef(0);
 
   const enabledCount = useMemo(() => countEnabledQuestions(bank), [bank]);
 
   const clearTimers = useCallback(() => {
-    if (drawTimerRef.current) {
-      clearTimeout(drawTimerRef.current);
-      drawTimerRef.current = null;
+    drawTimerRef.current.forEach((id) => clearTimeout(id));
+    drawTimerRef.current = [];
+    if (carouselIntervalRef.current) {
+      clearInterval(carouselIntervalRef.current);
+      carouselIntervalRef.current = null;
     }
-    if (sparkleTimerRef.current) {
-      clearTimeout(sparkleTimerRef.current);
-      sparkleTimerRef.current = null;
-    }
+  }, []);
+
+  const schedule = useCallback((fn: () => void, ms: number) => {
+    const id = window.setTimeout(fn, ms);
+    drawTimerRef.current.push(id);
+    return id;
   }, []);
 
   useEffect(() => () => clearTimers(), [clearTimers]);
@@ -112,46 +128,82 @@ export function CustomQuestionBankPage({ onBack }: Props) {
     setDeleteTarget(null);
   };
 
+  const startDrawSequence = useCallback(
+    (fromFlip: boolean) => {
+      clearTimers();
+      drawRunIdRef.current += 1;
+      const runId = drawRunIdRef.current;
+      setShowCelebration(false);
+
+      const beginShuffle = () => {
+        if (drawRunIdRef.current !== runId) return;
+        setCarouselPreview(null);
+        setPhase('shuffle');
+
+        schedule(() => {
+          if (drawRunIdRef.current !== runId) return;
+          setPhase('carousel');
+          let tick = 0;
+          setCarouselPreview(pickCarouselPreview(0));
+          carouselIntervalRef.current = window.setInterval(() => {
+            tick += 1;
+            setCarouselPreview(pickCarouselPreview(tick));
+          }, CUSTOM_DRAW_TIMING.carouselTickMs);
+
+          schedule(() => {
+            if (carouselIntervalRef.current) {
+              clearInterval(carouselIntervalRef.current);
+              carouselIntervalRef.current = null;
+            }
+            if (drawRunIdRef.current !== runId) return;
+
+            const next = pickRandomCustomQuestion(bank, drawn?.id);
+            setDrawn(next);
+            setMoodLine(pickCustomDrawMoodLine());
+            setPhase('revealing');
+            triggerCustomDrawHaptic();
+
+            schedule(() => {
+              if (drawRunIdRef.current !== runId) return;
+              setPhase('revealed');
+            }, CUSTOM_DRAW_TIMING.revealMs);
+          }, CUSTOM_DRAW_TIMING.carouselMs);
+        }, CUSTOM_DRAW_TIMING.shuffleMs);
+      };
+
+      if (fromFlip) {
+        setPhase('flipping');
+        schedule(beginShuffle, CUSTOM_DRAW_TIMING.flipMs);
+      } else {
+        beginShuffle();
+      }
+    },
+    [bank, drawn?.id, clearTimers, schedule]
+  );
+
   const draw = useCallback(() => {
-    if (enabledCount === 0 || phase === 'drawing') return;
-    clearTimers();
-    setShowSparkles(false);
-    setPhase('drawing');
-
-    drawTimerRef.current = setTimeout(() => {
-      const next = pickRandomCustomQuestion(bank, drawn?.id);
-      setDrawn(next);
+    if (enabledCount === 0) return;
+    if (phase === 'shuffle' || phase === 'carousel' || phase === 'revealing' || phase === 'flipping') {
+      return;
+    }
+    const fromFlip = phase === 'revealed' || phase === 'completed';
+    if (phase === 'completed') {
       setPhase('revealed');
-      setShowSparkles(true);
-      sparkleTimerRef.current = setTimeout(() => setShowSparkles(false), 900);
-      drawTimerRef.current = null;
-    }, shuffleMs());
-  }, [enabledCount, phase, bank, drawn?.id, clearTimers]);
+    }
+    startDrawSequence(fromFlip);
+  }, [enabledCount, phase, startDrawSequence]);
 
-  const display = useMemo(() => {
-    if (phase === 'idle') {
-      return {
-        displayEmoji: '📝',
-        displayTitle: '準備抽一題？',
-        displaySubtitle: enabledCount > 0 ? `可抽 ${enabledCount} 題 · 只玩你的專屬題庫` : '',
-        displayContent: null as string | null,
-      };
-    }
-    if (phase === 'drawing') {
-      return {
-        displayEmoji: '🎲',
-        displayTitle: '正在抽題...',
-        displaySubtitle: '',
-        displayContent: null as string | null,
-      };
-    }
-    return {
-      displayEmoji: '💌',
-      displayTitle: '',
-      displaySubtitle: drawn?.category ?? '',
-      displayContent: drawn?.text ?? null,
-    };
-  }, [phase, enabledCount, drawn]);
+  const handleComplete = useCallback(() => {
+    if (phase !== 'revealed' || !drawn) return;
+    setPhase('completed');
+    setShowCelebration(true);
+    triggerCustomDrawHaptic();
+    schedule(() => setShowCelebration(false), 1200);
+  }, [phase, drawn, schedule]);
+
+  const isDrawing =
+    phase === 'shuffle' || phase === 'carousel' || phase === 'revealing' || phase === 'flipping';
+  const showResultActions = phase === 'revealed' || phase === 'completed';
 
   return (
     <div className="pb-2">
@@ -184,17 +236,49 @@ export function CustomQuestionBankPage({ onBack }: Props) {
           </div>
         ) : (
           <>
-            <MiniGamePlayCard phase={phase} showSparkles={showSparkles} {...display} />
-            <button
-              type="button"
-              onClick={draw}
-              disabled={phase === 'drawing'}
-              className={`mt-3 w-full rounded-xl px-5 py-2.5 text-sm font-bold disabled:opacity-40 ${
-                phase === 'idle' ? `game-card-cta-pulse ${lq.btnPrimary}` : lq.btnPrimary
-              }`}
-            >
-              {phase === 'drawing' ? '抽題中...' : phase === 'revealed' ? '換一題' : '🎲 隨機抽一題'}
-            </button>
+            <CustomQuestionDrawCard
+              phase={phase}
+              question={drawn}
+              moodLine={moodLine}
+              carouselPreview={carouselPreview}
+              showCelebration={showCelebration}
+              enabledCount={enabledCount}
+            />
+            {showResultActions ? (
+              <div className="mt-3 space-y-2">
+                <button
+                  type="button"
+                  disabled={phase === 'completed'}
+                  onClick={handleComplete}
+                  className={`w-full rounded-xl py-2.5 text-sm font-bold ${
+                    phase === 'completed'
+                      ? 'bg-stone-100 text-stone-400'
+                      : 'bg-emerald-600 text-white shadow-sm active:scale-[0.99]'
+                  }`}
+                >
+                  {phase === 'completed' ? '已完成' : '✅ 今天完成了'}
+                </button>
+                <button
+                  type="button"
+                  disabled={isDrawing}
+                  onClick={draw}
+                  className={`w-full rounded-xl px-5 py-2.5 text-sm font-bold disabled:opacity-40 ${lq.btnPrimary}`}
+                >
+                  換一題
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={draw}
+                disabled={isDrawing}
+                className={`mt-3 w-full rounded-xl px-5 py-2.5 text-sm font-bold disabled:opacity-40 ${
+                  phase === 'idle' ? `game-card-cta-pulse ${lq.btnPrimary}` : lq.btnPrimary
+                }`}
+              >
+                🎲 隨機抽一題
+              </button>
+            )}
           </>
         )}
       </section>

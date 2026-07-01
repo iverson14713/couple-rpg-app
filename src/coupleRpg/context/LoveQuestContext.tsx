@@ -56,6 +56,7 @@ import {
   getLoveTaskProgressFromLedger,
   getMiniGameRewardCount,
   getScopeRecord,
+  hasInteractedTodayOnScope,
   isLedgerWritable,
   isLoveFlameRecordedToday,
   isLoveTaskAllCompleteClaimed,
@@ -307,6 +308,15 @@ import { rescheduleLoveQuestImportantDateNotifications } from '../../services/no
 import { importantDatesKnowledgeIncreased } from '../lib/coupleProfileImportantReward';
 import { getNicknameSetupStatus, mergeCoupleProfile, type NicknameSetupStatus } from '../lib/coupleDisplayNames';
 import { levelFromTotalExp } from '../lib/coupleLevel';
+import {
+  applyCoupleExpDevOverrides,
+  applyLoveCoinsDevOverride,
+  applyStreakDevOverride,
+} from '../lib/devModeOverride';
+import { useDevModeRevision } from '../hooks/useDevModeRevision';
+import { buildLoveQuestWidgetData, syncLoveQuestWidgetData } from '../../utils/widgetSync';
+import { registerWidgetSnapshotProvider } from '../../utils/widgetSnapshotRegistry';
+import { getXiaoiState, XIAOI_HERO_MESSAGES, type XiaoiStateResult } from '../lib/xiaoiState';
 import { LevelUpModal } from '../components/LevelUpModal';
 import {
   expClaimKey,
@@ -365,6 +375,7 @@ type LoveQuestContextValue = {
     longestStreak: number;
     todayRecorded: boolean;
   };
+  xiaoiView: XiaoiStateResult & { heroMessage: string };
   canRerollLoveTaskFor: (taskId: string) => boolean;
   /** 帳本：今日戀愛任務槽位是否已領獎（localStorage，防刷） */
   isLoveTaskSlotRewardClaimed: (slotIndex: number) => boolean;
@@ -567,6 +578,7 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
   const [ledgerRevision, setLedgerRevision] = useState(0);
   const bumpLedger = useCallback(() => setLedgerRevision((n) => n + 1), []);
   const [expRevision, setExpRevision] = useState(0);
+  const devModeRevision = useDevModeRevision();
   const bumpExp = useCallback(() => setExpRevision((n) => n + 1), []);
   const [pendingLevelUp, setPendingLevelUp] = useState<number | null>(null);
   const [level3ComboNotice, setLevel3ComboNotice] = useState<{
@@ -874,8 +886,8 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
   }, [currentUserId]);
 
   const coupleExpView = useMemo(
-    () => getCoupleExpView(ledgerCtx, todayKey()),
-    [ledgerCtx, expRevision]
+    () => applyCoupleExpDevOverrides(getCoupleExpView(ledgerCtx, todayKey())),
+    [ledgerCtx, expRevision, devModeRevision]
   );
 
   const [weeklyChallengeRevision, setWeeklyChallengeRevision] = useState(0);
@@ -1234,13 +1246,68 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
   const loveFlameView = useMemo(() => {
     const flame = scopeToLoveFlameData(ledgerScope);
     const display = loveFlameDisplayFromScope(ledgerScope);
-    return {
+    return applyStreakDevOverride({
       ...display,
       currentStreak: display.displayStreak,
       longestStreak: flame.longestStreak,
       todayRecorded: display.todayRecorded,
+    });
+  }, [ledgerScope, devModeRevision]);
+
+  const xiaoiView = useMemo(() => {
+    const isLoggedIn = Boolean(auth.user);
+    const isCoupleBound = isFullyBound;
+    const useCoupleLedger = isLoggedIn && isCoupleBound;
+    const state = getXiaoiState({
+      isLoggedIn,
+      isCoupleBound,
+      hasInteractedToday: useCoupleLedger ? hasInteractedTodayOnScope(ledgerScope) : false,
+      flameDays: useCoupleLedger ? loveFlameView.currentStreak : 0,
+      lastInteractionDate: useCoupleLedger ? ledgerScope.lastInteractionDate : null,
+    });
+    return {
+      ...state,
+      heroMessage: XIAOI_HERO_MESSAGES[state.state],
     };
-  }, [ledgerScope]);
+  }, [
+    auth.user,
+    isFullyBound,
+    ledgerScope,
+    loveFlameView.currentStreak,
+    devModeRevision,
+  ]);
+
+  useEffect(() => {
+    const buildSnapshot = () => {
+      if (!growthWalletReady) return null;
+      const useCoupleLedger = Boolean(auth.user) && isFullyBound;
+      return buildLoveQuestWidgetData({
+        coupleExtended,
+        flameDays: useCoupleLedger ? loveFlameView.currentStreak : 0,
+        isPro,
+        hasInteractedToday: useCoupleLedger ? hasInteractedTodayOnScope(ledgerScope) : false,
+        lastInteractionDate: useCoupleLedger ? ledgerScope.lastInteractionDate : null,
+        isLoggedIn: Boolean(auth.user),
+        isCoupleBound: isFullyBound,
+      });
+    };
+
+    registerWidgetSnapshotProvider(buildSnapshot);
+    const payload = buildSnapshot();
+    if (payload) {
+      void syncLoveQuestWidgetData(payload, { forceReload: true });
+    }
+
+    return () => registerWidgetSnapshotProvider(null);
+  }, [
+    auth.user,
+    isFullyBound,
+    coupleExtended,
+    loveFlameView.currentStreak,
+    isPro,
+    growthWalletReady,
+    ledgerScope,
+  ]);
 
   const isLoveTaskSlotRewardClaimed = useCallback(
     (slotIndex: number) => isLoveTaskSlotClaimed(ledgerCtx, todayKey(), slotIndex),
@@ -1586,6 +1653,7 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
     const exp = coupleExpView;
     return {
       ...snap,
+      loveCoins: applyLoveCoinsDevOverride(snap.loveCoins),
       xp: exp.totalExp,
       level: exp.level,
       title: exp.title,
@@ -1595,7 +1663,17 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
       miniGamesRewardCap: getMiniGameDailyRewardCap(isPro),
       miniGamesRewardsToday: getMiniGameRewardCount(ledgerCtx, day),
     };
-  }, [rpg, coupleExpView, isPro, ledgerCtx, ledgerRevision]);
+  }, [rpg, coupleExpView, isPro, ledgerCtx, ledgerRevision, devModeRevision]);
+
+  const effectiveRpg = useMemo(
+    () => ({
+      ...rpg,
+      loveCoins: applyLoveCoinsDevOverride(rpg.loveCoins ?? 0),
+      level: coupleExpView.level,
+      xp: coupleExpView.totalExp,
+    }),
+    [rpg, coupleExpView.level, coupleExpView.totalExp, devModeRevision]
+  );
 
   const pullDinnerFromCloud = useCallback(async () => {
     if (coupleSpaceLoading) return;
@@ -3074,7 +3152,7 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
     () => ({
       couple,
       nicknameSetup,
-      rpg,
+      rpg: effectiveRpg,
       rpgView,
       coupleExpView,
       weeklyChallengeView,
@@ -3094,6 +3172,7 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
       tasks,
       taskProgress,
       loveFlameView,
+      xiaoiView,
       canRerollLoveTaskFor,
       isLoveTaskSlotRewardClaimed,
       isLoveTaskAllCompleteRewardClaimed,
@@ -3202,7 +3281,7 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
     [
       couple,
       nicknameSetup,
-      rpg,
+      effectiveRpg,
       rpgView,
       coupleExpView,
       weeklyChallengeView,
@@ -3221,6 +3300,7 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
       taskProgress,
       ledgerRevision,
       loveFlameView,
+      xiaoiView,
       canRerollLoveTaskFor,
       isLoveTaskSlotRewardClaimed,
       isLoveTaskAllCompleteRewardClaimed,

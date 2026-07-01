@@ -1,6 +1,7 @@
 import { ChevronRight } from 'lucide-react';
 import { useCoupleRpgNav } from '../context/CoupleRpgNavContext';
 import { useLoveQuest } from '../context/LoveQuestContext';
+import { useDevModeSecretTap } from '../hooks/useDevModeSecretTap';
 import { HomeDecorIllustration } from './ui/HomeDecorIllustration';
 import type { HomeDecorRole } from './ui/HomeDecorIllustration';
 import type { HomeQuestIconId } from './ui/homeQuestIcons';
@@ -10,6 +11,7 @@ export type HomeRecommendationItem = {
   title: string;
   subtitle: string;
   badge?: string;
+  meta?: string;
   cta: string;
   gradient: string;
   iconId: HomeQuestIconId;
@@ -23,10 +25,17 @@ type Props = {
 
 /** 首頁「今日推薦」— App Store 精選卡（僅排版） */
 export function HomeRecommendationsCarousel({ items }: Props) {
+  const onSecretTap = useDevModeSecretTap();
+
   return (
     <section className="lq-home-section-in" aria-label="今日推薦">
       <div className="mb-2.5 flex items-center justify-between gap-2 px-0.5">
-        <h2 className="text-[20px] font-bold tracking-tight text-[#3d3539]">今日推薦</h2>
+        <h2
+          className="cursor-default text-[20px] font-bold tracking-tight text-[#3d3539]"
+          onClick={onSecretTap}
+        >
+          今日推薦
+        </h2>
         <span className="flex items-center gap-0.5 text-[11px] font-medium text-[#d0c4cb]">
           滑動查看更多
           <ChevronRight className="h-3.5 w-3.5" aria-hidden />
@@ -57,6 +66,9 @@ export function HomeRecommendationsCarousel({ items }: Props) {
                   <p className="mt-1 line-clamp-2 text-[13px] font-medium leading-snug text-[#b07a8f]">
                     {item.subtitle}
                   </p>
+                  {item.meta ? (
+                    <p className="mt-1 text-[10px] font-semibold text-[#d0c4cb]">{item.meta}</p>
+                  ) : null}
                 </div>
 
                 <div className="min-h-[4.5rem] flex-1" aria-hidden />
@@ -110,6 +122,16 @@ export function useHomeRecommendationItems(): HomeRecommendationItem[] {
       iconId: 'love-task',
       gradient: 'from-[#fce7f3] via-[#fdf2f8] to-[#fff5f9]',
       onAction: () => navigateTo('tasks'),
+    },
+    {
+      id: 'games',
+      title: '情侶小遊戲',
+      subtitle: '今天一起玩一局？',
+      meta: '目前 1 款遊戲',
+      cta: '去玩',
+      iconId: 'dice',
+      gradient: 'from-[#ffe4ec] via-[#fff0f5] to-[#fff8fa]',
+      onAction: () => navigateTo('games'),
     },
     {
       id: 'housework',

@@ -9,6 +9,7 @@ export type SettingsScreenId =
   | 'coupleSpace'
   | 'coupleProfile'
   | 'reminders'
+  | 'widgets'
   | 'about';
 
 const COUPLE_PROFILE_ANCHOR_ID = 'lq-couple-profile';

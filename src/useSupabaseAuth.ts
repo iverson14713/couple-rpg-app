@@ -32,6 +32,8 @@ import {
   setActiveStorageUserId,
 } from './coupleRpg/storage/storageSession';
 import { flushAiFavoritesBeforeLogout } from './coupleRpg/services/aiFavoritesSyncService';
+import { clearDevXiaoiStateOverrideOnLogout } from './coupleRpg/lib/devModeOverride';
+import { buildLoggedOutWidgetPayload, syncLoveQuestWidgetData } from './utils/widgetSync';
 import { isAccountDeletionInProgress } from './coupleRpg/lib/accountDeletionGuard';
 
 export type UserProfile = {
@@ -437,6 +439,8 @@ export function SupabaseAuthProvider({ children }: { children: ReactNode }) {
       }
     }
     clearLoveQuestUserData(userId);
+    clearDevXiaoiStateOverrideOnLogout();
+    void syncLoveQuestWidgetData(buildLoggedOutWidgetPayload(), { forceReload: true });
     setActiveStorageUserId(null);
     const result = await supabase.auth.signOut();
     explicitSignOutRef.current = false;
