@@ -14,4 +14,8 @@ export type GamePhase = 'awaitRoll' | 'rolling' | 'selecting' | 'ended';
 export type HeartCircleGameResult = {
   winnerIndex: 0 | 1;
   loserIndex: 0 | 1;
+  totalRounds: number;
+  dailyGamesToday: number;
+  dailyGamesCap: number;
+  quote: string;
 };

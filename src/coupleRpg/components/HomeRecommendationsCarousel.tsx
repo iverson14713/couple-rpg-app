@@ -125,7 +125,7 @@ export function useHomeRecommendationItems(): HomeRecommendationItem[] {
     },
     {
       id: 'games',
-      title: '情侶小遊戲',
+      title: '戀愛遊樂園',
       subtitle: '今天一起玩一局？',
       meta: '目前 1 款遊戲',
       cta: '去玩',

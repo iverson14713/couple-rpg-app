@@ -97,6 +97,21 @@ export function isAdjacentToSelection(cell: HeartCell, selected: HeartCell[]): b
   );
 }
 
+export function addCellSelection(
+  cells: HeartCell[],
+  cellId: string,
+  maxSelect: number
+): HeartCell[] {
+  const target = cells.find((c) => c.id === cellId);
+  if (!target || target.status === 'occupied' || target.status === 'selected') return cells;
+
+  const selected = cells.filter((c) => c.status === 'selected');
+  if (selected.length >= maxSelect) return cells;
+  if (!isAdjacentToSelection(target, selected)) return cells;
+
+  return cells.map((c) => (c.id === cellId ? { ...c, status: 'selected' as const } : c));
+}
+
 export function toggleCellSelection(
   cells: HeartCell[],
   cellId: string,

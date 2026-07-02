@@ -2,11 +2,12 @@ import { ChevronLeft } from 'lucide-react';
 import { useMemo } from 'react';
 import { useCoupleRpgNav } from '../context/CoupleRpgNavContext';
 import { useLoveQuest } from '../context/LoveQuestContext';
-import { DiceButton } from '../games/components/DiceButton';
 import { GameResultModal } from '../games/components/GameResultModal';
+import { GameTurnHud } from '../games/components/GameTurnHud';
 import { HeartBoard } from '../games/components/HeartBoard';
+import { HeartCircleActionBar } from '../games/components/HeartCircleActionBar';
+import { TurnChangeOverlay } from '../games/components/TurnChangeOverlay';
 import { useHeartCircleGame } from '../games/heartCircle/useHeartCircleGame';
-import { lq } from '../theme';
 
 export function HeartCircleGamePage() {
   const { navigateTo } = useCoupleRpgNav();
@@ -19,75 +20,60 @@ export function HeartCircleGamePage() {
 
   const game = useHeartCircleGame(playerNames);
 
-  const loserName =
-    game.result != null ? playerNames[game.result.loserIndex] : '';
-  const winnerName =
-    game.result != null ? playerNames[game.result.winnerIndex] : '';
+  const result = game.result;
+  const loserName = result != null ? playerNames[result.loserIndex] : '';
+  const winnerName = result != null ? playerNames[result.winnerIndex] : '';
 
   return (
-    <div className="pb-2">
+    <div className="lq-heart-game-page">
       <button
         type="button"
         onClick={() => navigateTo('games')}
-        className="mb-2 flex items-center gap-0.5 text-[11px] font-bold text-stone-600 active:opacity-70"
+        className="lq-heart-game-back flex items-center gap-0.5 text-[11px] font-bold text-stone-600 active:opacity-70"
       >
         <ChevronLeft className="h-4 w-4" aria-hidden />
         回遊戲列表
       </button>
 
-      <div className={`mb-3 p-3.5 ${lq.card}`}>
-        <div className="flex flex-wrap items-center justify-between gap-2 text-[13px]">
-          <p className="font-bold text-[#3d3539]">
-            目前玩家：<span className="text-rose-600">{game.currentPlayerName}</span>
-          </p>
-          <p className="font-semibold text-[#8a7a84]">第 {game.round} 回合</p>
-        </div>
-        <div className="mt-3 flex items-center justify-between gap-3">
-          <div>
-            <p className="text-[11px] font-semibold text-[#b8abb3]">骰子點數</p>
-            <p className="text-[28px] font-extrabold leading-none text-[#3d3539]">
-              {game.diceValue ?? '—'}
-            </p>
-          </div>
-          <DiceButton
-            value={game.diceValue}
-            rolling={game.phase === 'rolling'}
-            disabled={!game.canRoll}
-            onRoll={game.onRollDice}
-          />
-        </div>
-        {game.phase === 'selecting' && game.diceValue != null ? (
-          <p className="mt-2 text-[12px] font-medium text-[#b07a8f]">
-            請選 {game.diceValue} 顆相連的愛心（已選 {game.selectedCount}）
-          </p>
-        ) : null}
-      </div>
+      <GameTurnHud
+        round={game.round}
+        currentPlayerName={game.currentPlayerName}
+        waitingPlayerName={game.waitingPlayerName}
+        diceValue={game.diceValue}
+        rolling={game.phase === 'rolling'}
+        canRoll={game.canRoll}
+        selecting={game.phase === 'selecting'}
+        selectedCount={game.selectedCount}
+        onRoll={game.onRollDice}
+      />
 
-      <HeartBoard cells={game.cells} canSelect={game.canSelect} onCellTap={game.onCellTap} />
+      <HeartBoard
+        cells={game.cells}
+        canSelect={game.canSelect}
+        awaitingRoll={game.canRoll}
+        maxSelect={game.phase === 'selecting' ? game.diceValue : null}
+        onCellSelect={game.onCellSelect}
+        onSelectMaxed={game.onCellSelectMaxed}
+        onTapBeforeRoll={game.onBoardTapBeforeRoll}
+      />
 
-      <div className="mt-4 flex gap-2">
-        <button
-          type="button"
-          onClick={game.onClearSelection}
-          disabled={game.phase !== 'selecting' || game.selectedCount === 0}
-          className={`flex-1 rounded-xl py-2.5 text-[14px] font-bold disabled:opacity-40 ${lq.btnSecondary}`}
-        >
-          重新選取
-        </button>
-        <button
-          type="button"
-          onClick={game.onConfirmSelection}
-          disabled={!game.canConfirm}
-          className={`flex-1 rounded-xl py-2.5 text-[14px] font-bold disabled:opacity-40 ${lq.btnPrimary}`}
-        >
-          確認圈起
-        </button>
-      </div>
+      <HeartCircleActionBar
+        canClear={game.phase === 'selecting' && game.selectedCount > 0}
+        canConfirm={game.canConfirm}
+        onClear={game.onClearSelection}
+        onConfirm={game.onConfirmSelection}
+      />
+
+      <TurnChangeOverlay message={game.turnNotice} />
 
       <GameResultModal
-        open={game.phase === 'ended' && game.result != null}
+        open={game.phase === 'ended' && result != null}
         winnerName={winnerName}
         loserName={loserName}
+        totalRounds={result?.totalRounds ?? game.round}
+        dailyGamesToday={result?.dailyGamesToday ?? 0}
+        dailyGamesCap={result?.dailyGamesCap ?? 5}
+        quote={result?.quote ?? ''}
         onPlayAgain={game.resetGame}
         onBackToList={() => navigateTo('games')}
       />
