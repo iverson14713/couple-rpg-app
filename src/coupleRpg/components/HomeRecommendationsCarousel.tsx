@@ -127,7 +127,7 @@ export function useHomeRecommendationItems(): HomeRecommendationItem[] {
       id: 'games',
       title: '戀愛遊樂園',
       subtitle: '今天一起玩一局？',
-      meta: '目前 1 款遊戲',
+      meta: '目前 2 款遊戲',
       cta: '去玩',
       iconId: 'dice',
       gradient: 'from-[#ffe4ec] via-[#fff0f5] to-[#fff8fa]',

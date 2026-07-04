@@ -101,7 +101,7 @@ enum LoveQuestXiaoiState {
     }
 
     private static func isNightHour(_ hour: Int) -> Bool {
-        hour >= 23 || hour < 7
+        hour >= 22 || hour < 7
     }
 
     private static func daysSinceLastInteraction(

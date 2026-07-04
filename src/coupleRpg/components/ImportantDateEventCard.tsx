@@ -1,5 +1,6 @@
 import { memo, type ReactNode } from 'react';
-import { statusLabel, type ImportantDateEvent } from '../lib/importantDateEvents';
+import type { ImportantDateEvent } from '../lib/importantDateEvents';
+import { importantDateTheme } from '../lib/importantDateThemes';
 import { formatEnabledOffsetsLabel } from '../storage/importantDateRemindersStore';
 import type { ReminderOffsetDays } from '../storage/importantDateReminderTypes';
 import { ReminderOffsetPicker } from './ReminderOffsetPicker';
@@ -43,61 +44,75 @@ function ImportantDateEventCardInner({
   aiButtonLabel,
   showAiProBadge,
 }: ImportantDateEventCardProps) {
+  const theme = importantDateTheme(event.kind, event.name);
   const displayOffsets = isEditing ? draftOffsets : savedOffsets;
+  const reminderOn = displayOffsets.length > 0;
 
   return (
-    <li className={`p-3 ${lq.card}`}>
-      <div className="flex gap-2.5">
-        <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-rose-50/80 text-2xl">
+    <li className={`overflow-hidden rounded-[22px] p-3.5 shadow-sm ${theme.card}`}>
+      <div className="flex items-start gap-3">
+        <span
+          className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl text-[1.65rem] ${theme.iconBg}`}
+        >
           {event.icon}
         </span>
         <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-1.5">
-            <p className={`text-[15px] font-bold ${lq.text}`}>{event.name}</p>
-            <StatusBadge status={event.status} />
-          </div>
-          <p className={`text-[12px] ${lq.textSecondary}`}>
-            📆 {event.dateLabel} ·{' '}
-            {event.isToday
-              ? '就是今天'
-              : event.status === 'past'
-                ? `已過 ${event.daysSince} 天`
-                : `還有 ${event.daysUntil} 天`}
-          </p>
-          <p className="mt-1 min-h-[1rem] text-[11px] text-stone-500">
-            提醒：{formatEnabledOffsetsLabel(displayOffsets)}
-            {isEditing ? (
-              <span className="text-stone-400"> · 尚未儲存</span>
-            ) : null}
-          </p>
-          <div className="mt-2 flex flex-wrap gap-1.5">
-            <TogglePill active={giftPrepared} onClick={() => onToggleGift(event.id)}>
-              🎁 {giftPrepared ? '已準備禮物' : '標記禮物'}
-            </TogglePill>
-            <TogglePill active={activityPlanned} onClick={() => onToggleActivity(event.id)}>
-              📅 {activityPlanned ? '已安排活動' : '標記活動'}
-            </TogglePill>
-          </div>
+          <p className={`text-[15px] font-extrabold leading-tight ${lq.text}`}>{event.name}</p>
+          <p className={`mt-0.5 text-[12px] font-semibold ${theme.muted}`}>{event.dateLabel}</p>
+        </div>
+        <div className="shrink-0 text-right">
+          {event.isToday ? (
+            <p className={`text-[13px] font-extrabold ${theme.accent}`}>就是今天</p>
+          ) : event.status === 'past' ? (
+            <p className={`text-[12px] font-bold ${theme.muted}`}>已過 {event.daysSince} 天</p>
+          ) : (
+            <>
+              <p className={`text-[10px] font-bold ${theme.muted}`}>還有</p>
+              <p className={`text-[22px] font-black leading-none tracking-tight ${theme.accent}`}>
+                {event.daysUntil}
+                <span className="ml-0.5 text-[12px] font-bold">天</span>
+              </p>
+            </>
+          )}
         </div>
       </div>
 
-      <div className="mt-2.5 flex flex-wrap gap-2">
+      <div className={`my-3 h-px bg-gradient-to-r from-transparent via-stone-200/80 to-transparent`} />
+
+      <div className="flex flex-wrap gap-1.5">
+        {reminderOn ? (
+          <span className={`rounded-full px-2.5 py-1 text-[10px] font-bold ${theme.chip}`}>
+            ❤️ 已開啟提醒
+          </span>
+        ) : (
+          <span className="rounded-full bg-stone-100 px-2.5 py-1 text-[10px] font-bold text-stone-500">
+            尚未設定提醒
+          </span>
+        )}
+        {giftPrepared || activityPlanned ? (
+          <span className={`rounded-full px-2.5 py-1 text-[10px] font-bold ${theme.chip}`}>
+            ✨ {giftPrepared && activityPlanned ? '禮物與活動' : giftPrepared ? '禮物已準備' : '活動已安排'}
+          </span>
+        ) : null}
+      </div>
+
+      <div className="mt-3 flex gap-2">
         <button
           type="button"
           onClick={isEditing ? onCloseEdit : () => onOpenEdit(event.id)}
-          className={`flex-1 rounded-xl border px-3 py-2 text-[12px] font-bold transition active:scale-[0.98] ${
+          className={`flex-1 rounded-2xl border px-3 py-2.5 text-[12px] font-bold transition active:scale-[0.98] ${
             isEditing
-              ? 'border-rose-300 bg-rose-50 text-rose-800'
-              : 'border-stone-200 bg-white text-stone-700'
+              ? 'border-rose-300 bg-white/90 text-rose-800'
+              : 'border-white/80 bg-white/70 text-stone-700'
           }`}
         >
-          🔔 {isEditing ? '收起設定' : '設定提醒'}
+          🔔 {isEditing ? '收起' : '提醒'}
         </button>
         <button
           type="button"
           onClick={() => onOpenAi(event.id)}
           disabled={aiDisabled}
-          className={`flex min-h-[44px] flex-1 items-center justify-center gap-1 rounded-xl px-3 py-2 text-[12px] font-bold text-white transition active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50 ${lq.btnPrimary}`}
+          className="flex min-h-[44px] flex-[1.2] items-center justify-center gap-1 rounded-2xl bg-gradient-to-r from-rose-500 to-pink-500 px-3 py-2.5 text-[12px] font-extrabold text-white shadow-sm transition active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50"
         >
           ✨ {aiButtonLabel}
           <ProBadgeIfNeeded show={showAiProBadge} feature="ai_in_app" size="sm" />
@@ -105,22 +120,55 @@ function ImportantDateEventCardInner({
       </div>
 
       {isEditing ? (
-        <div className="mt-2.5 rounded-xl border border-rose-100 bg-rose-50/40 p-2.5">
-          <p className="mb-2 text-[11px] font-bold text-rose-800">選擇提醒時間</p>
+        <div className="mt-3 rounded-2xl border border-white/80 bg-white/75 p-3">
+          <p className="mb-2 text-[11px] font-bold text-stone-600">
+            提醒時間 · {formatEnabledOffsetsLabel(displayOffsets)}
+            <span className="text-stone-400"> · 尚未儲存</span>
+          </p>
           <ReminderOffsetPicker
             selected={draftOffsets}
             onToggle={(offset) => onToggleDraftOffset(event.id, offset)}
           />
+          <div className="mt-2.5 flex flex-wrap gap-1.5">
+            <MiniToggle active={giftPrepared} onClick={() => onToggleGift(event.id)}>
+              🎁 禮物
+            </MiniToggle>
+            <MiniToggle active={activityPlanned} onClick={() => onToggleActivity(event.id)}>
+              📅 活動
+            </MiniToggle>
+          </div>
           <button
             type="button"
             onClick={() => onSaveOffsets(event.id)}
-            className={`mt-2 w-full rounded-lg py-2 text-[12px] font-bold transition active:scale-[0.98] ${lq.btnSecondary}`}
+            className={`mt-2.5 w-full rounded-xl py-2.5 text-[12px] font-bold transition active:scale-[0.98] ${lq.btnSecondary}`}
           >
             儲存提醒設定
           </button>
         </div>
       ) : null}
     </li>
+  );
+}
+
+function MiniToggle({
+  children,
+  active,
+  onClick,
+}: {
+  children: ReactNode;
+  active: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`rounded-full px-2.5 py-1 text-[10px] font-bold ring-1 transition active:scale-[0.98] ${
+        active ? 'bg-emerald-50 text-emerald-800 ring-emerald-200' : 'bg-stone-50 text-stone-600 ring-stone-200'
+      }`}
+    >
+      {children}
+    </button>
   );
 }
 
@@ -144,37 +192,3 @@ export const ImportantDateEventCard = memo(ImportantDateEventCardInner, (prev, n
     prev.showAiProBadge === next.showAiProBadge
   );
 });
-
-function StatusBadge({ status }: { status: ImportantDateEvent['status'] }) {
-  const cls =
-    status === 'today'
-      ? 'bg-rose-100 text-rose-800'
-      : status === 'past'
-        ? 'bg-stone-100 text-stone-600'
-        : 'bg-amber-50 text-amber-800';
-  return (
-    <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${cls}`}>{statusLabel(status)}</span>
-  );
-}
-
-function TogglePill({
-  children,
-  active,
-  onClick,
-}: {
-  children: ReactNode;
-  active: boolean;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`rounded-full px-2 py-1 text-[10px] font-bold ring-1 transition active:scale-[0.98] ${
-        active ? 'bg-emerald-50 text-emerald-800 ring-emerald-200' : 'bg-stone-50 text-stone-600 ring-stone-200'
-      }`}
-    >
-      {children}
-    </button>
-  );
-}

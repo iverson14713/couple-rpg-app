@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { useLoveQuest } from '../context/LoveQuestContext';
 import { useUserPlan } from '../context/UserPlanContext';
 import { useDevMode } from '../context/DevModeContext';
+import { GameDesignSystemPreview } from '../games/shared/GameDesignSystemPreview';
 import {
   clearAllDevOverrides,
   getDevModeDebugInfo,
@@ -102,6 +103,7 @@ export function DevModePanel() {
   const [loveCoins, setLoveCoins] = useState(0);
   const [streakDays, setStreakDays] = useState(0);
   const [proOn, setProOn] = useState(false);
+  const [gameDsPreview, setGameDsPreview] = useState(false);
 
   const syncFromApp = useCallback(() => {
     const overrides = readDevOverrides();
@@ -151,6 +153,8 @@ export function DevModePanel() {
   const devInfo = getDevModeDebugInfo();
 
   const sheet = (
+    <>
+      {gameDsPreview ? <GameDesignSystemPreview onClose={() => setGameDsPreview(false)} /> : null}
     <div className="fixed inset-0 z-[145] flex flex-col justify-end" role="presentation">
       <button
         type="button"
@@ -219,6 +223,17 @@ export function DevModePanel() {
               />
             </button>
           </div>
+
+          <button
+            type="button"
+            onClick={() => setGameDsPreview(true)}
+            className="w-full rounded-2xl border border-violet-200/70 bg-gradient-to-r from-violet-50 to-pink-50 px-3 py-3 text-left active:scale-[0.99]"
+          >
+            <p className="text-[13px] font-extrabold text-[#3d3539]">Game Design System v0.1</p>
+            <p className="mt-0.5 text-[11px] font-semibold text-[#b07a8f]">
+              預覽 GameStage、HUD、小愛泡泡
+            </p>
+          </button>
         </div>
 
         <div className="shrink-0 space-y-2 border-t border-rose-100/60 px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
@@ -247,6 +262,7 @@ export function DevModePanel() {
         </div>
       </div>
     </div>
+    </>
   );
 
   if (typeof document === 'undefined') return sheet;

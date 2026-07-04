@@ -1,14 +1,26 @@
 import { ChevronLeft } from 'lucide-react';
 import { useCoupleRpgNav } from '../context/CoupleRpgNavContext';
+import { useUserPlan } from '../context/UserPlanContext';
 import { useToast } from '../../context/ToastContext';
 import { GameCard } from '../games/components/GameCard';
+import { ProGameCard } from '../games/components/ProGameCard';
+import { LOVE_CRISIS_UPGRADE_HINT } from '../games/loveCrisis/loveCrisisLogic';
 import { lq } from '../theme';
 
-const COMING_SOON = ['心有靈犀', '真心話挑戰', '默契大考驗', '幸運轉盤'] as const;
+const COMING_SOON = ['真心話挑戰', '默契大考驗', '幸運轉盤'] as const;
 
 export function GamesPage() {
   const { navigateTo } = useCoupleRpgNav();
   const { showToast } = useToast();
+  const { isPro, openUpgradeModal } = useUserPlan();
+
+  const onLoveCrisis = () => {
+    if (!isPro) {
+      openUpgradeModal(LOVE_CRISIS_UPGRADE_HINT);
+      return;
+    }
+    navigateTo('loveCrisis');
+  };
 
   return (
     <div className="pb-2">
@@ -24,10 +36,35 @@ export function GamesPage() {
       <GameCard
         title="愛心圈圈戰"
         description="兩人輪流擲骰，圈起相連愛心，不能圈的人輸。"
-        tags={['2人遊玩', '約3分鐘', '同手機輪流']}
+        tags={['Free', '2人遊玩', '約3分鐘', '同手機輪流']}
         cta="開始遊戲"
+        emoji="💕"
         onAction={() => navigateTo('heartCircle')}
       />
+
+      <div className="mt-3">
+        <GameCard
+          title="心有靈犀"
+          description="等愛心亮起後一起按下，看看你們的默契差距有多小。"
+          tags={['Free', '2人遊玩', '約1分鐘', '同手機']}
+          cta="開始遊戲"
+          emoji="💘"
+          onAction={() => navigateTo('syncHeart')}
+        />
+      </div>
+
+      <section className="mt-5" aria-label="Pro 專屬遊戲">
+        <h2 className="mb-2 px-0.5 text-[14px] font-bold text-violet-800">Pro 專屬遊戲</h2>
+        <ProGameCard
+          title="愛情危機"
+          description="愛心快碎了…照著情緒順序一起剪斷情緒線，能救回幾顆？"
+          tags={['Pro', '2人合作', '30秒', '同手機']}
+          cta={isPro ? '開始遊戲' : '解鎖 Pro 遊玩'}
+          emoji="🩹"
+          locked={!isPro}
+          onAction={onLoveCrisis}
+        />
+      </section>
 
       <section className={`mt-4 p-4 ${lq.card}`} aria-label="更多遊戲準備中">
         <h2 className="text-[14px] font-bold text-[#8a7a84]">更多遊戲準備中</h2>

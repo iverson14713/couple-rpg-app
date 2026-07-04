@@ -1,5 +1,6 @@
 import { useLoveQuest } from '../context/LoveQuestContext';
 import { CoupleBindSection } from './CoupleBindSection';
+import { DailyNoteProfileCard } from './DailyNoteProfileCard';
 import { NicknameSetupBanner } from './NicknameSetupBanner';
 import { RpgMiniStats } from './RpgMiniStats';
 import { UpgradeCard } from './UpgradeCard';
@@ -52,6 +53,8 @@ export function ProfileStatsPanel({ hideAccountChrome }: { hideAccountChrome?: b
           </div>
         </div>
       </section>
+
+      <DailyNoteProfileCard />
 
       {!hideAccountChrome ? <CoupleBindSection /> : null}
 

@@ -47,6 +47,8 @@ export type AppBootstrapResult = {
 export type RunAppBootstrapOptions = {
   /** When false, only local/session essentials — no cloud pull/push (fast). */
   cloudSync?: boolean;
+  /** LoveQuest shell — skip Pet Care `public.cats` migration and cloud sync. */
+  skipPetCareSync?: boolean;
 };
 
 function todayKey(): string {
@@ -82,6 +84,7 @@ export async function runAppBootstrap(
   options: RunAppBootstrapOptions = {}
 ): Promise<AppBootstrapResult> {
   const cloudSync = options.cloudSync !== false;
+  const skipPetCareSync = options.skipPetCareSync === true;
   const sb = getSupabaseClient();
   let session: Session | null = null;
 
@@ -96,7 +99,7 @@ export async function runAppBootstrap(
   let catRolesMap: Record<string, CatAccessRole> = {};
   let cloudSyncDone = false;
 
-  if (cloudSync && sb && session?.user) {
+  if (cloudSync && sb && session?.user && !skipPetCareSync) {
     let localCats = normalizeAllCats(loadRawCatsFromStorage(), uid);
     const offline = localCats.filter((c) => !isCloudCatId(c.id));
     if (offline.length > 0) {
@@ -174,10 +177,21 @@ function createMinimalBootstrap(bootstrapError = 'init_failed'): AppBootstrapRes
 /**
  * Splash budget: wait up to SPLASH_MAX_MS for full bootstrap, then continue with local data.
  */
-export async function runSplashBootstrap(): Promise<AppBootstrapResult> {
+export async function runSplashBootstrap(
+  options: Pick<RunAppBootstrapOptions, 'skipPetCareSync'> = {}
+): Promise<AppBootstrapResult> {
+  const bootstrapOpts: RunAppBootstrapOptions = {
+    cloudSync: true,
+    skipPetCareSync: options.skipPetCareSync,
+  };
+  const localOpts: RunAppBootstrapOptions = {
+    cloudSync: false,
+    skipPetCareSync: options.skipPetCareSync,
+  };
+
   try {
     const raced = await Promise.race([
-      runAppBootstrap({ cloudSync: true }).then((r) => ({ ok: true as const, r })),
+      runAppBootstrap(bootstrapOpts).then((r) => ({ ok: true as const, r })),
       delay(SPLASH_MAX_MS).then(() => ({ ok: false as const })),
     ]);
 
@@ -185,12 +199,12 @@ export async function runSplashBootstrap(): Promise<AppBootstrapResult> {
       return { ...raced.r, bootstrapStatus: 'ready', cloudSyncDone: true };
     }
 
-    const local = await runAppBootstrap({ cloudSync: false });
+    const local = await runAppBootstrap(localOpts);
     return { ...local, bootstrapStatus: 'partial', cloudSyncDone: false };
   } catch (err) {
     console.error('[bootstrap]', err);
     try {
-      const local = await runAppBootstrap({ cloudSync: false });
+      const local = await runAppBootstrap(localOpts);
       return {
         ...local,
         bootstrapStatus: 'error',

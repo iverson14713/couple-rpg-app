@@ -1,9 +1,9 @@
 import { navigateTo } from '../../legalNavigate';
 import { LEGAL_DEVELOPER_NAME } from '../../pages/legalConfig';
 
-export function AppLegalFooter() {
+export function AppLegalFooter({ className = '' }: { className?: string }) {
   return (
-    <footer className="mt-6 border-t border-rose-100/80 pt-4 pb-2 text-center">
+    <footer className={`mt-6 border-t border-rose-100/80 pt-4 pb-2 text-center ${className}`}>
       <nav className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-[12px] font-semibold">
         <button
           type="button"

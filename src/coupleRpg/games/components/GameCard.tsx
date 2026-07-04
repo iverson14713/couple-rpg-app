@@ -5,6 +5,7 @@ type Props = {
   description: string;
   tags: string[];
   cta: string;
+  emoji?: string;
   available?: boolean;
   onAction: () => void;
 };
@@ -14,6 +15,7 @@ export function GameCard({
   description,
   tags,
   cta,
+  emoji = '💕',
   available = true,
   onAction,
 }: Props) {
@@ -21,7 +23,7 @@ export function GameCard({
     <article className={`p-4 ${lq.cardElevated}`}>
       <div className="flex items-start gap-3">
         <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-rose-100 to-pink-50 text-2xl shadow-sm ring-1 ring-white/80">
-          💕
+          {emoji}
         </span>
         <div className="min-w-0 flex-1">
           <h3 className="text-[17px] font-extrabold text-[#3d3539]">{title}</h3>

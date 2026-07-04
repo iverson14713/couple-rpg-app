@@ -1,7 +1,7 @@
 import type { CSSProperties } from 'react';
-import { resolveXiaoiImage } from '../../assets/xiaoi';
-import { XIAOI_HERO_MESSAGES, type XiaoiState } from '../lib/xiaoiState';
-import { XIAOI_VISUAL_CONFIG } from '../lib/xiaoiVisualConfig';
+import { getXiaoiStateProfile } from '../xiaoi/xiaoiStateProfiles';
+import type { XiaoiState } from '../xiaoi/types';
+import { XiaoiAnimatedPet } from './xiaoi/XiaoiAnimatedPet';
 
 type XiaoiHeroStageProps = {
   state: XiaoiState;
@@ -11,17 +11,16 @@ type XiaoiHeroStageProps = {
 
 /** 首頁 Hero 卡右側：固定舞台 + 固定文案區 */
 export function XiaoiHeroStage({ state, imageName, title }: XiaoiHeroStageProps) {
-  const visual = XIAOI_VISUAL_CONFIG[state];
-  const message = XIAOI_HERO_MESSAGES[state];
+  const profile = getXiaoiStateProfile(state);
+  const { heroLayout: visual } = profile;
 
   return (
     <>
       <div className="lq-xiaoi-stage">
-        <img
-          src={resolveXiaoiImage(imageName)}
-          alt={title}
-          decoding="async"
-          draggable={false}
+        <XiaoiAnimatedPet
+          state={state}
+          imageName={imageName}
+          title={title}
           className="lq-xiaoi-stage-img"
           style={
             {
@@ -32,7 +31,7 @@ export function XiaoiHeroStage({ state, imageName, title }: XiaoiHeroStageProps)
           }
         />
       </div>
-      <p className="lq-xiaoi-stage-caption">{message}</p>
+      <p className="lq-xiaoi-stage-caption">{profile.message}</p>
     </>
   );
 }

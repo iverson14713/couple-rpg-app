@@ -60,6 +60,10 @@ export const LQ_KEYS = {
   companionshipEvents: 'lovequest-companionship-events',
   /** Free 每日陪伴送出次數帳本（user + couple scope） */
   companionshipSendQuota: 'lovequest-companionship-send-quota',
+  /** 今日小回憶快取（user-scoped；雲端 couple_daily_memories） */
+  dailyNotes: 'lovequest-daily-notes',
+  /** 今日小回憶彈窗略過紀錄（user-scoped） */
+  dailyNotePromptDismiss: 'lovequest-daily-note-prompt-dismiss',
 } as const;
 
 /** Keys persisted per Supabase user: `lovequest-*-{userId}` */

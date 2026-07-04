@@ -72,7 +72,11 @@
 	<true/>
 	<key>NSUserNotificationsUsageDescription</key>
 	<string>LoveQuest 會在重要日子（生日、紀念日等）前以本機通知提醒你，無需連線伺服器。</string>
+	<key>NSCameraUsageDescription</key>
+	<string>LoveQuest 需要使用相機，讓你為今日小回憶拍下一張照片。</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>LoveQuest 需要取用照片，讓你為今日小回憶加入一張照片。</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
-	<string>LoveQuest 需要將 AI 分享卡儲存到你的相簿。</string>
+	<string>LoveQuest 需要儲存照片，讓你保存今日小回憶。</string>
 </dict>
 </plist>

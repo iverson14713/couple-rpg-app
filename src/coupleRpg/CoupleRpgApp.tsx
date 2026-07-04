@@ -29,7 +29,12 @@ import { DatesPage } from './pages/DatesPage';
 import { MiniGamesPage } from './pages/MiniGamesPage';
 import { GamesPage } from './pages/GamesPage';
 import { HeartCircleGamePage } from './pages/HeartCircleGamePage';
+import { SyncHeartGamePage } from './pages/SyncHeartGamePage';
+import { LoveCrisisGamePage } from './pages/LoveCrisisGamePage';
 import { ImportantDatesRemindersPage } from './pages/ImportantDatesRemindersPage';
+import { CoupleDailyNotesPage } from './pages/CoupleDailyNotesPage';
+import { DailyNotePromptSheet } from './components/DailyNotePromptSheet';
+import { DailyNotesProvider } from './context/DailyNotesContext';
 import { UpgradeProPage } from './pages/UpgradeProPage';
 import { UpgradeModal } from './components/UpgradeModal';
 import { PlanToast } from './components/PlanToast';
@@ -65,9 +70,12 @@ function CoupleRpgAuthBoot() {
             <LoveQuestProvider key={bootKey}>
               <DevModeProvider>
                 <CompanionshipProvider>
-                  <CoupleRpgNavProvider>
-                    <CoupleRpgShell />
-                  </CoupleRpgNavProvider>
+                  <DailyNotesProvider>
+                    <CoupleRpgNavProvider>
+                      <CoupleRpgShell />
+                    </CoupleRpgNavProvider>
+                    <DailyNotePromptSheet />
+                  </DailyNotesProvider>
                 </CompanionshipProvider>
                 <DevModeHost />
               </DevModeProvider>
@@ -152,15 +160,25 @@ function CoupleRpgShell() {
             <HeartCircleGamePage />
           </>
         )}
-        {tab === 'importantDates' && (
+        {tab === 'syncHeart' && (
           <>
-            <TabPageHeader emoji="🔔" title="重要日子提醒" subtitle="提醒設定 · AI 安排 · 禮物靈感" />
-            <ImportantDatesRemindersPage />
+            <TabPageHeader emoji="💘" title="心有靈犀" subtitle="愛心亮起後一起按，比默契差距" />
+            <SyncHeartGamePage />
           </>
         )}
+        {tab === 'loveCrisis' && (
+          <>
+            <div className="lq-love-crisis-page-header">
+              <TabPageHeader emoji="🩹" title="愛情危機" subtitle="30 秒一起修復愛心" />
+            </div>
+            <LoveCrisisGamePage />
+          </>
+        )}
+        {tab === 'importantDates' && <ImportantDatesRemindersPage />}
+        {tab === 'dailyNotes' && <CoupleDailyNotesPage />}
         {tab === 'upgrade' && <UpgradeProPage />}
       </main>
-      <AppLegalFooter />
+      <AppLegalFooter className="lq-app-legal-footer" />
       <BottomNav activeTab={tab} onChange={onNavChange} />
       <UpgradeModal />
       <PlanToast />
@@ -171,11 +189,11 @@ function CoupleRpgShell() {
 function AppRoot({ children, screenshotMode }: { children: ReactNode; screenshotMode?: boolean }) {
   return (
     <div
-      className={`box-border min-h-[100dvh] w-full pt-[env(safe-area-inset-top,0px)] ${
+      className={`lq-app-root box-border min-h-[100dvh] w-full pt-[env(safe-area-inset-top,0px)] ${
         screenshotMode ? 'px-4 py-4 pb-6' : `px-4 py-6 ${lq.mainPadBottom}`
       } ${lq.text} ${lq.bg}`}
     >
-      <div className="mx-auto max-w-md">{children}</div>
+      <div className="lq-app-main-wrap mx-auto max-w-md">{children}</div>
     </div>
   );
 }
@@ -188,7 +206,7 @@ function LoggedInStrip() {
   if (!auth.user) return null;
   return (
     <div
-      className={`mb-2 flex items-center justify-between gap-2 rounded-xl border px-2.5 py-1.5 text-[11px] shadow-sm ${lq.strip}`}
+      className={`lq-logged-in-strip mb-2 flex items-center justify-between gap-2 rounded-xl border px-2.5 py-1.5 text-[11px] shadow-sm ${lq.strip}`}
     >
       <span className="min-w-0 text-stone-600">
         <span className="font-medium text-stone-400">已登入</span>{' '}

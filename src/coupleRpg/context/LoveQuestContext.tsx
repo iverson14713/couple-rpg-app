@@ -8,6 +8,8 @@ import {
   useState,
   type ReactNode,
 } from 'react';
+import { requestDailyNotePrompt } from '../lib/dailyNotePromptTrigger';
+import { todayNoteDateKey } from '../lib/dailyNoteDates';
 import { FLIRT_GAMES, type FlirtGameId } from '../data/flirtGames';
 import { loadJson, saveJson } from '../storage/persist';
 import { LQ_KEYS } from '../storage/keys';
@@ -2242,6 +2244,18 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
             );
             applyExpGrant({ type: 'love_task_slot', slotIndex });
             addCompletion('task', task.label, task.emoji);
+            queueMicrotask(() =>
+              requestDailyNotePrompt({
+                noteDate: todayNoteDateKey(),
+                sourceType: 'love_task',
+                sourceId: task.id,
+                sourceMeta: { label: task.label },
+                title: '❤️ 留下今天',
+                body: '要不要把今天的小回憶留下來？',
+                supplementTitle: '❤️ 今天已經留下回憶了',
+                supplementBody: '要不要補充一下？',
+              })
+            );
           }
 
           const progress = getLoveTaskProgressFromLedger(ledgerCtx, day);
@@ -2459,6 +2473,16 @@ export function LoveQuestProvider({ children }: { children: ReactNode }) {
           });
           recordValidInteractionToday();
         }
+        requestDailyNotePrompt({
+          noteDate: todayNoteDateKey(),
+          sourceType: 'ai_date',
+          sourceId: captured.ideaId,
+          sourceMeta: { title: captured.title },
+          title: '❤️ 留下今天',
+          body: '今天的約會順利嗎？要不要把今天的小回憶留下來？',
+          supplementTitle: '❤️ 今天已經留下回憶了',
+          supplementBody: '要不要補充一下今天的約會？',
+        });
       });
       return next;
     });

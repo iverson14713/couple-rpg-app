@@ -13,7 +13,8 @@ function sanitizeCustomDates(raw: unknown): CoupleExtendedProfile['customDates']
       date: typeof x.date === 'string' ? x.date : '',
       note: typeof x.note === 'string' ? x.note : '',
     }))
-    .filter((x) => x.id.length > 0);
+    // Incomplete drafts (empty name/date) are never persisted
+    .filter((x) => x.id.length > 0 && x.name.trim().length > 0 && x.date.trim().length > 0);
 }
 
 export function loadCoupleExtendedProfile(): CoupleExtendedProfile {

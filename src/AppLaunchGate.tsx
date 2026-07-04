@@ -40,11 +40,14 @@ export function AppLaunchGate() {
 
       let result: AppBootstrapResult;
       try {
-        const [boot] = await Promise.all([runSplashBootstrap(), ensureAppStoreFontsReady()]);
+        const [boot] = await Promise.all([
+          runSplashBootstrap({ skipPetCareSync: true }),
+          ensureAppStoreFontsReady(),
+        ]);
         result = boot;
       } catch (err) {
         console.error('[bootstrap] launch gate', err);
-        result = await runSplashBootstrap();
+        result = await runSplashBootstrap({ skipPetCareSync: true });
       }
 
       const elapsed = Date.now() - started;
